@@ -33,7 +33,7 @@ function Applications() {
       }
 
       try {
-        const res = await fetch(`http://localhost:5000/api/candidate/${session.id}/applications`);
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com${session.id}`);
         const json = await res.json();
         
         if (json.success) {
