@@ -101,7 +101,7 @@ function FeedbackPage() {
     const session = getSession();
 
     try {
-      const res = await fetch("http://localhost:5000/api/candidate/feedback", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/candidate/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
