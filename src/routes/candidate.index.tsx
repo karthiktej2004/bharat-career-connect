@@ -48,10 +48,10 @@ function CandidateHome() {
       try {
         // Fetch everything in parallel
         const [pRes, jRes, aRes, eRes] = await Promise.all([
-          fetch(`http://localhost:5000/api/candidate/${session.id}`),
-          fetch(`http://localhost:5000/api/jobs/all`),
-          fetch(`http://localhost:5000/api/candidate/${session.id}/applications`),
-          fetch(`http://localhost:5000/api/candidate/${session.id}/events`)
+          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}`),
+          fetch(`https://bcc-backend-0cny.onrender.com/api/jobs/all`),
+          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/applications`),
+          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/events`)
         ]);
 
         const [pJson, jJson, aJson, eJson] = await Promise.all([
