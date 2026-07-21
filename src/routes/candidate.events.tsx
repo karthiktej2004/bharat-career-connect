@@ -34,7 +34,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
       const session = getSession();
       if (!session || !session.id) { toast.error("Please log in."); onClose(); return; }
       try {
-        const res = await fetch(`http://localhost:5000/api/candidate/profile/${session.id}`);
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/profile/${session.id}`);
         const json = await res.json();
         if (json.success) setProfile(json.data);
       } catch (err) {}
