@@ -33,7 +33,7 @@ export function AnalyticsBody() {
   const fetchAnalytics = useCallback(async () => {
     if (!employerId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/employer/${employerId}/analytics`);
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/analytics`);
       const json = await res.json();
       if (json.success) {
         setData(json.data);
