@@ -120,7 +120,7 @@ function RegisterCompany() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/employer/register", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/auth/employer/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(f)
