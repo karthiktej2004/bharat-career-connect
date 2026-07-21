@@ -51,14 +51,14 @@ function Interviews() {
   const fetchShortlisted = useCallback(async () => {
     if (!userId) return;
     try {
-      const jobsRes = await fetch(`http://localhost:5000/api/employer/${userId}/job-options`);
+      const jobsRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${userId}/job-options`);
       const jobsJson = await jobsRes.json();
       if (!jobsJson.success) return;
 
       let allShortlisted: ShortlistedRow[] = [];
       
       for (const job of jobsJson.data) {
-        const appRes = await fetch(`http://localhost:5000/api/employer/jobs/${job.id}/applications`);
+        const appRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/jobs/${job.id}/applications`);
         const appJson = await appRes.json();
         
         if (appJson.success) {
@@ -96,7 +96,7 @@ function Interviews() {
   const fetchInterviews = useCallback(async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/employer/${userId}/interviews`);
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${userId}/interviews`);
       const json = await res.json();
       if (json.success) {
         const mapped = json.data.map((iv: any) => ({
@@ -135,7 +135,7 @@ function Interviews() {
 
   async function updateInterviewStatus(id: string, status: string, applicantName: string) {
     try {
-      await fetch(`http://localhost:5000/api/employer/interviews/${id}/status`, {
+      await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/interviews/${id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
@@ -150,7 +150,7 @@ function Interviews() {
 
   async function handleSchedule(row: ShortlistedRow, payload: SchedulePayload, isReschedule?: boolean) {
     try {
-      await fetch("http://localhost:5000/api/employer/interviews", {
+      await fetch("https://bcc-backend-0cny.onrender.com/api/employer/interviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -165,7 +165,7 @@ function Interviews() {
         })
       });
 
-      await fetch(`http://localhost:5000/api/applications/${row.applicationId}/messages`, {
+      await fetch(`https://bcc-backend-0cny.onrender.com/api/applications/${row.applicationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -187,13 +187,13 @@ function Interviews() {
 
   async function handleReject(applicant: any, job: any, applicationId: string, reason: string, iv?: any) {
     try {
-      await fetch(`http://localhost:5000/api/employer/applications/${applicationId}/status`, {
+      await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/applications/${applicationId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "Rejected" })
       });
 
-      await fetch(`http://localhost:5000/api/applications/${applicationId}/messages`, {
+      await fetch(`https://bcc-backend-0cny.onrender.com/api/applications/${applicationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
