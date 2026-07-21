@@ -42,7 +42,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
       }
 
       try {
-        const res = await fetch(`http://localhost:5000/api/candidate/profile/${session.id}`);
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/profile/${session.id}`);
         const json = await res.json();
 
         if (json.success) {
@@ -68,7 +68,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
     const session = getSession();
 
     try {
-      const res = await fetch("http://localhost:5000/api/applications/apply", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/applications/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -255,7 +255,7 @@ function Jobs() {
       }
 
       try {
-        const res = await fetch(`http://localhost:5000/api/candidate/${session.id}/jobs`);
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/jobs`);
         const json = await res.json();
         
         if (json.success && json.data) {
