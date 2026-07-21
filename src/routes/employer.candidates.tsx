@@ -44,7 +44,7 @@ export function CandidatesBody() {
   const fetchJobs = useCallback(async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/employer/${userId}/job-options`);
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${userId}/job-options`);
       const json = await res.json();
       if (json.success) {
         setJobs(json.data);
@@ -61,7 +61,7 @@ export function CandidatesBody() {
     if (!selectedId) return;
     setIsLoadingApps(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/employer/jobs/${selectedId}/applications`);
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/jobs/${selectedId}/applications`);
       const json = await res.json();
       if (json.success) {
         const mapped = json.data.map((a: any) => {
@@ -108,7 +108,7 @@ export function CandidatesBody() {
 
   async function changeStatus(a: any, status: string, note?: string) {
     try {
-      await fetch(`http://localhost:5000/api/employer/applications/${a.applicationId}/status`, {
+      await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/applications/${a.applicationId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
