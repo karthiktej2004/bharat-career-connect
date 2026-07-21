@@ -44,7 +44,7 @@ export function JobsBody() {
   const fetchJobs = useCallback(() => {
     if (!userId) return;
     setIsLoading(true);
-    fetch(`http://localhost:5000/api/employer/${userId}/jobs-list`)
+    fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${userId}/jobs-list`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success) setJobs(json.data);
@@ -62,7 +62,7 @@ export function JobsBody() {
   const handleDelete = async () => {
     if (!deleting) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/employer/jobs/${deleting.id}`, {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/jobs/${deleting.id}`, {
         method: "DELETE",
       });
       const json = await res.json();
@@ -234,7 +234,7 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
     };
 
     try {
-      const url = editJob ? `http://localhost:5000/api/employer/jobs/${editJob.id}` : `http://localhost:5000/api/employer/jobs`;
+      const url = editJob ? `https://bcc-backend-0cny.onrender.com/api/employer/jobs/${editJob.id}` : `https://bcc-backend-0cny.onrender.com/api/employer/jobs`;
       const method = editJob ? "PUT" : "POST";
 
       const res = await fetch(url, {
