@@ -34,14 +34,14 @@ function LoginPage() {
   // ==========================================
   // 🚀 MASTER LOGIN FUNCTION
   // ==========================================
-  const handleLogin = async (e: React.FormEvent) => {
+const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
     
-try {
+    try {
       // Pulls the backend URL from Render's environment variables safely
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com"; 
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://YOUR_BACKEND_NAME.onrender.com"; 
       
       const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: "POST",
@@ -51,7 +51,6 @@ try {
           email: email, 
           password: password 
         })
-      });
       });
       
       const json = await res.json();
@@ -71,7 +70,6 @@ try {
         if (json.data.role === 'candidate') {
           navigate({ to: "/candidate" });
         } else if (json.data.role === 'employer') {
-          // FIX: Redirects exactly to /employer so DashShell accepts the session!
           navigate({ to: "/employer" }); 
         }
       } else {
