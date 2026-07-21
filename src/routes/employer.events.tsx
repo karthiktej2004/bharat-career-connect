@@ -48,8 +48,8 @@ export function JobFairsBody() {
     setIsLoading(true);
     try {
       const [eventsRes, appsRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/employer/events`),
-        fetch(`http://localhost:5000/api/employer/${employerId}/applications`)
+        fetch(`https://bcc-backend-0cny.onrender.com/api/employer/events`),
+        fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/applications`)
       ]);
       const eventsJson = await eventsRes.json();
       const appsJson = await appsRes.json();
@@ -81,7 +81,7 @@ export function JobFairsBody() {
       const mockPaymentId = `pay_${Math.random().toString(36).substr(2, 9)}`;
       
       try {
-        const res = await fetch("http://localhost:5000/api/employer/apply", {
+        const res = await fetch("https://bcc-backend-0cny.onrender.com/api/employer/apply", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -115,7 +115,7 @@ export function JobFairsBody() {
   const handleMarkAttendance = async () => {
     if (!qrCode) return toast.error("Enter the QR Code from the gate.");
     try {
-      const res = await fetch("http://localhost:5000/api/employer/attendance", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/employer/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employerId, qrString: qrCode })
