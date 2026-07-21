@@ -33,7 +33,7 @@ function Applications() {
       }
 
       try {
-        const res = await fetch(`https://bcc-backend-0cny.onrender.com${session.id}`);
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/applications`);
         const json = await res.json();
         
         if (json.success) {
@@ -59,7 +59,7 @@ function Applications() {
 
     setIsSending(true);
     try {
-      const res = await fetch("http://localhost:5000/api/applications/message", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/applications/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
