@@ -76,7 +76,7 @@ function HistoryPage() {
     async function fetchHistory() {
       if (!session || !session.id) return;
       try {
-        const res = await fetch(`http://localhost:5000/api/candidate/${session.id}/history`);
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/history`);
         const json = await res.json();
         
         if (json.success) {
@@ -103,7 +103,7 @@ function HistoryPage() {
     if (!session || !session.id) return;
     setIsClearing(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/candidate/${session.id}/history`, {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/history`, {
         method: 'DELETE'
       });
       const json = await res.json();
