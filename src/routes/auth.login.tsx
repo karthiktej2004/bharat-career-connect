@@ -39,9 +39,11 @@ function LoginPage() {
     setError(null);
     setIsLoading(true);
     
-    try {
-      // ALWAYS hit the single Master API endpoint
-      const res = await fetch("https://bharat-career-connect.onrender.com//api/auth/login", {
+try {
+      // Pulls the backend URL from Render's environment variables safely
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com"; 
+      
+      const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -49,6 +51,7 @@ function LoginPage() {
           email: email, 
           password: password 
         })
+      });
       });
       
       const json = await res.json();
