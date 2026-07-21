@@ -22,8 +22,8 @@ function EventApprovals() {
   const fetchData = async () => {
     try {
       const [appsRes, eventsRes] = await Promise.all([
-        fetch("http://localhost:5000/api/admin/stall-applications"),
-        fetch("http://localhost:5000/api/admin/events")
+        fetch("https://bcc-backend-0cny.onrender.com/api/admin/stall-applications"),
+        fetch("https://bcc-backend-0cny.onrender.com/api/admin/events")
       ]);
       const appsJson = await appsRes.json();
       const eventsJson = await eventsRes.json();
@@ -43,7 +43,7 @@ function EventApprovals() {
 
   const handleApprove = async (id: number, employerName: string) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/stall-applications/${id}/approve`, { method: "PUT" });
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/stall-applications/${id}/approve`, { method: "PUT" });
       if (res.ok) {
         toast.success(`${employerName} approved successfully.`);
         fetchData();
@@ -56,7 +56,7 @@ function EventApprovals() {
   const handleReject = async (id: number, employerName: string) => {
     if (!confirm(`Reject ${employerName}?`)) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/stall-applications/${id}/reject`, { method: "PUT" });
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/stall-applications/${id}/reject`, { method: "PUT" });
       if (res.ok) {
         toast.success(`${employerName} application marked as rejected`);
         fetchData();
