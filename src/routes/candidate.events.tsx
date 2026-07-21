@@ -48,7 +48,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
     setIsSubmitting(true);
     const session = getSession();
     try {
-      const res = await fetch("http://localhost:5000/api/applications/apply", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/applications/apply", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId: job.id, candidateId: session?.id, employerId: job.employer_id || 1 }),
       });
@@ -149,7 +149,7 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
       const session = getSession();
       if (session && session.id) {
         try {
-          const res = await fetch(`http://localhost:5000/api/candidate/profile/${session.id}`);
+          const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/profile/${session.id}`);
           const json = await res.json();
           if (json.success) setProfile(json.data);
         } catch (err) {}
@@ -164,7 +164,7 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
     setIsSubmitting(true);
     const session = getSession();
     try {
-      const res = await fetch("http://localhost:5000/api/events/apply", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/events/apply", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId: event.id, candidateId: session?.id })
       });
@@ -277,7 +277,7 @@ function VenueScanDialog({ event, passId, onSuccess, trigger }: { event: any, pa
     setIsVerifying(true);
     try {
       // Re-using your working attendance API by passing the passId silently!
-      const res = await fetch("http://localhost:5000/api/events/attendance", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/events/attendance", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passId })
       });
       const json = await res.json();
@@ -374,7 +374,7 @@ function Events() {
   const fetchEvents = async () => {
     if (!user || !user.id) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/candidate/${user.id}/events`);
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${user.id}/events`);
       const json = await res.json();
       if (json.success) setEvents(json.data);
     } catch (err) {} 
@@ -387,7 +387,7 @@ function Events() {
     setViewingEvent(e);
     setIsLoadingJobs(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/events/${e.id}/jobs`);
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/events/${e.id}/jobs`);
       const json = await res.json();
       if (json.success) setEventJobs(json.data);
     } catch (err) {} 
