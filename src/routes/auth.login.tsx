@@ -41,7 +41,7 @@ const handleLogin = async (e: React.FormEvent) => {
     
     try {
       // Pulls the backend URL from Render's environment variables safely
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://YOUR_BACKEND_NAME.onrender.com"; 
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com"; 
       
       const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: "POST",
