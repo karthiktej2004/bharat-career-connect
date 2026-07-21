@@ -23,7 +23,7 @@ function EmployerHome() {
   useEffect(() => {
     if (!user || user.role !== "employer") return;
 
-    fetch(`http://localhost:5000/api/employer/${user.id}/dashboard`)
+    fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${user.id}/dashboard`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success) {
