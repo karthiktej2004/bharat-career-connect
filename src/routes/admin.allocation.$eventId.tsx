@@ -49,7 +49,7 @@ function AllocationPage() {
   const refresh = async () => {
     try {
       // Fetch Event details
-      const eventRes = await fetch("http://localhost:5000/api/admin/events");
+      const eventRes = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events");
       const eventJson = await eventRes.json();
       if (eventJson.success) {
         // Using loose equality (==) in case eventId string mismatches integer DB ID
@@ -58,7 +58,7 @@ function AllocationPage() {
       }
 
       // Fetch Blocks and Venue structure
-      const venueRes = await fetch(`http://localhost:5000/api/admin/events/${eventId}/venue`);
+      const venueRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${eventId}/venue`);
       const venueJson = await venueRes.json();
       if (venueJson.success) {
         setBlocks(venueJson.data);
@@ -215,7 +215,7 @@ function AddBlockDialog({ open, onOpenChange, eventId, onChange }: { open: boole
     if (!name.trim() || !code.trim()) { toast.error("Name and code are required"); return; }
     
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/events/${eventId}/blocks`, {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${eventId}/blocks`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, name: name.trim(), code: code.trim() })
       });
@@ -297,7 +297,7 @@ function BlockInterior({ block, eventId, onBack, onChange }: { block: any; event
 
   async function handleDeleteBlock() {
     if (!confirm(`Delete "${block.name}"? This removes all its stalls.`)) return;
-    await fetch(`http://localhost:5000/api/admin/blocks/${block.id}`, { method: 'DELETE' });
+    await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/blocks/${block.id}`, { method: 'DELETE' });
     toast.success("Block deleted");
     onChange(); onBack();
   }
@@ -742,7 +742,7 @@ function AssignStallDialog({ app, onClose, allStalls, blocks, onChange }: {
   async function pick(stallId: string) {
     const row = allStalls.find((x) => x.stall.id === stallId);
     
-    await fetch(`http://localhost:5000/api/admin/stalls/${stallId}/allocate`, {
+    await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/stalls/${stallId}/allocate`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ employerId: app.employer_id })
     });
@@ -754,7 +754,7 @@ function AssignStallDialog({ app, onClose, allStalls, blocks, onChange }: {
   async function release() {
     const current = allStalls.find((x) => x.stall.allocatedToAppId == app.employer_id);
     if (current) {
-      await fetch(`http://localhost:5000/api/admin/stalls/${current.stall.id}/allocate`, {
+      await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/stalls/${current.stall.id}/allocate`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employerId: null })
       });
