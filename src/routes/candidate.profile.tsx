@@ -43,7 +43,7 @@ function Profile() {
       }
 
       try {
-        const res = await fetch(`http://localhost:5000/api/candidate/profile/${session.id}`);
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/profile/${session.id}`);
         const json = await res.json();
         if (json.success) {
           setProfile(json.data);
@@ -69,7 +69,7 @@ function Profile() {
   const saveToDatabase = async (mergedData: CandidateProfile) => {
     setIsSaving(true);
     try {
-      const res = await fetch("http://localhost:5000/api/candidate/profile/update", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/candidate/profile/update", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mergedData)
