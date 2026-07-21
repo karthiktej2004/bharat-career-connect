@@ -30,7 +30,7 @@ function Interviews() {
     async function fetchInterviews() {
       if (!user || !user.id) return;
       try {
-        const res = await fetch(`http://localhost:5000/api/candidate/${user.id}/interviews`);
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${user.id}/interviews`);
         const json = await res.json();
         if (json.success) setInterviews(json.data);
       } catch (err) {
@@ -46,7 +46,7 @@ function Interviews() {
     if (!messageText.trim()) { toast.error("Please enter a message."); return; }
     setIsSending(true);
     try {
-      const res = await fetch("http://localhost:5000/api/applications/message", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/applications/message", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ applicationId: messagingApp.application_id, message: messageText, senderType: "candidate" })
       });
