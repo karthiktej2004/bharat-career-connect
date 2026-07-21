@@ -32,7 +32,7 @@ function Events() {
 
   const fetchEvents = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/admin/events");
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events");
       const json = await res.json();
       if (json.success) setEvents(json.data);
     } catch (error) {
@@ -48,7 +48,7 @@ function Events() {
 
   const handleHoldEvent = async (id: number) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/events/${id}/hold`, { method: "PUT" });
+      await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${id}/hold`, { method: "PUT" });
       toast.warning("Event placed on Hold. Portal registration is now closed.");
       fetchEvents();
     } catch (error) {
@@ -59,7 +59,7 @@ function Events() {
   const executeDelete = async () => {
     if (!deleteEvent) return;
     try {
-      await fetch(`http://localhost:5000/api/admin/events/${deleteEvent.id}`, { method: "DELETE" });
+      await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${deleteEvent.id}`, { method: "DELETE" });
       toast.success(`${deleteEvent.name} has been deleted. Employers notified of 24-hour refund.`);
       setDeleteEvent(null);
       setHasDownloadedRefunds(false);
@@ -205,7 +205,7 @@ function EditEventDialog({ event, onClose, refreshEvents }: { event: any; onClos
     setIsSubmitting(true);
     
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/events/${event.id}`, {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${event.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
