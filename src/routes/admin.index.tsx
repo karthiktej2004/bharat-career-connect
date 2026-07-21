@@ -31,7 +31,7 @@ function AdminHome() {
   useEffect(() => {
     const fetchLiveEvents = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/admin/live-events");
+        const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/live-events");
         const json = await res.json();
         if (json.success) setLiveEvents(json.data);
       } catch (err) {
