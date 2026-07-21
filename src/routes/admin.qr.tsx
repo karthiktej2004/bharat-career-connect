@@ -26,7 +26,7 @@ function QR() {
   useEffect(() => {
     const fetchQRData = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/admin/events");
+        const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events");
         const json = await res.json();
         if (json.success) {
           // Filter out completed events for the scanner dashboard
