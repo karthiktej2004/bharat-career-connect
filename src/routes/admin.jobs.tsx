@@ -33,7 +33,7 @@ function AdminJobs() {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/admin/jobs");
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/jobs");
       const result = await res.json();
       if (result.success) {
         setJobs(result.data);
@@ -59,7 +59,7 @@ function AdminJobs() {
   // 2. Call backend PUT API to approve or reject a job
   async function act(j: Job, status: "approved" | "rejected") {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/jobs/${j.id}/review`, {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${j.id}/review`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
