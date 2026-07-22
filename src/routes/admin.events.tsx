@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, CalendarDays, MapPin, IndianRupee, Link as LinkIcon, PauseCircle, Trash2, Edit, Download, AlertTriangle, Loader2 } from "lucide-react";
+import { Plus, MoreVertical, CalendarDays, MapPin, IndianRupee, Link as LinkIcon, PauseCircle, Trash2, Edit, Download, AlertTriangle, Loader2, PlayCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -53,6 +53,22 @@ function Events() {
       fetchEvents();
     } catch (error) {
       toast.error("Failed to update status");
+    }
+  };
+
+  const handleMakeLive = async (id: number) => {
+    if (!confirm("Are you sure you want to make this event live? It will become visible to candidates.")) return;
+    try {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${id}/live`, { method: "PUT" });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Event is now live!");
+        fetchEvents();
+      } else {
+        toast.error(json.message || "Failed to update status");
+      }
+    } catch (error) {
+      toast.error("Failed to make event live");
     }
   };
 
@@ -120,6 +136,13 @@ function Events() {
                         <DropdownMenuItem onClick={() => setEditingEvent(e)}>
                           <Edit className="h-4 w-4 mr-2"/> Edit
                         </DropdownMenuItem>
+                        
+                        {e.status !== 'live' && (
+                          <DropdownMenuItem onClick={() => handleMakeLive(e.id)}>
+                            <PlayCircle className="h-4 w-4 mr-2 text-india-green"/> Make Live
+                          </DropdownMenuItem>
+                        )}
+
                         <DropdownMenuItem onClick={() => handleHoldEvent(e.id)}>
                           <PauseCircle className="h-4 w-4 mr-2"/> Put on Hold
                         </DropdownMenuItem>
@@ -315,7 +338,7 @@ function CreateEventDialog({ open, onOpenChange, refreshEvents }: { open: boolea
     
     setIsSubmitting(true);
     try {
-      const res = await fetch("http://localhost:5000/api/admin/events", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(f)
