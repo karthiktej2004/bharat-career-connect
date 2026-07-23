@@ -37,10 +37,7 @@ export const adminNav: NavItem[] = [
   { to: "/admin/reports", label: "Reports & Analytics", icon: FileBarChart2 },
   { to: "/admin/feedback", label: "Feedback & Grievance", icon: ShieldCheck },
   { to: "/admin/payments", label: "Payments & Billing", icon: Wallet },
-  { to: "/admin/automation", label: "Workflow Automation", icon: Workflow },
   { to: "/admin/roles", label: "Roles & Access", icon: KeyRound },
-  { to: "/admin/access", label: "Module Access", icon: KeyRound },
   { to: "/admin/data", label: "Data Controls", icon: Database },
   { to: "/admin/settings", label: "Security & Compliance", icon: Settings },
-  { to: "/admin/collaboration", label: "Admin Collaboration", icon: LifeBuoy },
 ];
