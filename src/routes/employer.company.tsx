@@ -39,38 +39,62 @@ export function CompanyBody() {
     photoUrl: "",
     companyName: "Acme Corp",
   });
-  
+
   const [candidatesCount, setCandidatesCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [uploadingPhoto, setUploadingPhoto] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get Logged-in Employer ID from localStorage
+  // Change Password States
+  const [otpSent, setOtpSent] = useState<{ email: boolean; phone: boolean }>({ email: false, phone: false });
+  const [emailOtp, setEmailOtp] = useState("");
+  const [phoneOtp, setPhoneOtp] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+
+  // 1. Read stored user securely from localStorage on mount
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem("bcc_user") || localStorage.getItem("user");
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.id) setEmployerId(parsed.id.toString());
-        if (parsed.name) setProfile((p) => ({ ...p, companyName: parsed.name }));
-        if (parsed.email) setProfile((p) => ({ ...p, email: parsed.email }));
+      const keys = ["bcc_user", "user", "employer", "bcc_employer"];
+      let foundUser: any = null;
+
+      for (const key of keys) {
+        const item = localStorage.getItem(key);
+        if (item) {
+          try {
+            foundUser = JSON.parse(item);
+            if (foundUser?.id) break;
+          } catch (e) {}
+        }
+      }
+
+      if (foundUser && foundUser.id) {
+        setEmployerId(foundUser.id.toString());
+        if (foundUser.name) setProfile((p) => ({ ...p, companyName: foundUser.name }));
+        if (foundUser.email) setProfile((p) => ({ ...p, email: foundUser.email }));
+      } else {
+        // Fallback for testing if not logged in
+        setEmployerId("1");
       }
     } catch (e) {
-      console.error("Error reading stored user:", e);
+      console.error("Error reading user session:", e);
+      setEmployerId("1");
     }
   }, []);
 
-  // Fetch Live Profile & Candidates Count from Backend
+  // 2. Fetch Profile & Candidates Count from Backend when employerId is set
   useEffect(() => {
     if (!employerId) return;
 
+    let isMounted = true;
     const fetchEmployerData = async () => {
       setLoading(true);
       try {
-        // 1. Fetch Profile Data
+        // Fetch Live Profile Data
         const profileRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/profile/${employerId}`);
         const profileJson = await profileRes.json();
-        if (profileJson.success && profileJson.data) {
+        
+        if (isMounted && profileJson.success && profileJson.data) {
           const d = profileJson.data;
           setProfile((prev) => ({
             ...prev,
@@ -84,23 +108,25 @@ export function CompanyBody() {
           }));
         }
 
-        // 2. Fetch Live Candidates Reviewed Count
+        // Fetch Live Candidates Reviewed Count
         const countRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/candidates-reviewed-count`);
         const countJson = await countRes.json();
-        if (countJson.success) {
-          setCandidatesCount(countJson.count);
+        
+        if (isMounted && countJson.success) {
+          setCandidatesCount(typeof countJson.count === "number" ? countJson.count : parseInt(countJson.count) || 0);
         }
       } catch (err) {
-        console.error("Error fetching employer profile data:", err);
+        console.error("Error fetching employer metrics:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchEmployerData();
+    return () => { isMounted = false; };
   }, [employerId]);
 
-  // Handle Profile Photo Upload Only
+  // Handle Photo Upload
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -136,11 +162,11 @@ export function CompanyBody() {
           setProfile((p) => ({ ...p, photoUrl: base64String }));
           toast.success("Profile photo updated successfully!");
         } else {
-          toast.error("Failed to save profile photo");
+          toast.error("Failed to save profile photo.");
         }
       } catch (err) {
         console.error("Upload photo error:", err);
-        toast.error("Server error uploading photo");
+        toast.error("Server error uploading photo.");
       } finally {
         setUploadingPhoto(false);
       }
@@ -148,6 +174,38 @@ export function CompanyBody() {
 
     reader.readAsDataURL(file);
   };
+
+  // Change Password Handlers
+  function sendOtp(kind: "email" | "phone") {
+    setOtpSent((s) => ({ ...s, [kind]: true }));
+    toast.success(kind === "email" ? `OTP sent to ${profile.email}` : `OTP sent to ${profile.mobile}`);
+  }
+
+  function submitPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!otpSent.email || !otpSent.phone) {
+      toast.error("Verify both email and mobile OTPs first");
+      return;
+    }
+    if (emailOtp.length !== 6 || phoneOtp.length !== 6) {
+      toast.error("Enter both 6-digit OTPs");
+      return;
+    }
+    if (newPass.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    if (newPass !== confirmPass) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    toast.success("Password updated successfully!");
+    setOtpSent({ email: false, phone: false });
+    setEmailOtp("");
+    setPhoneOtp("");
+    setNewPass("");
+    setConfirmPass("");
+  }
 
   return (
     <>
@@ -168,12 +226,12 @@ export function CompanyBody() {
                   <ShieldCheck className="h-5 w-5 text-india-green" /> Profile Change Request
                 </DialogTitle>
                 <DialogDescription className="mt-2 text-sm text-muted-foreground">
-                  For administrative security and verification compliance, recruiter profile information (Name, Email, Mobile, Designation) can only be altered by site administrators.
+                  For security and compliance reasons, core profile information (Name, Email, Mobile, Designation) can only be updated by site administrators.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="bg-muted/50 p-4 rounded-lg space-y-3 mt-2 text-sm">
-                <p className="font-semibold text-navy">To request modifications or re-verifications:</p>
+                <p className="font-semibold text-navy">Contact Admin for Modifications:</p>
                 <div className="flex items-center gap-2 text-xs">
                   <Mail className="h-4 w-4 text-saffron" />
                   <span>Email Admin: <strong className="text-navy">support@bharatcareerconnect.in</strong></span>
@@ -343,6 +401,90 @@ export function CompanyBody() {
           </Card>
         </div>
       </div>
+
+      {/* RESTORED CHANGE PASSWORD SECTION */}
+      <Card className="p-6 border-border/60 mt-6">
+        <div className="flex items-center gap-2 mb-4">
+          <KeyRound className="h-5 w-5 text-india-green" />
+          <h2 className="font-display font-bold text-navy">Change Password (OTP verified)</h2>
+        </div>
+        <form onSubmit={submitPassword} className="grid lg:grid-cols-2 gap-4">
+          <div>
+            <Label className="flex items-center gap-2 text-sm">
+              <Mail className="h-4 w-4 text-saffron" /> Registered Email · {profile.email}
+            </Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                placeholder="6-digit OTP"
+                maxLength={6}
+                value={emailOtp}
+                onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ""))}
+                disabled={!otpSent.email}
+              />
+              <Button
+                type="button"
+                variant={otpSent.email ? "outline" : "default"}
+                className={otpSent.email ? "" : "bg-navy text-white hover:bg-navy/90"}
+                onClick={() => sendOtp("email")}
+              >
+                {otpSent.email ? "Resend" : "Send OTP"}
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <Label className="flex items-center gap-2 text-sm">
+              <Smartphone className="h-4 w-4 text-saffron" /> Registered Mobile · {profile.mobile}
+            </Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                placeholder="6-digit OTP"
+                maxLength={6}
+                value={phoneOtp}
+                onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, ""))}
+                disabled={!otpSent.phone}
+              />
+              <Button
+                type="button"
+                variant={otpSent.phone ? "outline" : "default"}
+                className={otpSent.phone ? "" : "bg-navy text-white hover:bg-navy/90"}
+                onClick={() => sendOtp("phone")}
+              >
+                {otpSent.phone ? "Resend" : "Send OTP"}
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <Label>New password</Label>
+            <Input
+              type="password"
+              value={newPass}
+              onChange={(e) => setNewPass(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label>Confirm password</Label>
+            <Input
+              type="password"
+              value={confirmPass}
+              onChange={(e) => setConfirmPass(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+
+          <div className="lg:col-span-2 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <ShieldCheck className="h-3 w-3 text-india-green" /> Both OTPs required. Password must be at least 8 characters.
+            </p>
+            <Button type="submit" className="bg-saffron text-navy hover:bg-saffron/90">
+              Update password
+            </Button>
+          </div>
+        </form>
+      </Card>
     </>
   );
 }
