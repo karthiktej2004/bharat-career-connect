@@ -17,8 +17,6 @@ import {
   User,
   MapPin,
   FileText,
-  Users2,
-  Key,
   LucideIcon,
 } from "lucide-react";
 
@@ -41,8 +39,6 @@ export const adminNav: NavItem[] = [
   { title: "QR & Entry", href: "/admin/qr", icon: QrCode },
   { title: "Notifications", href: "/admin/notifications", icon: Bell },
   { title: "Reports & Analytics", href: "/admin/reports", icon: BarChart3 },
-  { title: "Admin Collaboration", href: "/admin/collaboration", icon: Users2 },
-  { title: "Module Access", href: "/admin/access", icon: Key },
   { title: "Activity History", href: "/admin/history", icon: History },
   { title: "Feedback & Grievance", href: "/admin/feedback", icon: MessageSquare },
   { title: "Settings", href: "/admin/settings", icon: Settings },
