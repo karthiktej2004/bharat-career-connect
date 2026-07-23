@@ -31,7 +31,7 @@ function Employers() {
   const fetchEmployers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:5000/api/admin/employers");
+      const response = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/employers");
       const json = await response.json();
       if (json.success) {
         setEmployers(json.data);
@@ -50,7 +50,7 @@ function Employers() {
   // Update employer status dynamically
   const handleStatusUpdate = async (dbId: number, status: "approved" | "rejected" | "blacklisted") => {
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/employers/${dbId}/status`, {
+      const response = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/employers/${dbId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
