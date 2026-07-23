@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Briefcase, MapPin, Search, Sparkles, Loader2, CheckCircle2, FileText, Check } from "lucide-react";
-import { getCompanyLogo, getJobImage, getSession, type Job } from "@/lib/mockStore";
+import { getCompanyLogo, getJobImage, getSession } from "@/lib/mockStore";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/candidate/jobs")({
 });
 
 // =========================================================
-// 1. INLINED APPLY JOB DIALOG (LIVE DATABASE CONNECTED)
+// 1. INLINED APPLY JOB DIALOG
 // =========================================================
 function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
   const [step, setStep] = useState(1);
@@ -27,9 +27,8 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // FETCH REAL CANDIDATE PROFILE WHEN DIALOG OPENS
   useEffect(() => {
-    if (!job) return; 
+    if (!job) return;
 
     async function fetchRealProfile() {
       setIsLoading(true);
@@ -48,7 +47,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
         if (json.success) {
           setProfile(json.data);
         } else {
-          toast.error("Failed to load your profile details.");
+          toast.error("Failed to load profile details.");
         }
       } catch (err) {
         console.error("Profile fetch error:", err);
@@ -59,10 +58,9 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
     }
 
     fetchRealProfile();
-    setStep(1); 
+    setStep(1);
   }, [job]);
 
-  // SUBMIT TO POSTGRESQL DATABASE
   const submitApplication = async () => {
     setIsSubmitting(true);
     const session = getSession();
@@ -74,7 +72,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
         body: JSON.stringify({
           jobId: job.id,
           candidateId: session?.id,
-          employerId: job.employer_id || 1, 
+          employerId: job.employer_id || 1,
         }),
       });
 
@@ -82,7 +80,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
 
       if (json.success) {
         toast.success(json.message || "Application submitted successfully!");
-        onClose(); 
+        onClose();
       } else {
         toast.error(json.message || "Failed to apply.");
       }
@@ -99,8 +97,6 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
   return (
     <Dialog open={!!job} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl bg-white p-0 overflow-hidden">
-        
-        {/* HEADER SECTION */}
         <div className="px-6 py-4 border-b border-border bg-slate-50/50">
           <DialogTitle className="text-xl font-display font-bold text-navy flex items-center gap-2">
             <Briefcase className="h-5 w-5 text-saffron" /> Apply for {job.title}
@@ -112,7 +108,6 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
           </div>
         </div>
 
-        {/* LOADING STATE */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 text-navy">
             <Loader2 className="h-8 w-8 animate-spin mb-4 text-saffron" />
@@ -120,7 +115,6 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
           </div>
         ) : (
           <div className="p-6">
-            {/* STEPPER UI */}
             <div className="flex items-center justify-between mb-8 relative">
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-slate-100 -z-10"></div>
               {[1, 2, 3, 4].map((s) => (
@@ -139,7 +133,6 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
               ))}
             </div>
 
-            {/* STEP 1: CONTACT */}
             {step === 1 && (
               <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div>
@@ -167,7 +160,6 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
               </div>
             )}
 
-            {/* STEP 2: RESUME */}
             {step === 2 && (
               <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <h3 className="text-lg font-bold text-navy">Resume / CV</h3>
@@ -176,17 +168,16 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
                   <div className="p-3 bg-white rounded-lg border shadow-sm text-saffron"><FileText className="h-6 w-6" /></div>
                   <div>
                     <p className="font-bold text-navy">{profile?.resumeFileName || "Generated_Profile_Resume.pdf"}</p>
-                    <p className="text-xs text-muted-foreground mt-1">This uses your latest profile data and uploaded documents.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Uses your registered profile details and documents.</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* STEP 3: SCREENING */}
             {step === 3 && (
               <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <h3 className="text-lg font-bold text-navy">Employer Screening</h3>
-                <p className="text-sm text-muted-foreground">Quick check before we submit.</p>
+                <p className="text-sm text-muted-foreground">Quick check before submission.</p>
                 <div className="bg-india-green/5 border border-india-green/20 p-4 rounded-xl mt-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-india-green" />
@@ -200,22 +191,20 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
               </div>
             )}
 
-            {/* STEP 4: REVIEW */}
             {step === 4 && (
               <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 text-center py-6">
                 <h3 className="text-2xl font-display font-bold text-navy">Ready to apply!</h3>
-                <p className="text-muted-foreground">Your profile looks perfect for this role. Submit your application directly to the employer.</p>
+                <p className="text-muted-foreground">Submit your application directly to the employer.</p>
               </div>
             )}
 
-            {/* ACTION BUTTONS */}
             <div className="flex items-center justify-between mt-8 pt-4 border-t border-border">
               {step > 1 ? (
                 <Button variant="outline" onClick={() => setStep(step - 1)}>Back</Button>
               ) : (
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
               )}
-              
+
               {step < 4 ? (
                 <Button className="bg-saffron text-navy hover:bg-saffron/90 font-bold px-8" onClick={() => setStep(step + 1)}>
                   Continue
@@ -244,30 +233,30 @@ function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // FETCH APPROVED JOBS + AI MATCH SCORES FROM DATABASE
+  // FETCH JOBS SAFELY FROM POSTGRESQL BACKEND
   useEffect(() => {
     async function fetchMatchedJobs() {
-      const session = getSession(); 
-      
-      if (!session || !session.id) {
-        setIsLoading(false);
-        return;
-      }
+      setIsLoading(true);
+      const session = getSession();
+      const activeId = session?.id || "guest";
 
       try {
-        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/jobs`);
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${activeId}/jobs`);
         const json = await res.json();
-        
-        if (json.success && json.data) {
-          setJobs(json.data); 
+
+        if (json.success && Array.isArray(json.data)) {
+          setJobs(json.data);
+        } else {
+          toast.error("Failed to load jobs.");
         }
       } catch (err) {
-        console.error("Failed to fetch jobs", err);
+        console.error("Failed to fetch jobs:", err);
+        toast.error("Network error fetching jobs.");
       } finally {
         setIsLoading(false);
       }
     }
-    
+
     fetchMatchedJobs();
   }, []);
 
@@ -298,11 +287,10 @@ function Jobs() {
         </Select>
       </Card>
 
-      {/* LOADING STATE */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 text-navy">
           <Loader2 className="h-10 w-10 animate-spin text-saffron mb-4" />
-          <p className="font-medium text-lg">Calculating AI match scores...</p>
+          <p className="font-medium text-lg">Fetching live job postings...</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
@@ -325,30 +313,28 @@ function Jobs() {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex-1 min-w-0 p-5 md:pl-0 flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-display font-bold text-navy text-lg">{j.title}</h3>
                       <Badge variant="outline" className="bg-slate-50">{j.type}</Badge>
-                      {j.stallNo && <Badge className="bg-saffron/15 text-saffron hover:bg-saffron/20">Stall {j.stallNo}</Badge>}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3">
                       <Briefcase className="h-4 w-4" />{j.company} 
                       <MapPin className="h-4 w-4 ml-2" />{j.location}
                     </p>
-                    
+
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {(j.skills || []).map((s: string) => <span key={s} className="text-xs bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded">{s}</span>)}
                     </div>
-                    
+
                     <p className="text-xs text-muted-foreground mt-3 font-medium">
                       {j.qualification || "Any Degree"} · {j.experience || "Fresher"} · {j.salary || "Not specified"}
                     </p>
                   </div>
-                  
+
                   <div className="text-right shrink-0">
-                    {/* DYNAMIC MATCH SCORE */}
                     <div className="size-16 rounded-full bg-gradient-to-br from-india-green/10 to-saffron/10 border border-india-green/20 flex flex-col items-center justify-center mx-auto md:ml-auto">
                       <Sparkles className="h-3 w-3 text-india-green mb-0.5" />
                       <p className="font-display font-bold text-navy text-sm">{j.matchScore}%</p>
@@ -362,7 +348,6 @@ function Jobs() {
         </div>
       )}
 
-      {/* RENDER THE INLINED DIALOG */}
       <LiveApplyDialog job={applying} onClose={() => setApplying(null)} />
     </DashShell>
   );
