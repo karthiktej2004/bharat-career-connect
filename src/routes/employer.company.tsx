@@ -29,15 +29,15 @@ function Company() {
 export function CompanyBody() {
   const [employerId, setEmployerId] = useState<string>("");
   const [profile, setProfile] = useState({
-    fullName: "Priya Sharma",
-    designation: "Senior Talent Acquisition",
-    email: "priya@company.com",
-    mobile: "+91 98450 11223",
+    companyName: "Loading Company...",
+    fullName: "Recruiter",
+    designation: "Talent Acquisition",
+    email: "",
+    mobile: "",
     department: "tech",
     language: "en",
-    about: "8+ years hiring tech talent across India. Focus on engineering and product roles.",
+    about: "",
     photoUrl: "",
-    companyName: "Acme Corp",
   });
 
   const [candidatesCount, setCandidatesCount] = useState<number>(0);
@@ -52,7 +52,7 @@ export function CompanyBody() {
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
 
-  // 1. Read stored user securely from localStorage on mount
+  // 1. Read logged-in session securely from localStorage
   useEffect(() => {
     try {
       const keys = ["bcc_user", "user", "employer", "bcc_employer"];
@@ -62,27 +62,30 @@ export function CompanyBody() {
         const item = localStorage.getItem(key);
         if (item) {
           try {
-            foundUser = JSON.parse(item);
-            if (foundUser?.id) break;
+            const parsed = JSON.parse(item);
+            if (parsed && (parsed.id || parsed.email)) {
+              foundUser = parsed;
+              break;
+            }
           } catch (e) {}
         }
       }
 
-      if (foundUser && foundUser.id) {
-        setEmployerId(foundUser.id.toString());
-        if (foundUser.name) setProfile((p) => ({ ...p, companyName: foundUser.name }));
-        if (foundUser.email) setProfile((p) => ({ ...p, email: foundUser.email }));
-      } else {
-        // Fallback for testing if not logged in
-        setEmployerId("1");
+      if (foundUser) {
+        const activeId = (foundUser.id || foundUser.email).toString();
+        setEmployerId(activeId);
+        setProfile((prev) => ({
+          ...prev,
+          companyName: foundUser.name || foundUser.companyName || "Your Company",
+          email: foundUser.email || prev.email,
+        }));
       }
     } catch (e) {
-      console.error("Error reading user session:", e);
-      setEmployerId("1");
+      console.error("Error reading stored user session:", e);
     }
   }, []);
 
-  // 2. Fetch Profile & Candidates Count from Backend when employerId is set
+  // 2. Fetch live data from backend using active employer session ID
   useEffect(() => {
     if (!employerId) return;
 
@@ -90,33 +93,34 @@ export function CompanyBody() {
     const fetchEmployerData = async () => {
       setLoading(true);
       try {
-        // Fetch Live Profile Data
+        // Fetch Employer/Recruiter Profile
         const profileRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/profile/${employerId}`);
         const profileJson = await profileRes.json();
-        
+
         if (isMounted && profileJson.success && profileJson.data) {
           const d = profileJson.data;
-          setProfile((prev) => ({
-            ...prev,
-            fullName: d.full_name || prev.fullName,
-            designation: d.designation || prev.designation,
-            mobile: d.mobile || prev.mobile,
-            department: d.department || prev.department,
-            language: d.preferred_language || prev.language,
-            about: d.about_you || prev.about,
-            photoUrl: d.profile_photo_url || prev.photoUrl,
-          }));
+          setProfile({
+            companyName: d.companyName || "Your Company",
+            fullName: d.fullName || "Recruiter",
+            designation: d.designation || "HR Manager",
+            email: d.email || "",
+            mobile: d.mobile || "+91 98765 43210",
+            department: d.department || "tech",
+            language: d.language || "en",
+            about: d.about || "Recruiter at " + (d.companyName || "Company"),
+            photoUrl: d.photoUrl || "",
+          });
         }
 
-        // Fetch Live Candidates Reviewed Count
+        // Fetch Candidates Reviewed Live Count
         const countRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/candidates-reviewed-count`);
         const countJson = await countRes.json();
-        
+
         if (isMounted && countJson.success) {
           setCandidatesCount(typeof countJson.count === "number" ? countJson.count : parseInt(countJson.count) || 0);
         }
       } catch (err) {
-        console.error("Error fetching employer metrics:", err);
+        console.error("Error loading employer profile metrics:", err);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -126,7 +130,7 @@ export function CompanyBody() {
     return () => { isMounted = false; };
   }, [employerId]);
 
-  // Handle Photo Upload
+  // Handle Photo Upload Only
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -175,7 +179,7 @@ export function CompanyBody() {
     reader.readAsDataURL(file);
   };
 
-  // Change Password Handlers
+  // OTP & Password Handlers
   function sendOtp(kind: "email" | "phone") {
     setOtpSent((s) => ({ ...s, [kind]: true }));
     toast.success(kind === "email" ? `OTP sent to ${profile.email}` : `OTP sent to ${profile.mobile}`);
@@ -226,7 +230,7 @@ export function CompanyBody() {
                   <ShieldCheck className="h-5 w-5 text-india-green" /> Profile Change Request
                 </DialogTitle>
                 <DialogDescription className="mt-2 text-sm text-muted-foreground">
-                  For security and compliance reasons, core profile information (Name, Email, Mobile, Designation) can only be updated by site administrators.
+                  For administrative verification compliance, core recruiter details (Company Name, Email, Mobile, Designation) can only be modified by site administrators.
                 </DialogDescription>
               </DialogHeader>
 
@@ -261,7 +265,7 @@ export function CompanyBody() {
                 {profile.photoUrl ? (
                   <img src={profile.photoUrl} alt="Profile" className="size-full object-cover" />
                 ) : (
-                  profile.fullName.charAt(0).toUpperCase()
+                  profile.companyName.charAt(0).toUpperCase()
                 )}
               </div>
               <div>
@@ -297,7 +301,7 @@ export function CompanyBody() {
                   <span>Full Name</span>
                   <Lock className="h-3 w-3 text-muted-foreground" />
                 </Label>
-                <Input className="mt-1 bg-muted/30" value={profile.fullName} disabled />
+                <Input className="mt-1 bg-muted/30 font-medium" value={profile.fullName} disabled />
               </div>
 
               <div>
@@ -313,7 +317,7 @@ export function CompanyBody() {
                   <span>Work Email</span>
                   <Lock className="h-3 w-3 text-muted-foreground" />
                 </Label>
-                <Input className="mt-1 bg-muted/30" value={profile.email} disabled />
+                <Input className="mt-1 bg-muted/30 font-medium" value={profile.email} disabled />
               </div>
 
               <div>
@@ -359,7 +363,7 @@ export function CompanyBody() {
 
             <div>
               <Label className="flex items-center justify-between">
-                <span>About You</span>
+                <span>About You / Company</span>
                 <Lock className="h-3 w-3 text-muted-foreground" />
               </Label>
               <Textarea rows={3} className="mt-1 bg-muted/30" value={profile.about} disabled />
@@ -376,8 +380,8 @@ export function CompanyBody() {
           <Card className="p-6 border-border/60">
             <Briefcase className="h-6 w-6 text-navy mb-2" />
             <p className="text-xs uppercase tracking-widest text-muted-foreground">Company</p>
-            <p className="font-display font-bold text-navy text-lg">{profile.companyName}</p>
-            <p className="text-xs text-muted-foreground mt-1">Managed by Company Admin</p>
+            <p className="font-display font-bold text-navy text-xl mt-0.5">{profile.companyName}</p>
+            <p className="text-xs text-muted-foreground mt-1">Verified Corporate Account</p>
           </Card>
 
           {/* LIVE CANDIDATES REVIEWED COUNT */}
@@ -402,7 +406,7 @@ export function CompanyBody() {
         </div>
       </div>
 
-      {/* RESTORED CHANGE PASSWORD SECTION */}
+      {/* CHANGE PASSWORD SECTION */}
       <Card className="p-6 border-border/60 mt-6">
         <div className="flex items-center gap-2 mb-4">
           <KeyRound className="h-5 w-5 text-india-green" />
@@ -411,7 +415,7 @@ export function CompanyBody() {
         <form onSubmit={submitPassword} className="grid lg:grid-cols-2 gap-4">
           <div>
             <Label className="flex items-center gap-2 text-sm">
-              <Mail className="h-4 w-4 text-saffron" /> Registered Email · {profile.email}
+              <Mail className="h-4 w-4 text-saffron" /> Registered Email · {profile.email || "No Email"}
             </Label>
             <div className="flex gap-2 mt-1">
               <Input
@@ -434,7 +438,7 @@ export function CompanyBody() {
 
           <div>
             <Label className="flex items-center gap-2 text-sm">
-              <Smartphone className="h-4 w-4 text-saffron" /> Registered Mobile · {profile.mobile}
+              <Smartphone className="h-4 w-4 text-saffron" /> Registered Mobile · {profile.mobile || "No Mobile"}
             </Label>
             <div className="flex gap-2 mt-1">
               <Input
