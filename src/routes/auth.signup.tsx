@@ -185,7 +185,7 @@ function SignupPage() {
     console.log("🚀 SENDING PAYLOAD TO DB:", payload);
 
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/auth/candidate/register", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
       
