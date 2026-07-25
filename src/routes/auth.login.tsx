@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { setSession } from "@/lib/mockStore";
 import { toast } from "sonner";
-import { GraduationCap, Building2, ShieldCheck, ArrowLeft, AlertCircle, KeyRound, Mail, Phone, Eye, EyeOff } from "lucide-react";
+import { GraduationCap, Building2, ShieldCheck, ArrowLeft, AlertCircle, KeyRound, Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth/login")({
   head: () => ({ meta: [{ title: "Sign In — Bharat Career Connect" }, { name: "description", content: "Sign in as candidate or employer." }] }),
@@ -25,8 +25,12 @@ type RoleId = (typeof ROLES)[number]["id"];
 function LoginPage() {
   const navigate = useNavigate();
   const [role, setRole] = useState<RoleId>("candidate");
-  const [email, setEmail] = useState("");
+  
+  // States for the form
+  const [companyName, setCompanyName] = useState("");
+  const [identifier, setIdentifier] = useState(""); // Used for Email or Phone
   const [password, setPassword] = useState(""); 
+  
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +38,7 @@ function LoginPage() {
   // ==========================================
   // 🚀 MASTER LOGIN FUNCTION
   // ==========================================
-const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
@@ -43,14 +47,15 @@ const handleLogin = async (e: React.FormEvent) => {
       // Pulls the backend URL from Render's environment variables safely
       const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com"; 
       
+      // Setup payload dynamically based on role
+      const payload = role === "employer" 
+        ? { role, company_name: companyName, email: identifier, password }
+        : { role, identifier, password };
+
       const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          role: role, 
-          email: email, 
-          password: password 
-        })
+        body: JSON.stringify(payload)
       });
       
       const json = await res.json();
@@ -73,6 +78,7 @@ const handleLogin = async (e: React.FormEvent) => {
           navigate({ to: "/employer" }); 
         }
       } else {
+        // Displays backend's specific error messages
         setError(json.message);
       }
     } catch (err) {
@@ -104,7 +110,13 @@ const handleLogin = async (e: React.FormEvent) => {
               <button
                 key={r.id}
                 type="button"
-                onClick={() => { setRole(r.id); setError(null); }}
+                onClick={() => { 
+                  setRole(r.id); 
+                  setError(null); 
+                  setCompanyName(""); 
+                  setIdentifier(""); 
+                  setPassword(""); 
+                }}
                 className={`p-3 rounded-lg border text-center transition ${role === r.id ? "border-saffron bg-saffron/10" : "border-border hover:bg-muted"}`}
               >
                 <r.icon className={`h-5 w-5 mx-auto ${role === r.id ? "text-saffron" : "text-muted-foreground"}`} />
@@ -114,15 +126,24 @@ const handleLogin = async (e: React.FormEvent) => {
           </div>
 
           <form onSubmit={handleLogin} className="mt-6 space-y-4">
+            
+            {/* Conditional Company Name Field for Employers */}
+            {isEmployer && (
+              <div>
+                <Label>Company Name</Label>
+                <Input required value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. Tata Consultancy Services" className="mt-1" />
+              </div>
+            )}
+
             <div>
-              <Label>{isEmployer ? "Work Email" : "Email or Phone"}</Label>
-              <Input required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isEmployer ? "hr@company.com" : "you@email.com"} className="mt-1" />
+              <Label>{isEmployer ? "Work Email" : "Email or Mobile Number"}</Label>
+              <Input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={isEmployer ? "hr@company.com" : "you@email.com or 98xxxxxxxx"} className="mt-1" />
             </div>
             
             <div>
               <div className="flex items-center justify-between">
                 <Label>Password</Label>
-                <ForgotPasswordDialog defaultIdentifier={email} />
+                <ForgotPasswordDialog currentRole={role} defaultIdentifier={identifier} />
               </div>
               <div className="relative mt-1">
                 <Input required type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="pr-10" />
@@ -166,63 +187,97 @@ const handleLogin = async (e: React.FormEvent) => {
   );
 }
 
-function maskEmail(e: string) {
-  const [u, d] = e.split("@");
-  if (!u || !d) return e;
-  return u.slice(0, 2) + "•••@" + d;
-}
-function maskPhone(p: string) {
-  return p.length >= 4 ? "•••••" + p.slice(-4) : "•••••";
-}
 
-function ForgotPasswordDialog({ defaultIdentifier }: { defaultIdentifier: string }) {
+// ==========================================
+// 🚀 FORGOT PASSWORD DIALOG WITH BACKEND API
+// ==========================================
+function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole: string, defaultIdentifier: string }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"identify" | "verify" | "reset">("identify");
   const [identifier, setIdentifier] = useState(defaultIdentifier);
-  const [linkedEmail, setLinkedEmail] = useState("");
-  const [linkedPhone, setLinkedPhone] = useState("");
-  const [emailOtp, setEmailOtp] = useState("");
-  const [phoneOtp, setPhoneOtp] = useState("");
-  const [genEmailOtp, setGenEmailOtp] = useState("");
-  const [genPhoneOtp, setGenPhoneOtp] = useState("");
+  const [otp, setOtp] = useState("");
   const [pwd, setPwd] = useState("");
   const [pwd2, setPwd2] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com";
 
   function reset() {
-    setStep("identify"); setEmailOtp(""); setPhoneOtp(""); setPwd(""); setPwd2("");
+    setStep("identify"); 
+    setOtp(""); 
+    setPwd(""); 
+    setPwd2("");
   }
 
-  function sendOtp() {
+  // 1. Send Request to check DB and generate OTP
+  async function sendOtp() {
     const id = identifier.trim();
     if (!id) { toast.error("Enter your registered email or phone"); return; }
-    const isEmail = id.includes("@");
-    const email = isEmail ? id : `${id.replace(/\D/g, "").slice(-6) || "user"}@example.com`;
-    const phone = isEmail ? "98" + Math.floor(10000000 + Math.random() * 89999999) : id;
-    const eOtp = String(Math.floor(100000 + Math.random() * 900000));
-    const pOtp = String(Math.floor(100000 + Math.random() * 900000));
-    setLinkedEmail(email); setLinkedPhone(phone);
-    setGenEmailOtp(eOtp); setGenPhoneOtp(pOtp);
-    setStep("verify");
-    toast.success(`OTP sent to ${maskEmail(email)} and ${maskPhone(phone)}`);
-    toast.message("Demo OTPs", { description: `Email: ${eOtp} • SMS: ${pOtp}` });
+    
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${baseUrl}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: currentRole, identifier: id })
+      });
+      const json = await res.json();
+      
+      if (json.success) {
+        setStep("verify");
+        toast.success(json.message); // Shows the success message from backend
+      } else {
+        toast.error(json.message); // Shows "Not registered" error from backend
+      }
+    } catch (err) {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
+  // 2. Just UI move to next step for OTP verification
   function verify() {
-    if (emailOtp !== genEmailOtp) { toast.error("Invalid email OTP"); return; }
-    if (phoneOtp !== genPhoneOtp) { toast.error("Invalid phone OTP"); return; }
+    if (otp.length < 6) { toast.error("Please enter a valid 6-digit OTP"); return; }
     setStep("reset");
   }
 
-  function submitReset() {
+  // 3. Final submission with new password and OTP verification
+  async function submitReset() {
     if (pwd.length < 6) { toast.error("Password must be at least 6 characters"); return; }
     if (pwd !== pwd2) { toast.error("Passwords do not match"); return; }
-    toast.success("Password reset successful. Please sign in.");
-    setOpen(false); reset();
+    
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${baseUrl}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          role: currentRole, 
+          identifier: identifier, 
+          otp: otp, 
+          newPassword: pwd 
+        })
+      });
+      const json = await res.json();
+      
+      if (json.success) {
+        toast.success(json.message);
+        setOpen(false); 
+        reset();
+      } else {
+        toast.error(json.message); // E.g., "Invalid OTP"
+      }
+    } catch (err) {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <button type="button" onClick={() => setOpen(true)} className="text-xs text-saffron font-medium hover:underline">
+      <button type="button" onClick={() => { setIdentifier(defaultIdentifier); setOpen(true); }} className="text-xs text-saffron font-medium hover:underline">
         Forgot password?
       </button>
       <DialogContent className="sm:max-w-md bg-white">
@@ -231,34 +286,28 @@ function ForgotPasswordDialog({ defaultIdentifier }: { defaultIdentifier: string
             <KeyRound className="h-4 w-4" /> Reset your password
           </DialogTitle>
           <DialogDescription>
-            {step === "identify" && "We'll send an OTP to your registered email and mobile number."}
-            {step === "verify" && "Enter the 6-digit OTPs sent to your registered email and mobile."}
+            {step === "identify" && `Enter your registered ${currentRole === 'employer' ? 'Work Email' : 'Email or Mobile Number'} to receive an OTP.`}
+            {step === "verify" && "Enter the 6-digit OTP sent to your contact details."}
             {step === "reset" && "Create a new password for your account."}
           </DialogDescription>
         </DialogHeader>
 
         {step === "identify" && (
           <div className="space-y-3">
-            <Label>Registered email or phone</Label>
-            <Input value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="you@email.com or 98xxxxxxxx" />
+            <Label>Registered {currentRole === 'employer' ? 'Email' : 'Email or Phone'}</Label>
+            <Input value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={currentRole === 'employer' ? "hr@company.com" : "you@email.com or 98xxxxxxxx"} />
           </div>
         )}
 
         {step === "verify" && (
           <div className="space-y-4">
-            <div className="rounded-md border border-border bg-slate-50 p-3 text-xs text-muted-foreground space-y-1">
-              <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /> OTP sent to <span className="font-medium text-navy">{maskEmail(linkedEmail)}</span></div>
-              <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /> OTP sent to <span className="font-medium text-navy">{maskPhone(linkedPhone)}</span></div>
-            </div>
             <div>
-              <Label>Email OTP</Label>
-              <Input inputMode="numeric" maxLength={6} value={emailOtp} onChange={(e) => setEmailOtp(e.target.value)} placeholder="6-digit code" className="mt-1" />
+              <Label>Enter OTP</Label>
+              <Input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" className="mt-1" />
             </div>
-            <div>
-              <Label>Mobile OTP</Label>
-              <Input inputMode="numeric" maxLength={6} value={phoneOtp} onChange={(e) => setPhoneOtp(e.target.value)} placeholder="6-digit code" className="mt-1" />
-            </div>
-            <button type="button" onClick={sendOtp} className="text-xs text-saffron font-medium hover:underline">Resend OTP</button>
+            <button type="button" onClick={sendOtp} disabled={isLoading} className="text-xs text-saffron font-medium hover:underline">
+              {isLoading ? "Sending..." : "Resend OTP"}
+            </button>
           </div>
         )}
 
@@ -270,9 +319,9 @@ function ForgotPasswordDialog({ defaultIdentifier }: { defaultIdentifier: string
         )}
 
         <DialogFooter>
-          {step === "identify" && <Button onClick={sendOtp} className="bg-navy text-white hover:bg-navy/90 w-full">Send OTP</Button>}
-          {step === "verify" && <Button onClick={verify} className="bg-navy text-white hover:bg-navy/90 w-full">Verify</Button>}
-          {step === "reset" && <Button onClick={submitReset} className="bg-navy text-white hover:bg-navy/90 w-full">Update password</Button>}
+          {step === "identify" && <Button onClick={sendOtp} disabled={isLoading} className="bg-navy text-white hover:bg-navy/90 w-full">{isLoading ? "Verifying..." : "Send OTP"}</Button>}
+          {step === "verify" && <Button onClick={verify} className="bg-navy text-white hover:bg-navy/90 w-full">Verify OTP</Button>}
+          {step === "reset" && <Button onClick={submitReset} disabled={isLoading} className="bg-navy text-white hover:bg-navy/90 w-full">{isLoading ? "Updating..." : "Update password"}</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
