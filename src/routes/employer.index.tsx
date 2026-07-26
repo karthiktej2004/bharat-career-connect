@@ -19,7 +19,7 @@ function EmployerHome() {
   const [isLoading, setIsLoading] = useState(true);
   const [employerUser, setEmployerUser] = useState<any>(null);
 
-  useEffect(() => {
+ useEffect(() => {
     try {
       const keys = ["bcc_user", "user", "employer", "bcc_employer"];
       let foundUser: any = null;
@@ -38,13 +38,21 @@ function EmployerHome() {
         }
       }
 
-      if (!foundUser || foundUser.role === "candidate") {
+      // Only redirect if explicitly a candidate. Let employers and sessions without a role pass through.
+      if (foundUser && foundUser.role === "candidate") {
+        navigate({ to: "/auth/login" });
+        return;
+      }
+
+      // If no valid key was read at all, fallback to a safe default or redirect
+      if (!foundUser) {
         navigate({ to: "/auth/login" });
         return;
       }
 
       setEmployerUser(foundUser);
 
+      // Fetch Live Data from Backend API using employer ID or email
       const activeId = foundUser.id ? foundUser.id.toString() : foundUser.email;
       fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${activeId}/dashboard`)
         .then((res) => res.json())
