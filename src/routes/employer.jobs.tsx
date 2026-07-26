@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Briefcase, Pencil, Trash2, Clock, Loader2 } from "lucide-react";
+import { Plus, Briefcase, Pencil, Trash2, Clock, Loader2, CalendarDays } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
 
@@ -129,6 +129,12 @@ export function JobsBody() {
                     <TableCell className="font-medium text-navy">
                       <div>{j.title}</div>
                       <div className="text-[11px] text-muted-foreground mt-0.5">{user?.name}</div>
+                      {/* NEW: Show Event Tag if linked */}
+                      {j.event_id && (
+                        <Badge variant="outline" className="mt-1 bg-blue-50 text-blue-700 border-blue-200 text-[10px] py-0 leading-none">
+                          <CalendarDays className="h-3 w-3 mr-1 inline" /> Event Job
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell><Badge variant="outline">{j.job_type}</Badge></TableCell>
                     <TableCell className="text-muted-foreground">{j.location}</TableCell>
@@ -137,9 +143,9 @@ export function JobsBody() {
                     <TableCell>{j.vacancies || 1}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{new Date(j.created_at).toLocaleDateString("en-IN")}</TableCell>
                     <TableCell>
-                      <Badge className={`gap-1 ${approval === "approved" ? "bg-india-green/15 text-india-green" : approval === "rejected" ? "bg-destructive/15 text-destructive" : "bg-saffron/15 text-saffron"}`}>
+                      <Badge className={`gap-1 ${approval === "approved" ? "bg-india-green/15 text-india-green" : approval === "rejected" ? "bg-destructive/15 text-destructive" : approval === "inactive" ? "bg-gray-100 text-gray-500" : "bg-saffron/15 text-saffron"}`}>
                         {approval === "pending" && <Clock className="h-3 w-3" />}
-                        {approval === "approved" ? "Approved" : approval === "rejected" ? "Rejected by admin" : "Pending admin approval"}
+                        {approval === "approved" ? "Approved" : approval === "rejected" ? "Rejected" : approval === "inactive" ? "Inactive" : "Pending approval"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -190,11 +196,27 @@ export function JobsBody() {
 
 // 4. POST & EDIT DIALOG
 function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open: boolean; onOpenChange: (o: boolean) => void; editJob?: any | null; user: any; onSuccess: () => void }) {
-  const empty = { title: "", type: "Full-time", location: "", qualification: "", experience: "", salary: "", skills: "", openings: "1", description: "" };
+  const empty = { title: "", type: "Full-time", location: "", qualification: "", experience: "", salary: "", skills: "", openings: "1", description: "", eventId: "none" };
   const [form, setForm] = useState(empty);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // NEW: State to hold live events
+  const [availableEvents, setAvailableEvents] = useState<any[]>([]);
 
   useEffect(() => {
+    // Fetch live events when dialog opens
+    if (open) {
+      fetch("https://bcc-backend-0cny.onrender.com/api/admin/events")
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success) {
+            // Only show events that are not on hold
+            setAvailableEvents(json.data.filter((e: any) => e.status !== "hold" && e.status !== "Deleted"));
+          }
+        })
+        .catch((err) => console.error("Error fetching events:", err));
+    }
+
     if (editJob) {
       setForm({
         title: editJob.title || "",
@@ -203,9 +225,12 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
         qualification: editJob.qualification_required || "",
         experience: editJob.experience_required || "",
         salary: editJob.salary_range || "",
-        skills: editJob.skills_required ? JSON.parse(editJob.skills_required).join(", ") : "",
+        skills: editJob.skills_required && typeof editJob.skills_required === 'string' 
+          ? JSON.parse(editJob.skills_required).join(", ") 
+          : "",
         openings: editJob.vacancies ? editJob.vacancies.toString() : "1",
-        description: "", 
+        description: editJob.description || "", 
+        eventId: editJob.event_id ? editJob.event_id.toString() : "none"
       });
     } else {
       setForm(empty);
@@ -221,6 +246,7 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
 
     setIsSubmitting(true);
     
+    // NEW: Payload updated to include event_id and description
     const payload = {
       employerId: user.id,
       title: form.title,
@@ -231,10 +257,14 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
       salary: form.salary || "Negotiable",
       vacancies: parseInt(form.openings) || 1,
       skills: form.skills.split(",").map((s) => s.trim()).filter(Boolean),
+      description: form.description,
+      event_id: form.eventId !== "none" ? parseInt(form.eventId) : null,
     };
 
     try {
-      const url = editJob ? `https://bcc-backend-0cny.onrender.com/api/employer/jobs/${editJob.id}` : `https://bcc-backend-0cny.onrender.com/api/employer/jobs`;
+      const url = editJob 
+        ? `https://bcc-backend-0cny.onrender.com/api/employer/jobs/${editJob.id}` 
+        : `https://bcc-backend-0cny.onrender.com/api/employer/${user.id}/jobs`; // Fixed create URL
       const method = editJob ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -267,6 +297,28 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
           <DialogDescription>{editJob ? "Changes will be sent to the admin for re-approval." : "Fill in the details — it will be sent to the admin for approval."}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid sm:grid-cols-2 gap-4">
+          
+          {/* NEW: Event Linking Dropdown */}
+          <div className="sm:col-span-2 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
+            <Label className="text-blue-800 font-semibold flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" /> Link to Udyoga Mela (Optional)
+            </Label>
+            <p className="text-xs text-blue-600/80 mb-2 mt-0.5">If you are hiring for an upcoming job fair, select it here so candidates can find you.</p>
+            <Select value={form.eventId} onValueChange={(v) => upd("eventId", v)}>
+              <SelectTrigger className="bg-white">
+                <SelectValue placeholder="Standard Job Posting (No Event)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none" className="font-medium">Standard Job Posting (No Event)</SelectItem>
+                {availableEvents.map(evt => (
+                  <SelectItem key={evt.id} value={evt.id.toString()}>
+                    {evt.name} ({new Date(evt.event_date).toLocaleDateString("en-IN")})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="sm:col-span-2"><Label>Job Title *</Label><Input required value={form.title} onChange={(e) => upd("title", e.target.value)} placeholder="Junior Software Engineer" className="mt-1" /></div>
           <div><Label>Employment Type</Label>
             <Select value={form.type} onValueChange={(v) => upd("type", v)}>
