@@ -37,31 +37,67 @@ const STEPS = [
   { key: "review", label: "Review", icon: Check },
 ] as const;
 
+// =========================================================================
+// MASSIVE EXCEL DATA MAPPINGS 
+// =========================================================================
+
 const HIGHEST_QUALS = ["Below 10th / SSLC", "10th std / SSLC", "ITI", "TATA Udyog", "12th std / 2nd PUC", "Diploma", "UG Degree", "PG Degree", "BE/B-Tech", "ME/M-Tech", "PHD", "Short Term Training (STT)", "Others"];
 const BOARDS = ["State Board", "CBSE", "ICSE / CISCE", "Other"];
 const STATE_BOARDS_LIST = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"];
-const ITI_TRADES = ["Carpenter", "Computer Operator", "Computer Operator & Programming Assistant (COPA)", "Consumer Electronics Servicing", "Electrician", "Electronics Mechanic", "Fitter", "Machinist", "Mechanic", "Plumber", "Welder", "Wireman"];
-const TATA_COURSES = ["Advanced CNC Machining Technician", "Artisan Using Advanced Tool", "Basic Designer and Virtual Verifier (Mechanical)", "Industrial Robotics & Digital Manufacturing Technician", "Mechanic Electric Vehicle"];
-const DIPLOMA_STREAMS = ["Civil", "Computer Science Engineering", "Electrical Engineering", "Electronics and Communication Engineering", "Fashion Designing", "Mechanical", "Mechatronics Engineering", "Pharmacy"];
+const ITI_TRADES = ["Carpenter", "Computer Operator", "Computer Operator & Programming Assistant (COPA)", "Consumer Electronics Servicing", "Draughtsman", "Draughtsman Civil", "Draughtsman Mechanical", "Dress Making", "Electrician", "Electronics Mechanic", "Fitter", "Foundryman", "Information Technology & System Maintenance", "Instrument Mechanic", "Lineman", "Machinist", "Mechanic", "Mechanic (Motor Vehicle)", "Motor Mechanic", "Motor Vehicle Mechanic", "Other Trade", "Plumber", "Power Electrician", "Refrigeration and Air Conditioning Mechanic", "Robotics Electronics Mechanic", "Sheet Metal Worker", "Technician Power Electronic System", "Tool & Die Maker", "Tractor Mechanic", "Turner", "TV and Radio Mechanic", "Welder", "Wireman"];
+const TATA_COURSES = ["Advanced CNC Machining Technician", "Artisan Using Advanced Tool", "Basic Designer and Virtual Verifier (Mechanical)", "Industrial Robotics & Digital Manufacturing Technician", "Mechanic Electric Vehicle", "Manufacturing Process Control and Automation"];
+const DIPLOMA_STREAMS = ["Aeronautical Engineering", "Agriculture", "Architecture", "Automobile Engineering", "Ceramics Technology", "Chemical Engineering", "Cinematography", "Civil", "Commercial Practice", "Computer Science Engineering", "Computer-Aided Design (CAD)", "Dialysis Technology", "Electrical Engineering", "Electronics and Communication Engineering", "Electronics Instrumentation & Control Engineering", "Fashion Designing", "Fire and Safety Engineering", "General Nursing", "Horticulture", "Hotel Management", "Information Science", "Insurance", "Interior Decoration", "Junior Health Inspector", "Leather & Fashion Technology", "Library and Information Science", "Mechanical", "Mechatronics Engineering", "Medical Laboratory Technology (DMLT)", "Metallurgy Engineering", "Mining Engineering", "Modern Office Management", "Operation Theatre Technology", "Pharmacy", "Polymer Technology", "Printing Technology", "Sound Recording", "Textile Technology", "Tool and Die Making", "Tourism", "Veterinary and Livestock Development Assistant", "Visual Arts", "Water Technology & Health Science"];
 
 const UG_MAPPING: Record<string, string[]> = {
-  "BA": ["Economics", "English Literature", "History", "Journalism", "Political Science", "Psychology", "Sociology"],
-  "Bachelor of Science (BSc)": ["Biotechnology", "Botany", "Chemistry", "Computer Science", "Mathematics", "Physics", "Zoology"],
-  "Bachelor of Commerce (BCom)": ["Accounting", "Banking and Finance", "Business Administration", "Economics", "Taxation"],
-  "Bachelor of Computer Applications (BCA)": ["Software Development", "Database Management", "Networking", "Web Development", "AI / Machine Learning", "Data Science"]
+  "BA": ["B. Ed", "Economics", "English Literature", "Fine Arts", "History", "Journalism and Mass Communication", "Kannada", "Other Languages (Hindi, French, Sanskrit, etc.)", "Philosophy", "Political Science", "Psychology", "Public Administration", "Social Science", "Sociology"],
+  "Bachelor of Science (BSc)": ["Agriculture", "Agriculture Business Management", "Biology", "Biotechnology", "Botany", "Chemistry", "Computer Science", "Electronics", "Environmental Science", "Geology", "Horticulture", "Information Technology", "Mathematics", "Medical Lab Technology (MLT)", "Microbiology", "Nursing (professional program)", "PCM (Physics, Chemistry, Mathematics)", "Physics", "Sericulture", "Statistics", "Zoology"],
+  "Bachelor of Commerce (BCom)": ["Accounting", "Banking and Finance", "BCom in Human Resource Management", "Business Administration", "Computer Applications", "Computer Science", "Economics", "Finance", "Human Resource Management", "Insurance", "International Business", "Marketing", "Risk Management", "Taxation", "Tourism and Travel Management"],
+  "MBBS (Bachelor of Medicine & Bachelor of Surgery)": ["Medicine", "Surgery", "Pediatrics", "Dentistry", "Bachelor of Dental Surgery(BDS)", "MBBS in Nursing", "MBBS in Pharmacy", "MBBS in Physiotherapy", "Biomedical Science"],
+  "Bachelor of Laws (LLB)": ["Criminal Law", "Constitutional Law", "Corporate Law", "Intellectual Property Law", "Environmental Law", "Family Law", "Labour / Industrial Law", "Taxation Law"],
+  "Bachelor of Architecture (B.Arch)": ["Architectural Design", "Urban Planning", "Landscape Architecture", "Interior Design", "Sustainable / Green Architecture", "Digital / Computational Design"],
+  "Bachelor in Fashion Design (B.Des)": ["Merchandising", "Apparel Design", "Textile Design", "Communication", "Styling", "Fashion Management", "Marketing / Technology", "Accessories Design", "Knitwear / Fabric Design"],
+  "Bachelor of Computer Applications (BCA)": ["General / Core Computer Applications", "Software Development", "Database Management", "Networking / Cyber Security", "Web / Mobile Application Development", "Cloud Computing", "AI / Machine Learning", "Data Science / Big Data"],
+  "Bachelor in Hotel Management (BHM)": ["General / Core Hotel Management", "Hospitality & Tourism Management", "Culinary Arts", "Food Production", "Food & Beverage Service", "Front Office / Rooms Division Management", "Event Management", "Housekeeping Management"],
+  "Bachelor of Science in Agriculture (BSAg)": ["Agriculture", "Horticulture", "Animal Husbandry", "Agricultural Economics"],
+  "Bachelor of Pharmacy (BPharm)": ["General / Core Pharmacy", "Pharmaceutical Technology", "Clinical Pharmacy", "Pharmacology", "Pharmaceutical Chemistry", "Pharmacognosy", "Quality Assurance"],
+  "Bachelor of Social Work (BSW)": ["General / Core Social Work", "Community Development", "Child & Family Welfare", "Medical & Psychiatric Social Work"],
+  "Bachelor of Business Management (BBM)": ["General Management", "Finance", "Marketing", "Human Resource Management", "International Business", "Entrepreneurship"],
+  "Bachelor of Veterinary Science (BVSc)": ["Veterinary Science / Animal Husbandry", "Animal Nutrition", "Veterinary Surgery & Radiology", "Bachelor in Homeopathic Medicine and Surgery (BHMS)", "Livestock Management"],
+  "Chartered Accountancy (CA)": ["General", "Audit", "Taxation", "Chartered Accountant in Final Course", "Chartered Accountant in Intermediate Course", "Chartered Accountant", "Finance"],
+  "Bsc Nursing": ["Critical Care Nursing (ICU Specialist)", "Operation Theatre (OT) & Perioperative Nursing", "Pediatric Nursing", "OBG Nursing"],
+  "Agriculture": ["BSAg in Agriculture", "BSAg in Horticulture", "BSAg in Animal Husbandry", "BSAg in Agricultural Economics"],
+  "BBA": ["Finance", "Marketing", "Human Resource Management (HR)", "Business Analytics / Data Analytics", "Hospitality & Tourism Management"],
+  "B.Voc": ["Food Processing", "Healthcare and Nursing", "Travel and Tourism", "Software Development", "Retail Management", "Automobile Engineering", "Hospitality Management", "Multimedia and Animation", "Textile Technology", "Agriculture and Horticulture", "Information Technology", "Financial Services", "Marketing and Sales", "Handicrafts and Design"],
+  "Bachelor of Dental Surgery": ["Orthodontics", "Periodontics", "Prosthodontics", "Oral & Maxillofacial Surgery", "Pediatric Dentistry", "Conservative Dentistry & Endodontics", "Oral Medicine & Radiology"]
 };
 const UG_COURSES = Object.keys(UG_MAPPING);
 
 const PG_MAPPING: Record<string, string[]> = {
-  "MA": ["Economics", "English Literature", "History", "Political Science", "Psychology"],
-  "MSc": ["Physics", "Chemistry", "Mathematics", "Computer Science / IT", "Biotechnology"],
-  "MBA": ["Finance", "Marketing", "Human Resource Management", "Operations Management", "Business Analytics"]
+  "MA": ["Political Science", "History", "Fine Arts", "Kannada Literature", "Anthropology", "Yoga", "Master of Library Information Science", "English Literature", "Sociology", "Psychology", "Economics", "Journalism and Mass Communication"],
+  "MSc": ["Physics", "Forensic Science & Criminology", "Geology", "Visual Communication", "Biochemistry", "Applied Geology", "Food Science and Technology", "Genetics and Plant Breeding", "Business Analytics", "Big data Analytics", "Clinical Psychology", "Medical Statistics", "Clinical Research", "Biostatistics", "Agriculture", "Botany", "Agri Nectorology", "Chemistry", "Mathematics", "Biotechnology", "Microbiology", "Biology", "Computer Science / IT", "Statistics", "Environmental Science"],
+  "MBA": ["Finance", "Fashion Communication", "Hospitality", "Mass Communication", "Agri Business Management", "Human Resource and Marketing", "HR and Finance", "Supply Chain Management", "Entrepreneurship", "Business Analytics", "Project Management", "Marketing", "Human Resource Management", "Operations Management", "International Business", "IT / Systems"],
+  "MD": ["Master of Dentistry", "Master of Pharmacy (MPharm)", "Master of Physiotherapy (MPT)", "Master of Biomedical Science", "Gynecology", "Ophthalmology", "ENT", "Orthopedics", "Dermatology", "Surgery", "Neurology", "Pediatrics", "Doctor of Pharmacy (Pharma-D)", "General Medicine"],
+  "MS": ["General Surgery"],
+  "LLM": ["Constitutional Law", "Environmental Law", "Corporate Law", "Criminal Law", "International Law"],
+  "Mpharm": ["Pharmacognosy", "Quality Assurance", "Clinical Pharmacy", "Pharmaceutical Chemistry", "Pharmaceutics", "Pharmacology"],
+  "MArch": ["Sustainable Architecture", "Interior Design", "Landscape Architecture", "Urban Planning"],
+  "MEd": ["Educational Leadership", "Special Education", "Education"],
+  "MCOM": ["Marketing", "Finance and Taxation", "Accounting", "Finance", "Cost Management Accounting"],
+  "Agriculture": ["MSc in Agricultural Engineering", "MSc in Horticulture", "MSc in Agricultural Entomology", "MSc in Agricultural Extension", "MSc in Agricultural Microbiology", "MSc in Plant Pathology", "MSc in Soil Science and Agri. Chemistry", "MSc in Genetics and Plant Breeding", "MSc in Crop Physiology", "MSc in Food Science and Nutrition", "MSc in Agricultural Statistics", "MSc in Plant Biochemistry", "MSc in Seed Science and Technology", "MSc in Sericulture", "MSc in Soil and Water Engineering", "MSc in Processing and Food Engineering", "MSC in Electronics", "MSC in Plant Science", "MSc in Agri. Marketing and Cooperation", "MSc in Plant Biotechnology", "MSc in Apiculture", "MSc in Geoinformatics", "MSc in Agri. Business Management", "MSc in Bio-informatics", "MSc in Actuarial Science", "MSc in Agronomy", "MSc in Animal Husbandry", "MSc in Agricultural Economics", "Masters of Fisheries Science", "Master of Commerce in Human Resources Development", "MSc in Zoology", "MSc in Nanoscience & Technology", "MSc in Big Data Analytics"],
+  "Architecture": ["MArch in Urban Planning", "MArch in Landscape Architecture", "MArch in Interior Design"],
+  "Fashion Design": ["Master of Fashion Design", "Master of Fashion Merchandising", "Master of Textile Design"],
+  "MCA (Master in Computer Application)": ["Software Development", "Web Development", "Networking", "Database Management", "Cybersecurity", "Cloud Computing", "Data Science / Data Analytics", "Artificial Intelligence"],
+  "MSW (Master of Social Works)": ["Rural Development", "HR & Industrial Social Work", "Child & Family Welfare", "Medical & Psychiatric Social Work", "Clinical Social Work", "Social Work Practice", "Community Development", "MSW in LLB", "MSW in Human Resource Development and Management", "MSW in Master of Psychiatric Social Work"],
+  "MVSC (Master in Veterinary Science)": ["Livestock Production & Management", "Animal Genetics & Breeding", "Animal Nutrition", "Veterinary Pathology", "Veterinary Microbiology", "Veterinary Surgery & Radiology", "Veterinary Medicine"],
+  "MHM": ["Tourism & Travel Management", "Healthcare Administration", "Hospital Operations", "Tourism Management", "Health Policy & Planning", "Hospital Finance & Management", "Food & Beverage Management", "Hotel Operations", "Hospitality Management / General Management", "Housekeeping Management", "Front Office Management", "Food & Beverage Service", "Food Production"],
+  "MSc Nursing": ["Pediatric Nursing", "Nursing Education", "Critical Care Nursing", "Community Health Nursing", "Medical-Surgical Nursing", "Mental Health (Psychiatric) Nursing", "Obstetrics & Gynecological Nursing", "Child Health"],
+  "MD (Homeopathy)": ["Homeopathic Materia Medica", "Organon of Medicine & Homeopathic Philosophy", "Repertory", "Practice of Medicine in Homeopathy", "Homeopathic Pharmacy", "Homeopathic Surgery (where applicable)"]
 };
 const PG_COURSES = Object.keys(PG_MAPPING);
 
-const BE_ME_COURSES = ["Computer Science", "Information Technology", "Electronics & Communication", "Electrical", "Mechanical", "Civil", "Artificial Intelligence & ML"];
-const UNIVERSITIES = ["IIT (Any)", "NIT (Any)", "IIIT (Any)", "IISc Bengaluru", "BITS Pilani", "Delhi University", "Anna University", "VTU", "Bangalore University", "Mysore University", "Other"];
-const GENERIC_SPECIALIZATIONS = ["Artificial Intelligence & Machine Learning", "Data Science", "Cyber Security", "Finance", "Marketing", "Human Resources", "Accounting", "Economics"];
+const BE_ME_COURSES = ["Computer Science", "Information Technology", "Electronics & Communication", "Electrical", "Mechanical", "Civil", "Aerospace", "Chemical", "Biotechnology", "Artificial Intelligence & ML", "Other"];
+const UNIVERSITIES = ["IIT (Any)", "NIT (Any)", "IIIT (Any)", "IISc Bengaluru", "BITS Pilani", "IIM (Any)", "Delhi University", "Anna University", "VTU", "Bangalore University", "Mysore University", "Osmania University", "Other"];
+const GENERIC_SPECIALIZATIONS = ["Artificial Intelligence & Machine Learning", "Data Science", "Cyber Security", "Finance", "Marketing", "Human Resources", "Operations", "Business Analytics", "Accounting", "Economics", "Physics", "Chemistry", "Mathematics", "Biology", "English Literature", "Political Science"];
 
 function SignupPage() {
   const navigate = useNavigate();
@@ -80,6 +116,7 @@ function SignupPage() {
   // Feature 1: Minimum Age Limit (15+ Years)
   const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
 
+  // SMART PIN CODE API
   useEffect(() => {
     const pin = (data.pincode || "").trim();
     if (!/^\d{6}$/.test(pin)) { setPinLookup("idle"); return; }
@@ -94,7 +131,8 @@ function SignupPage() {
         const offices = rec?.PostOffice as Array<{ State: string; District: string; Block: string; Name: string }> | null;
         if (rec?.Status === "Success" && offices && offices.length) {
           const o = offices[0];
-          let mappedMla = "Yelahanka"; let mappedMp = "Chikkaballapur"; let mappedGp = "Rajanukunte";
+          let mappedMla = "Auto-mapped (e.g. Yelahanka)"; let mappedMp = "Auto-mapped (e.g. Chikkaballapur)"; let mappedGp = "Auto-mapped (e.g. Rajanukunte)";
+          if (pin === "560064") { mappedMla = "Yelahanka"; mappedMp = "Chikkaballapur"; mappedGp = "Rajanukunte"; }
           setData((d) => ({ ...d, state: INDIAN_STATES.includes(o.State) ? o.State : d.state || o.State, district: o.District, taluk: o.Block && o.Block !== "NA" ? o.Block : o.Name, mla: mappedMla, mp: mappedMp, gramPanchayat: mappedGp }));
           setPinLookup("ok");
         } else { setPinLookup("error"); }
@@ -126,6 +164,9 @@ function SignupPage() {
   function sendOtp() { setOtpSent("any"); toast.success(`OTP sent to ${data.phone}. Enter 1234 to verify.`); }
   function verifyOtp() { if (otpInput === "1234" || /^\d{6}$/.test(otpInput)) { set("otpVerified", true); toast.success("Phone verified"); } else { toast.error("Enter 1234"); } }
 
+  // =======================================================
+  // 🚀 REAL DATABASE SUBMISSION TO LIVE BACKEND
+  // =======================================================
   async function finish() {
     setIsSubmitting(true);
     const d: any = data;
@@ -140,7 +181,7 @@ function SignupPage() {
       phone: data.phone || "", 
       password: password, 
       dob: data.dob || null, 
-      gender: data.gender || "Other", 
+      gender: data.gender || "Male", 
       language: data.language || "English", 
       category: data.category || "General Merit (GM)",
       state: data.state || "", 
@@ -170,8 +211,10 @@ function SignupPage() {
       preferredLocations: data.preferredLocations || [], 
       preferredJobType: data.preferredJobType || "Full-time", 
       expectedSalary: data.expectedSalary || "", 
-      willingToRelocate: data.willingToRelocate || false
+      willingToRelocate: Boolean(data.willingToRelocate)
     };
+
+    console.log("🚀 SENDING PAYLOAD TO DB:", payload);
 
     try {
       const res = await fetch("https://bcc-backend-0cny.onrender.com/api/auth/candidate/register", {
@@ -181,17 +224,18 @@ function SignupPage() {
       });
       
       const json = await res.json();
+      console.log("📥 RESPONSE FROM DB:", json);
 
-      if (json.success) {
+      if (res.ok && json.success) {
         setSession({ id: json.uniqueId, name: payload.fullName, email: payload.email, role: "candidate" });
         setDone({ uniqueId: json.uniqueId } as CandidateProfile);
         toast.success("Account securely created in Database!");
       } else {
-        toast.error(json.message || "Registration failed");
+        toast.error(json.message || "Registration failed.");
       }
     } catch (err) {
       console.error("Database connection failed:", err);
-      toast.error("Connection failed. Check backend deployment status.");
+      toast.error("Could not reach backend server. Please check your connection.");
     } finally {
       setIsSubmitting(false);
     }
@@ -222,10 +266,10 @@ function SignupPage() {
           </div>
 
           <div className="mt-6 min-h-[350px]">
-            {/* STEP 1: BASIC INFO */}
+            {/* ================= STEP 1: BASIC INFO ================= */}
             {STEPS[step].key === "basic" && (
               <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500">
-                <div className="md:col-span-2"><Label>Full Name *</Label><Input value={data.fullName || ""} onChange={(e) => set("fullName", e.target.value)} className="mt-1" placeholder="As per official documents" /></div>
+                <div className="md:col-span-2"><Label>Full Name *</Label><Input value={data.fullName || ""} onChange={(e) => set("fullName", e.target.value)} className="mt-1" placeholder="As per official ID" /></div>
                 <div><Label>Email *</Label><Input type="email" value={data.email || ""} onChange={(e) => set("email", e.target.value)} className="mt-1" /></div>
                 <div><Label>Phone *</Label><Input value={data.phone || ""} onChange={(e) => set("phone", e.target.value)} className="mt-1" placeholder="+91 98xxxxxxxx" /></div>
                 <div>
@@ -235,8 +279,8 @@ function SignupPage() {
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground hover:text-navy">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
                   </div>
                 </div>
-                
-                {/* Age 15+ restricted picker */}
+
+                {/* Feature 1: Date of Birth with 15+ Age Enforcement */}
                 <div>
                   <Label>Date of Birth (15+ Years) *</Label>
                   <Input 
@@ -259,6 +303,9 @@ function SignupPage() {
                     <div><Label>State</Label><Input disabled value={data.state || ""} className="mt-1 bg-white" /></div>
                     <div><Label>District</Label><Input disabled value={data.district || ""} className="mt-1 bg-white" /></div>
                     <div><Label>Taluk</Label><Input disabled value={data.taluk || ""} className="mt-1 bg-white" /></div>
+                    <div><Label>MP</Label><Input disabled value={data.mp || ""} className="mt-1 bg-white font-medium" /></div>
+                    <div><Label>MLA</Label><Input disabled value={data.mla || ""} className="mt-1 bg-white font-medium" /></div>
+                    <div><Label>Panchayat</Label><Input disabled value={data.gramPanchayat || ""} className="mt-1 bg-white font-medium" /></div>
                   </div>
                 </div>
               </div>
@@ -273,13 +320,15 @@ function SignupPage() {
               </div>
             )}
 
-            {/* STEP 3: EDUCATION & MARKS TOGGLE */}
+            {/* ================= STEP 3: EXCEL EDUCATION & MARKS TOGGLE ================= */}
             {STEPS[step].key === "education" && (() => {
               const q = data.qualification || "";
               const isSchool = ["Below 10th / SSLC", "10th std / SSLC", "12th std / 2nd PUC"].includes(q);
               const isIti = q === "ITI"; const isTata = q === "TATA Udyog"; const isDiploma = q === "Diploma";
               const isUg = q === "UG Degree"; const isPg = q === "PG Degree";
               const isHigher = isUg || isPg || q === "BE/B-Tech" || q === "ME/M-Tech" || q === "PHD";
+              
+              const instIsOther = data.institution === "__other__"; const courseIsOther = data.course === "__other__"; const specIsOther = data.specialization === "__other__";
               
               const dynamicUgSpecializations = isUg && data.course && UG_MAPPING[data.course] ? UG_MAPPING[data.course] : GENERIC_SPECIALIZATIONS;
               const dynamicPgSpecializations = isPg && data.course && PG_MAPPING[data.course] ? PG_MAPPING[data.course] : GENERIC_SPECIALIZATIONS;
@@ -300,7 +349,7 @@ function SignupPage() {
 
                   {(isIti || isTata || isDiploma) && (
                     <>
-                      <div className="md:col-span-2"><Label>{isIti ? "ITI Trade *" : isTata ? "TATA Udyog Course *" : "Diploma Stream *"}</Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{(isIti ? ITI_TRADES : isTata ? TATA_COURSES : DIPLOMA_STREAMS).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select></div>
+                      <div className="md:col-span-2"><Label>{isIti ? "ITI Trade *" : isTata ? "TATA Udyog Course *" : "Diploma Stream *"}</Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{(isIti ? ITI_TRADES : isTata ? TATA_COURSES : DIPLOMA_STREAMS).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select>{specIsOther && <Input className="mt-2" value={data.specializationOther || ""} onChange={(e) => set("specializationOther", e.target.value)} />}</div>
                       <div className="md:col-span-2"><Label>Institute Name *</Label><Input className="mt-1" value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} /></div>
                     </>
                   )}
@@ -308,12 +357,12 @@ function SignupPage() {
                   {isHigher && (
                     <>
                       <div className="md:col-span-2"><Label>College / University *</Label><Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select college" /></SelectTrigger><SelectContent>{UNIVERSITIES.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select></div>
-                      <div><Label>Course *</Label><Select value={data.course || ""} onValueChange={(v) => { set("course", v); set("specialization", ""); }}><SelectTrigger className="mt-1"><SelectValue placeholder="Select course" /></SelectTrigger><SelectContent>{(isUg ? UG_COURSES : isPg ? PG_COURSES : BE_ME_COURSES).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select></div>
-                      <div><Label>Specialization / Domain *</Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{currentSpecializations.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select></div>
+                      <div><Label>Course *</Label><Select value={data.course || ""} onValueChange={(v) => { set("course", v); set("specialization", ""); }}><SelectTrigger className="mt-1"><SelectValue placeholder="Select course" /></SelectTrigger><SelectContent>{(isUg ? UG_COURSES : isPg ? PG_COURSES : BE_ME_COURSES).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select>{courseIsOther && <Input className="mt-2" value={data.courseOther || ""} onChange={(e) => set("courseOther", e.target.value)} />}</div>
+                      <div><Label>Specialization / Domain *</Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{currentSpecializations.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select>{specIsOther && <Input className="mt-2" value={data.specializationOther || ""} onChange={(e) => set("specializationOther", e.target.value)} />}</div>
                     </>
                   )}
 
-                  {/* Feature 2: Percentage vs CGPA Mode Toggle */}
+                  {/* Feature 2: Percentage vs CGPA Mode Selector */}
                   <div>
                     <Label>Mark Scoring Mode</Label>
                     <Select value={scoreType} onValueChange={(v: any) => setScoreType(v)}>
@@ -323,6 +372,7 @@ function SignupPage() {
                         <SelectItem value="cgpa">CGPA (Max 10.0)</SelectItem>
                       </SelectContent>
                     </Select>
+
                     <Input 
                       className="mt-2"
                       placeholder={scoreType === "percentage" ? "e.g. 85%" : "e.g. 8.5"}
@@ -368,9 +418,9 @@ function SignupPage() {
               <div className="py-4 animate-in fade-in space-y-6">
                 <div>
                   <Label className="block mb-2">Resume Upload (.pdf, .doc, .docx only) *</Label>
-                  <label className="block border-2 border-dashed border-navy/30 rounded-xl p-6 text-center hover:bg-navy/5 cursor-pointer">
-                    <Upload className="h-8 w-8 mx-auto text-navy" />
-                    <div className="mt-2 font-medium text-navy">{data.resumeFileName || "Click to upload Resume"}</div>
+                  <label className="block border-2 border-dashed border-navy/30 rounded-xl p-8 text-center hover:bg-navy/5 cursor-pointer">
+                    <Upload className="h-10 w-10 mx-auto text-navy" />
+                    <div className="mt-3 font-medium text-navy">{data.resumeFileName || "Upload your Resume"}</div>
                     <input 
                       type="file" 
                       accept=".pdf,.doc,.docx" 
@@ -380,7 +430,7 @@ function SignupPage() {
                         if (f) { 
                           const ext = f.name.split('.').pop()?.toLowerCase();
                           if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
-                            return toast.error("Only PDF and Word files are allowed!");
+                            return toast.error("Only PDF and Word files allowed!");
                           }
                           set("resumeFileName", f.name); 
                           toast.success("Resume attached"); 
@@ -390,10 +440,10 @@ function SignupPage() {
                   </label>
                 </div>
 
-                {/* Feature 4: Dynamic Certifications Upload Section */}
-                <div className="border-t pt-4">
+                {/* Feature 4: Dynamic Certifications Section */}
+                <div className="mt-6 border-t pt-4">
                   <div className="flex justify-between items-center mb-3">
-                    <Label className="font-bold text-navy">Additional Certifications</Label>
+                    <h4 className="font-bold text-navy text-sm">Additional Certifications</h4>
                     <Button 
                       type="button" 
                       variant="outline" 
@@ -410,7 +460,7 @@ function SignupPage() {
                   {(data.certifications || []).map((cert: any, index: number) => (
                     <div key={index} className="p-3 bg-slate-50 border rounded-lg mt-3 space-y-2">
                       <Input 
-                        placeholder="Certification Name (e.g. AWS Cloud Practitioner)" 
+                        placeholder="Certification Description (e.g. AWS Certified Developer)" 
                         value={cert.title} 
                         onChange={(e) => {
                           const updated = [...(data.certifications || [])];
