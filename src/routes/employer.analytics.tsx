@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Target, Clock, TrendingUp, Users, Download, Loader2, Calendar } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/employer/analytics")({
   head: () => ({ meta: [{ title: "Hiring Analytics — Bharat Career Connect" }] }),
@@ -50,56 +51,52 @@ export function AnalyticsBody() {
   }, [fetchAnalytics]);
 
   // ==========================================================================
-  // DOWNLOAD CSV: NORMAL HIRING
+  // EXCEL DOWNLOAD: NORMAL HIRING
   // ==========================================================================
-  const downloadNormalReport = () => {
+  const downloadNormalExcel = () => {
     if (!data || !data.history) return;
     const normalApps = data.history.filter((r: any) => !r.event_id);
     
     if (normalApps.length === 0) return toast.error("No Normal Hiring data available yet.");
 
-    let csvContent = "Date,Candidate Name,Job Title,Current Status\n";
-    normalApps.forEach((row: any) => {
-      const date = new Date(row.date).toLocaleDateString("en-IN");
-      const name = `"${row.candidate_name}"`; 
-      const job = `"${row.job_title}"`;
-      csvContent += `${date},${name},${job},${row.action_type}\n`;
-    });
+    const worksheetData = normalApps.map((row: any) => ({
+      "Date": new Date(row.date).toLocaleDateString("en-IN"),
+      "Candidate Name": row.candidate_name,
+      "Job Title": row.job_title,
+      "Current Status": row.action_type
+    }));
 
-    triggerDownload(csvContent, `Normal_Hiring_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Normal Hiring");
+    
+    XLSX.writeFile(workbook, `Normal_Hiring_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success("Normal Hiring Excel report downloaded successfully!");
   };
 
   // ==========================================================================
-  // DOWNLOAD CSV: EVENT HIRING
+  // EXCEL DOWNLOAD: EVENT HIRING
   // ==========================================================================
-  const downloadEventReport = () => {
+  const downloadEventExcel = () => {
     if (!data || !data.history) return;
     const eventApps = data.history.filter((r: any) => r.event_id);
     
     if (eventApps.length === 0) return toast.error("No Event Hiring data available yet.");
 
-    let csvContent = "Date,Candidate Name,Event Name,Job Title,Current Status\n";
-    eventApps.forEach((row: any) => {
-      const date = new Date(row.date).toLocaleDateString("en-IN");
-      const name = `"${row.candidate_name}"`; 
-      const eventName = `"${row.event_name}"`;
-      const job = `"${row.job_title}"`;
-      csvContent += `${date},${name},${eventName},${job},${row.action_type}\n`;
-    });
+    const worksheetData = eventApps.map((row: any) => ({
+      "Date": new Date(row.date).toLocaleDateString("en-IN"),
+      "Candidate Name": row.candidate_name,
+      "Event Name": row.event_name || "Job Fair",
+      "Job Title": row.job_title,
+      "Current Status": row.action_type
+    }));
 
-    triggerDownload(csvContent, `Event_Hiring_Report_${new Date().toISOString().split('T')[0]}.csv`);
-  };
-
-  const triggerDownload = (csvContent: string, fileName: string) => {
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`${fileName} downloaded successfully!`);
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Event Hiring");
+    
+    XLSX.writeFile(workbook, `Event_Hiring_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success("Event Hiring Excel report downloaded successfully!");
   };
 
   if (isLoading) {
@@ -115,19 +112,19 @@ export function AnalyticsBody() {
         description="Performance across events, sources, and time."
         action={
           <div className="flex items-center gap-2 flex-wrap">
-            <Button onClick={downloadNormalReport} variant="outline" className="border-navy text-navy hover:bg-navy/5">
+            <Button onClick={downloadNormalExcel} variant="outline" className="border-navy text-navy hover:bg-navy/5">
               <Download className="h-4 w-4 mr-2" />
-              Normal Hiring CSV
+              Normal Hiring Excel
             </Button>
-            <Button onClick={downloadEventReport} className="bg-navy text-white hover:bg-navy/90">
+            <Button onClick={downloadEventExcel} className="bg-navy text-white hover:bg-navy/90">
               <Calendar className="h-4 w-4 mr-2" />
-              Event Hiring CSV
+              Event Hiring Excel
             </Button>
           </div>
         }
       />
 
-      {/* KPI CARDS (Real DB Data) */}
+      {/* KPI CARDS */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="p-5 border-border/60">
           <div className="flex justify-between items-start mb-2">
@@ -168,22 +165,18 @@ export function AnalyticsBody() {
           <h3 className="font-display font-bold text-navy text-lg mb-6">Applications vs Hires</h3>
           <div className="relative flex-1 min-h-[200px] flex items-end justify-between px-2 pb-6 border-b border-dashed border-border">
             
-            {/* Dynamic Y-Axis Based on data scale */}
             <div className="absolute left-0 top-0 bottom-6 w-full flex flex-col justify-between pointer-events-none text-[10px] text-muted-foreground">
               <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-border/50 before:mr-2">{Math.max(10, data.kpis.talentPool)}</span>
               <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-border/50 before:mr-2">{Math.max(5, Math.floor(data.kpis.talentPool / 2))}</span>
               <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-border/50 before:mr-2">0</span>
             </div>
 
-            {/* Bars */}
             {data.monthlyData.map((d: any) => {
-              const maxScale = Math.max(10, data.kpis.talentPool); // Avoid division by zero
+              const maxScale = Math.max(10, data.kpis.talentPool);
               return (
                 <div key={d.month} className="relative z-10 flex flex-col items-center group w-12 gap-1">
                   <div className="w-full flex items-end justify-center gap-1.5 h-[160px]">
-                    {/* Orange App Bar */}
                     <div className="w-4 bg-saffron rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${(d.apps / maxScale) * 100}%` }}></div>
-                    {/* Green Hire Bar */}
                     <div className="w-4 bg-india-green rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${(d.hires / maxScale) * 100}%` }}></div>
                   </div>
                   <span className="absolute -bottom-6 text-xs font-medium text-muted-foreground">{d.month}</span>
