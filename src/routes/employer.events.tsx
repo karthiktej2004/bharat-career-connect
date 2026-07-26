@@ -5,7 +5,7 @@ import { employerNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, MapPin, Users, Building2, CheckCircle2, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { CalendarDays, MapPin, Users, CheckCircle2, Clock, AlertCircle, Loader2, Plus } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
 
@@ -35,20 +35,14 @@ export function EmployerEventsBody() {
     if (!userId) return;
     setIsLoading(true);
     try {
-      // 1. Fetch all upcoming/live events
       const eventsRes = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events");
       const eventsJson = await eventsRes.json();
 
-      // 2. Fetch current employer's stall applications
       const appsRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${userId}/event-stalls`);
       const appsJson = await appsRes.json();
 
-      if (eventsJson.success) {
-        setEvents(eventsJson.data);
-      }
-      if (appsJson.success) {
-        setMyApplications(appsJson.data);
-      }
+      if (eventsJson.success) setEvents(eventsJson.data);
+      if (appsJson.success) setMyApplications(appsJson.data);
     } catch (err) {
       console.error("Error fetching job fair events:", err);
       toast.error("Failed to load job fair events.");
@@ -99,7 +93,7 @@ export function EmployerEventsBody() {
         <div className="grid md:grid-cols-2 gap-6 mt-6">
           {events.map((evt) => {
             const userApp = myApplications.find(a => a.eventId === evt.id);
-            const status = userApp ? userApp.status : null; // 'pending', 'approved', 'rejected'
+            const status = userApp ? userApp.status : null; 
 
             return (
               <Card key={evt.id} className="p-6 border-border/60 flex flex-col justify-between shadow-sm relative overflow-hidden">
@@ -144,7 +138,7 @@ export function EmployerEventsBody() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-border/40 flex items-center justify-between">
+                <div className="pt-4 border-t border-border/40 flex items-center justify-between flex-wrap gap-2">
                   <span className="text-xs text-muted-foreground font-medium">
                     Stall Fee: <strong className="text-navy">₹{evt.stall_price || 0}</strong>
                   </span>
@@ -159,9 +153,11 @@ export function EmployerEventsBody() {
                       Apply for Stall
                     </Button>
                   ) : status === 'approved' ? (
-                    <Button variant="outline" className="border-india-green text-india-green hover:bg-india-green/10">
-                      View Event Workspace
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button onClick={() => window.location.href = `/employer/jobs?eventId=${evt.id}`} className="bg-saffron text-navy hover:bg-saffron/90 font-semibold gap-1">
+                        <Plus className="h-4 w-4" /> Post Job for this Event
+                      </Button>
+                    </div>
                   ) : (
                     <Button variant="outline" disabled>
                       Application Under Review
