@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, CalendarDays, MapPin, IndianRupee, Link as LinkIcon, PauseCircle, Trash2, Edit, Download, AlertTriangle, Loader2, PlayCircle } from "lucide-react";
+import { Plus, MoreVertical, CalendarDays, MapPin, IndianRupee, Link as LinkIcon, PauseCircle, Trash2, Edit, Download, AlertTriangle, Loader2, PlayCircle, Briefcase } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -25,9 +25,10 @@ function Events() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   
-  // Edit, Refund & Delete State
+  // Edit, Refund, Delete & Jobs State
   const [editingEvent, setEditingEvent] = useState<any | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<any | null>(null);
+  const [jobsEvent, setJobsEvent] = useState<any | null>(null); // NEW: State for viewing event jobs
   const [hasDownloadedRefunds, setHasDownloadedRefunds] = useState(false);
 
   const fetchEvents = async () => {
@@ -133,6 +134,12 @@ function Events() {
                         <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        
+                        {/* NEW: View Jobs Option */}
+                        <DropdownMenuItem onClick={() => setJobsEvent(e)}>
+                          <Briefcase className="h-4 w-4 mr-2 text-blue-600"/> View Jobs
+                        </DropdownMenuItem>
+
                         <DropdownMenuItem onClick={() => setEditingEvent(e)}>
                           <Edit className="h-4 w-4 mr-2"/> Edit
                         </DropdownMenuItem>
@@ -165,6 +172,11 @@ function Events() {
         <EditEventDialog event={editingEvent} onClose={() => setEditingEvent(null)} refreshEvents={fetchEvents} />
       )}
 
+      {/* NEW: View Jobs Modal */}
+      {jobsEvent && (
+        <EventJobsDialog event={jobsEvent} onClose={() => setJobsEvent(null)} />
+      )}
+
       {/* --- REFUND & DELETE MODAL --- */}
       <Dialog open={!!deleteEvent} onOpenChange={(isOpen) => { if (!isOpen) { setDeleteEvent(null); setHasDownloadedRefunds(false); } }}>
         <DialogContent>
@@ -195,6 +207,110 @@ function Events() {
         </DialogContent>
       </Dialog>
     </DashShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                            NEW: EVENT JOBS DIALOG                          */
+/* -------------------------------------------------------------------------- */
+function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }) {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [event.id]);
+
+  const fetchJobs = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${event.id}/jobs`);
+      const json = await res.json();
+      if (json.success) setJobs(json.data);
+    } catch (error) {
+      toast.error("Failed to fetch jobs");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeactivate = async (jobId: number) => {
+    if (!confirm("Are you sure you want to deactivate this job posting?")) return;
+    try {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${jobId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "inactive" }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Job deactivated successfully");
+        setJobs(jobs.map(j => j.id === jobId ? { ...j, approvalStatus: "inactive" } : j));
+      } else {
+        toast.error(json.message || "Failed to deactivate job");
+      }
+    } catch (error) {
+      toast.error("Network error");
+    }
+  };
+
+  return (
+    <Dialog open={true} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-blue-600" /> 
+            Job Postings for {event.name}
+          </DialogTitle>
+          <DialogDescription>
+            Monitor and moderate jobs posted by employers specifically for this event.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mt-4 border rounded-md">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead>Job Title</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-6"><Loader2 className="h-5 w-5 animate-spin mx-auto text-navy"/></TableCell></TableRow>
+              ) : jobs.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">No jobs posted for this event yet.</TableCell></TableRow>
+              ) : (
+                jobs.map(job => (
+                  <TableRow key={job.id}>
+                    <TableCell className="font-medium text-navy">{job.title}</TableCell>
+                    <TableCell>{job.company}</TableCell>
+                    <TableCell>{job.type}</TableCell>
+                    <TableCell>
+                      <Badge variant={job.approvalStatus === 'inactive' ? 'destructive' : 'default'} className={job.approvalStatus !== 'inactive' ? 'bg-india-green text-white' : ''}>
+                        {job.approvalStatus.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {job.approvalStatus !== 'inactive' ? (
+                        <Button size="sm" variant="destructive" onClick={() => handleDeactivate(job.id)}>
+                          Deactivate
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic mr-2">Deactivated</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
