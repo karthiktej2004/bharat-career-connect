@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Briefcase, MapPin, Search, Sparkles, Loader2, CheckCircle2, FileText, Check } from "lucide-react";
+import { Briefcase, MapPin, Search, Sparkles, Loader2, CheckCircle2, FileText, Check, Bookmark } from "lucide-react";
 import { getCompanyLogo, getJobImage, getSession } from "@/lib/mockStore";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -232,6 +232,9 @@ function Jobs() {
   const [applying, setApplying] = useState<any | null>(null);
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [savingId, setSavingId] = useState<number | null>(null);
+
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com";
 
   // FETCH JOBS SAFELY FROM POSTGRESQL BACKEND
   useEffect(() => {
@@ -241,7 +244,7 @@ function Jobs() {
       const activeId = session?.id || "guest";
 
       try {
-        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${activeId}/jobs`);
+        const res = await fetch(`${baseUrl}/api/candidate/${activeId}/jobs`);
         const json = await res.json();
 
         if (json.success && Array.isArray(json.data)) {
@@ -259,6 +262,38 @@ function Jobs() {
 
     fetchMatchedJobs();
   }, []);
+
+  // Toggle Save Job Handler (Feature 5)
+  const handleToggleSave = async (jobId: number) => {
+    const session = getSession();
+    if (!session?.id) {
+      toast.error("Please log in to save jobs.");
+      return;
+    }
+
+    setSavingId(jobId);
+    try {
+      const res = await fetch(`${baseUrl}/api/candidate/saved-jobs/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidateId: session.id, jobId }),
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        toast.success(json.message);
+        setJobs((prev) =>
+          prev.map((j) => (j.id === jobId ? { ...j, isSaved: json.saved } : j))
+        );
+      } else {
+        toast.error(json.message || "Failed to update saved job.");
+      }
+    } catch (err) {
+      toast.error("Network error updating saved job.");
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const filtered = useMemo(() => jobs.filter((j) => {
     if (type !== "all" && j.type !== type) return false;
@@ -334,12 +369,31 @@ function Jobs() {
                     </p>
                   </div>
 
-                  <div className="text-right shrink-0">
-                    <div className="size-16 rounded-full bg-gradient-to-br from-india-green/10 to-saffron/10 border border-india-green/20 flex flex-col items-center justify-center mx-auto md:ml-auto">
-                      <Sparkles className="h-3 w-3 text-india-green mb-0.5" />
-                      <p className="font-display font-bold text-navy text-sm">{j.matchScore}%</p>
+                  <div className="text-right shrink-0 flex flex-col items-end">
+                    <div className="flex items-center gap-2 mb-2">
+                      {/* Feature 5: Bookmark / Save Job Button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`size-9 rounded-full border border-border/60 hover:bg-saffron/10 ${j.isSaved ? "text-saffron bg-saffron/5" : "text-muted-foreground"}`}
+                        title={j.isSaved ? "Saved Job" : "Save Job"}
+                        disabled={savingId === j.id}
+                        onClick={() => handleToggleSave(j.id)}
+                      >
+                        {savingId === j.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Bookmark className={`h-4 w-4 ${j.isSaved ? "fill-saffron text-saffron" : ""}`} />
+                        )}
+                      </Button>
+                      
+                      <div className="size-14 rounded-full bg-gradient-to-br from-india-green/10 to-saffron/10 border border-india-green/20 flex flex-col items-center justify-center">
+                        <Sparkles className="h-2.5 w-2.5 text-india-green mb-0.5" />
+                        <p className="font-display font-bold text-navy text-xs">{j.matchScore}%</p>
+                      </div>
                     </div>
-                    <Button size="sm" className="mt-3 bg-navy text-white hover:bg-navy/90 w-full" onClick={() => setApplying(j)}>Apply</Button>
+
+                    <Button size="sm" className="mt-1 bg-navy text-white hover:bg-navy/90 w-full" onClick={() => setApplying(j)}>Apply</Button>
                   </div>
                 </div>
               </div>
