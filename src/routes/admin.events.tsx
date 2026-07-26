@@ -226,7 +226,8 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
     try {
       const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${event.id}/jobs`);
       const json = await res.json();
-      if (json.success) setJobs(json.data);
+      // Adjusting to map to your state structure
+      if (json.success) setJobs(json.data || json.jobs);
     } catch (error) {
       toast.error("Failed to fetch jobs");
     } finally {
@@ -234,20 +235,30 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
     }
   };
 
-  const handleDeactivate = async (jobId: number) => {
-    if (!confirm("Are you sure you want to deactivate this job posting?")) return;
+  const toggleJobStatus = async (jobId: number, currentStatus: string) => {
+    // Determine the next status based on the current one
+    const nextStatus = currentStatus === 'approved' ? 'inactive' : 'approved';
+    const confirmMessage = nextStatus === 'inactive' 
+      ? "Are you sure you want to deactivate this job posting?" 
+      : "Are you sure you want to re-activate this job posting?";
+
+    if (!confirm(confirmMessage)) return;
+
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${jobId}/status`, {
-        method: "PATCH",
+      // Note: Make sure this endpoint matches your Node.js backend route
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${jobId}/deactivate`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "inactive" }),
+        body: JSON.stringify({ status: nextStatus }),
       });
       const json = await res.json();
+      
       if (json.success) {
-        toast.success("Job deactivated successfully");
-        setJobs(jobs.map(j => j.id === jobId ? { ...j, approvalStatus: "inactive" } : j));
+        toast.success(`Job successfully marked as ${nextStatus}`);
+        // Update local state to reflect the change immediately
+        setJobs(jobs.map(j => j.id === jobId ? { ...j, status: nextStatus, approvalStatus: nextStatus } : j));
       } else {
-        toast.error(json.message || "Failed to deactivate job");
+        toast.error(json.message || json.error || "Failed to update job status");
       }
     } catch (error) {
       toast.error("Network error");
@@ -284,27 +295,37 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
               ) : jobs.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">No jobs posted for this event yet.</TableCell></TableRow>
               ) : (
-                jobs.map(job => (
-                  <TableRow key={job.id}>
-                    <TableCell className="font-medium text-navy">{job.title}</TableCell>
-                    <TableCell>{job.company}</TableCell>
-                    <TableCell>{job.type}</TableCell>
-                    <TableCell>
-                      <Badge variant={job.approvalStatus === 'inactive' ? 'destructive' : 'default'} className={job.approvalStatus !== 'inactive' ? 'bg-india-green text-white' : ''}>
-                        {job.approvalStatus.toUpperCase()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {job.approvalStatus !== 'inactive' ? (
-                        <Button size="sm" variant="destructive" onClick={() => handleDeactivate(job.id)}>
-                          Deactivate
+                jobs.map(job => {
+                  // Fallback for status field depending on your DB column name (status vs approvalStatus)
+                  const currentStatus = job.status || job.approvalStatus || 'approved';
+                  const isApproved = currentStatus === 'approved';
+
+                  return (
+                    <TableRow key={job.id}>
+                      <TableCell className="font-medium text-navy">{job.title}</TableCell>
+                      <TableCell>{job.company || job.company_name}</TableCell>
+                      <TableCell>{job.type || job.qualification}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={!isApproved ? 'destructive' : 'default'} 
+                          className={isApproved ? 'bg-india-green text-white' : ''}
+                        >
+                          {currentStatus.toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          size="sm" 
+                          variant={isApproved ? "destructive" : "outline"}
+                          className={!isApproved ? "border-green-600 text-green-600 hover:bg-green-50" : ""}
+                          onClick={() => toggleJobStatus(job.id, currentStatus)}
+                        >
+                          {isApproved ? 'Deactivate' : 'Re-Activate'}
                         </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic mr-2">Deactivated</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
