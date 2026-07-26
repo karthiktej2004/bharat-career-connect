@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { setSession, INDIAN_STATES, type CandidateProfile } from "@/lib/mockStore";
+import { setSession, NSQF_SKILLS, INDIAN_LANGUAGES, INDIAN_STATES, type CandidateProfile } from "@/lib/mockStore";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Upload, ShieldCheck, Sparkles, GraduationCap, Briefcase, FileText, Target, User as UserIcon, X, Eye, EyeOff, Loader2 } from "lucide-react";
 
@@ -23,6 +23,7 @@ type Data = Partial<CandidateProfile> & {
   mla?: string; mp?: string; gramPanchayat?: string; 
   institutionOther?: string; course?: string; courseOther?: string; 
   specializationOther?: string; schoolName?: string; stateBoardName?: string;
+  certifications?: Array<{ title: string; fileName: string }>;
 };
 
 const STEPS = [
@@ -31,14 +32,36 @@ const STEPS = [
   { key: "education", label: "Education", icon: GraduationCap },
   { key: "skills", label: "Skills", icon: Sparkles },
   { key: "experience", label: "Experience", icon: Briefcase },
-  { key: "resume", label: "Resume", icon: FileText },
+  { key: "resume", label: "Resume & Certs", icon: FileText },
   { key: "preferences", label: "Preferences", icon: Target },
   { key: "review", label: "Review", icon: Check },
 ] as const;
 
-const HIGHEST_QUALS = ["Below 10th / SSLC", "10th std / SSLC", "ITI", "12th std / 2nd PUC", "Diploma", "UG Degree", "PG Degree", "BE/B-Tech", "ME/M-Tech", "PHD", "Others"];
-const GENDERS = ["Male", "Female", "Other", "Prefer not to say"];
-const CATEGORIES = ["General Merit (GM)", "OBC", "SC", "ST", "Other"];
+const HIGHEST_QUALS = ["Below 10th / SSLC", "10th std / SSLC", "ITI", "TATA Udyog", "12th std / 2nd PUC", "Diploma", "UG Degree", "PG Degree", "BE/B-Tech", "ME/M-Tech", "PHD", "Short Term Training (STT)", "Others"];
+const BOARDS = ["State Board", "CBSE", "ICSE / CISCE", "Other"];
+const STATE_BOARDS_LIST = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"];
+const ITI_TRADES = ["Carpenter", "Computer Operator", "Computer Operator & Programming Assistant (COPA)", "Consumer Electronics Servicing", "Electrician", "Electronics Mechanic", "Fitter", "Machinist", "Mechanic", "Plumber", "Welder", "Wireman"];
+const TATA_COURSES = ["Advanced CNC Machining Technician", "Artisan Using Advanced Tool", "Basic Designer and Virtual Verifier (Mechanical)", "Industrial Robotics & Digital Manufacturing Technician", "Mechanic Electric Vehicle"];
+const DIPLOMA_STREAMS = ["Civil", "Computer Science Engineering", "Electrical Engineering", "Electronics and Communication Engineering", "Fashion Designing", "Mechanical", "Mechatronics Engineering", "Pharmacy"];
+
+const UG_MAPPING: Record<string, string[]> = {
+  "BA": ["Economics", "English Literature", "History", "Journalism", "Political Science", "Psychology", "Sociology"],
+  "Bachelor of Science (BSc)": ["Biotechnology", "Botany", "Chemistry", "Computer Science", "Mathematics", "Physics", "Zoology"],
+  "Bachelor of Commerce (BCom)": ["Accounting", "Banking and Finance", "Business Administration", "Economics", "Taxation"],
+  "Bachelor of Computer Applications (BCA)": ["Software Development", "Database Management", "Networking", "Web Development", "AI / Machine Learning", "Data Science"]
+};
+const UG_COURSES = Object.keys(UG_MAPPING);
+
+const PG_MAPPING: Record<string, string[]> = {
+  "MA": ["Economics", "English Literature", "History", "Political Science", "Psychology"],
+  "MSc": ["Physics", "Chemistry", "Mathematics", "Computer Science / IT", "Biotechnology"],
+  "MBA": ["Finance", "Marketing", "Human Resource Management", "Operations Management", "Business Analytics"]
+};
+const PG_COURSES = Object.keys(PG_MAPPING);
+
+const BE_ME_COURSES = ["Computer Science", "Information Technology", "Electronics & Communication", "Electrical", "Mechanical", "Civil", "Artificial Intelligence & ML"];
+const UNIVERSITIES = ["IIT (Any)", "NIT (Any)", "IIIT (Any)", "IISc Bengaluru", "BITS Pilani", "Delhi University", "Anna University", "VTU", "Bangalore University", "Mysore University", "Other"];
+const GENERIC_SPECIALIZATIONS = ["Artificial Intelligence & Machine Learning", "Data Science", "Cyber Security", "Finance", "Marketing", "Human Resources", "Accounting", "Economics"];
 
 function SignupPage() {
   const navigate = useNavigate();
@@ -51,7 +74,11 @@ function SignupPage() {
   const [done, setDone] = useState<CandidateProfile | null>(null);
   const [pinLookup, setPinLookup] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [skillSearch, setSkillSearch] = useState("");
+  const [scoreType, setScoreType] = useState<"percentage" | "cgpa">("percentage");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Feature 1: Minimum Age Limit (15+ Years)
+  const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
 
   useEffect(() => {
     const pin = (data.pincode || "").trim();
@@ -67,7 +94,8 @@ function SignupPage() {
         const offices = rec?.PostOffice as Array<{ State: string; District: string; Block: string; Name: string }> | null;
         if (rec?.Status === "Success" && offices && offices.length) {
           const o = offices[0];
-          setData((d) => ({ ...d, state: INDIAN_STATES.includes(o.State) ? o.State : d.state || o.State, district: o.District, taluk: o.Block && o.Block !== "NA" ? o.Block : o.Name }));
+          let mappedMla = "Yelahanka"; let mappedMp = "Chikkaballapur"; let mappedGp = "Rajanukunte";
+          setData((d) => ({ ...d, state: INDIAN_STATES.includes(o.State) ? o.State : d.state || o.State, district: o.District, taluk: o.Block && o.Block !== "NA" ? o.Block : o.Name, mla: mappedMla, mp: mappedMp, gramPanchayat: mappedGp }));
           setPinLookup("ok");
         } else { setPinLookup("error"); }
       }).catch(() => { if (!cancelled) setPinLookup("error"); });
@@ -75,11 +103,11 @@ function SignupPage() {
   }, [data.pincode]);
 
   const set = <K extends keyof Data>(k: K, v: Data[K]) => setData((d) => ({ ...d, [k]: v }));
-  const toggleArr = (k: "skills" | "certifications" | "languagesFluent" | "preferredRoles" | "preferredLocations", v: string) => { setData((d) => { const arr = (d[k] as string[]) || []; return { ...d, [k]: arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v] }; }); };
+  const toggleArr = (k: "skills" | "certifications" | "languagesFluent" | "preferredRoles" | "preferredLocations", v: string) => { setData((d) => { const arr = (d[k] as any[]) || []; return { ...d, [k]: arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v] }; }); };
 
   const canNext = useMemo(() => {
     switch (STEPS[step].key) {
-      case "basic": return !!(data.fullName && data.email && data.phone && password.length >= 6);
+      case "basic": return !!(data.fullName && data.email && data.phone && password.length >= 6 && data.dob);
       case "verify": return !!data.otpVerified;
       case "education": return !!(data.qualification && data.yearOfPassing);
       case "skills": return (data.skills?.length || 0) >= 1;
@@ -107,32 +135,63 @@ function SignupPage() {
     const finalSpecialization = data.specialization === "__other__" ? d.specializationOther : data.specialization;
 
     const payload = {
-      fullName: data.fullName || "", email: data.email || "", phone: data.phone || "", password: password, 
-      dob: data.dob || null, gender: data.gender, language: data.language, category: data.category,
-      state: data.state, district: data.district, taluk: data.taluk, pincode: data.pincode,
-      mla: data.mla, mp: data.mp, gramPanchayat: data.gramPanchayat,
-      qualification: data.qualification, institution: finalInstitution, schoolName: data.schoolName,
-      course: finalCourse, specialization: finalSpecialization, yearOfPassing: data.yearOfPassing, percentage: data.percentage, languagesFluent: data.languagesFluent,
-      skills: data.skills, experienceType: data.experienceType, yearsOfExperience: data.yearsOfExperience, employmentStatus: data.employmentStatus,
-      currentRole: data.currentRole, currentCompany: data.currentCompany, resumeFileName: data.resumeFileName,
-      preferredRoles: data.preferredRoles, preferredLocations: data.preferredLocations, preferredJobType: data.preferredJobType, expectedSalary: data.expectedSalary, willingToRelocate: data.willingToRelocate
+      fullName: data.fullName || "", 
+      email: data.email || "", 
+      phone: data.phone || "", 
+      password: password, 
+      dob: data.dob || null, 
+      gender: data.gender || "Other", 
+      language: data.language || "English", 
+      category: data.category || "General Merit (GM)",
+      state: data.state || "", 
+      district: data.district || "", 
+      taluk: data.taluk || "", 
+      pincode: data.pincode || "",
+      mla: data.mla || "", 
+      mp: data.mp || "", 
+      gramPanchayat: data.gramPanchayat || "",
+      qualification: data.qualification || "", 
+      institution: finalInstitution || "", 
+      schoolName: data.schoolName || "",
+      course: finalCourse || "", 
+      specialization: finalSpecialization || "", 
+      yearOfPassing: data.yearOfPassing || "", 
+      percentage: data.percentage || "", 
+      languagesFluent: data.languagesFluent || [],
+      skills: data.skills || [], 
+      experienceType: data.experienceType || "Fresher", 
+      yearsOfExperience: data.yearsOfExperience || "", 
+      employmentStatus: data.employmentStatus || "",
+      currentRole: data.currentRole || "", 
+      currentCompany: data.currentCompany || "", 
+      resumeFileName: data.resumeFileName || "",
+      certifications: data.certifications || [],
+      preferredRoles: data.preferredRoles || [], 
+      preferredLocations: data.preferredLocations || [], 
+      preferredJobType: data.preferredJobType || "Full-time", 
+      expectedSalary: data.expectedSalary || "", 
+      willingToRelocate: data.willingToRelocate || false
     };
 
     try {
       const res = await fetch("https://bcc-backend-0cny.onrender.com/api/auth/candidate/register", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(payload)
       });
       
       const json = await res.json();
+
       if (json.success) {
         setSession({ id: json.uniqueId, name: payload.fullName, email: payload.email, role: "candidate" });
         setDone({ uniqueId: json.uniqueId } as CandidateProfile);
-        toast.success("Account securely created!");
+        toast.success("Account securely created in Database!");
       } else {
         toast.error(json.message || "Registration failed");
       }
     } catch (err) {
-      toast.error("Fetch failed. Please check server status.");
+      console.error("Database connection failed:", err);
+      toast.error("Connection failed. Check backend deployment status.");
     } finally {
       setIsSubmitting(false);
     }
@@ -152,16 +211,23 @@ function SignupPage() {
           <div className="mt-8">
             <div className="flex items-center justify-between mb-2"><span className="text-xs font-bold text-navy">Step {step + 1} of {STEPS.length} — {STEPS[step].label}</span><span className="text-xs font-bold text-india-green">{completion}% profile</span></div>
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-india-green transition-all duration-500" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div>
+            <div className="hidden md:flex mt-4 gap-2 overflow-x-auto pb-2">
+              {STEPS.map((s, i) => {
+                const Icon = s.icon; const active = i === step, isDone = i < step;
+                return (
+                  <button key={s.key} onClick={() => i < step && setStep(i)} className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 border transition ${active ? "bg-navy text-white border-navy" : isDone ? "bg-white text-navy border-border hover:bg-slate-50" : "bg-transparent text-muted-foreground border-transparent opacity-50"}`}><Icon className="h-3.5 w-3.5" /> {s.label}</button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="mt-6 min-h-[350px]">
             {/* STEP 1: BASIC INFO */}
             {STEPS[step].key === "basic" && (
-              <div className="grid md:grid-cols-2 gap-5 animate-in fade-in">
+              <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div className="md:col-span-2"><Label>Full Name *</Label><Input value={data.fullName || ""} onChange={(e) => set("fullName", e.target.value)} className="mt-1" placeholder="As per official documents" /></div>
                 <div><Label>Email *</Label><Input type="email" value={data.email || ""} onChange={(e) => set("email", e.target.value)} className="mt-1" /></div>
                 <div><Label>Phone *</Label><Input value={data.phone || ""} onChange={(e) => set("phone", e.target.value)} className="mt-1" placeholder="+91 98xxxxxxxx" /></div>
-                
                 <div>
                   <Label>Password *</Label>
                   <div className="relative mt-1">
@@ -170,26 +236,31 @@ function SignupPage() {
                   </div>
                 </div>
                 
-                <div><Label>Date of Birth</Label><Input type="date" value={data.dob || ""} onChange={(e) => set("dob", e.target.value)} className="mt-1" /></div>
+                {/* Age 15+ restricted picker */}
+                <div>
+                  <Label>Date of Birth (15+ Years) *</Label>
+                  <Input 
+                    type="date" 
+                    max={maxDate} 
+                    value={data.dob || ""} 
+                    onChange={(e) => set("dob", e.target.value)} 
+                    className="mt-1" 
+                  />
+                </div>
+
+                <div><Label>Gender</Label><Select value={data.gender || ""} onValueChange={(v) => set("gender", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select></div>
+                <div><Label>Preferred Language</Label><Select value={data.language || "English"} onValueChange={(v) => set("language", v)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{INDIAN_LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent></Select></div>
+                <div className="md:col-span-2"><Label>Category</Label><Select value={data.category || ""} onValueChange={(v) => set("category", v as CandidateProfile["category"])}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["General Merit (GM)","SC","ST","OBC","EWS","PwD"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
                 
-                <div>
-                  <Label>Gender</Label>
-                  <Select value={data.gender || ""} onValueChange={(v) => set("gender", v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{GENDERS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                  </Select>
+                <div className="md:col-span-2 p-5 bg-slate-50 border border-border rounded-xl mt-2 space-y-4">
+                  <div className="font-display font-bold text-navy flex items-center gap-2">Geographic Location {pinLookup === "loading" && <Loader2 className="h-4 w-4 animate-spin text-saffron" />}</div>
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-3"><Label>PIN Code</Label><Input value={data.pincode || ""} onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 font-mono max-w-[200px]" placeholder="560064" maxLength={6} />{pinLookup === "ok" && <p className="text-xs text-india-green mt-1 font-medium">Details auto-filled</p>}{pinLookup === "error" && <p className="text-xs text-destructive mt-1">Invalid PIN code</p>}</div>
+                    <div><Label>State</Label><Input disabled value={data.state || ""} className="mt-1 bg-white" /></div>
+                    <div><Label>District</Label><Input disabled value={data.district || ""} className="mt-1 bg-white" /></div>
+                    <div><Label>Taluk</Label><Input disabled value={data.taluk || ""} className="mt-1 bg-white" /></div>
+                  </div>
                 </div>
-
-                <div>
-                  <Label>Category</Label>
-                  <Select value={data.category || ""} onValueChange={(v) => set("category", v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-
-                <div><Label>PIN Code</Label><Input value={data.pincode || ""} onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 font-mono" placeholder="560064" maxLength={6} /></div>
-                <div><Label>District</Label><Input disabled value={data.district || ""} className="mt-1 bg-white" placeholder="Auto-filled by PIN" /></div>
               </div>
             )}
 
@@ -198,118 +269,193 @@ function SignupPage() {
               <div className="max-w-md mx-auto text-center py-6 animate-in fade-in">
                 <div className="mx-auto size-14 rounded-full bg-saffron/15 flex items-center justify-center mb-4"><ShieldCheck className="h-7 w-7 text-saffron" /></div>
                 <h3 className="font-display text-lg font-bold text-navy">Verify your phone</h3>
-                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3"><Input value={otpInput} onChange={(e) => setOtpInput(e.target.value)} placeholder="Enter 6-digit OTP" className="text-center tracking-widest" maxLength={6} /><div className="flex gap-2 justify-center"><Button onClick={verifyOtp} className="bg-india-green text-white">Verify</Button></div></div>)}
+                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3"><Input value={otpInput} onChange={(e) => setOtpInput(e.target.value)} placeholder="Enter 6-digit OTP" className="text-center tracking-widest" maxLength={6} /><div className="flex gap-2 justify-center"><Button onClick={verifyOtp} className="bg-india-green text-white">Verify</Button><Button variant="outline" onClick={sendOtp}>Resend</Button></div></div>)}
               </div>
             )}
 
-            {/* STEP 3: EDUCATION */}
-            {STEPS[step].key === "education" && (
-              <div className="grid md:grid-cols-2 gap-5 animate-in fade-in">
-                <div>
-                  <Label>Highest Qualification *</Label>
-                  <Select value={data.qualification || ""} onValueChange={(v) => set("qualification", v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{HIGHEST_QUALS.map((qq) => <SelectItem key={qq} value={qq}>{qq}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Year of Passing *</Label>
-                  <Input type="number" value={data.yearOfPassing || ""} onChange={(e) => set("yearOfPassing", e.target.value)} className="mt-1" placeholder="e.g. 2024" />
-                </div>
-                <div>
-                  <Label>Institution / College Name</Label>
-                  <Input value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} className="mt-1" placeholder="University / College" />
-                </div>
-                <div>
-                  <Label>Percentage / CGPA</Label>
-                  <Input type="number" step="0.1" value={data.percentage || ""} onChange={(e) => set("percentage", e.target.value)} className="mt-1" placeholder="e.g. 85.5 or 8.5" />
-                </div>
-                <div className="md:col-span-2 grid md:grid-cols-2 gap-5">
+            {/* STEP 3: EDUCATION & MARKS TOGGLE */}
+            {STEPS[step].key === "education" && (() => {
+              const q = data.qualification || "";
+              const isSchool = ["Below 10th / SSLC", "10th std / SSLC", "12th std / 2nd PUC"].includes(q);
+              const isIti = q === "ITI"; const isTata = q === "TATA Udyog"; const isDiploma = q === "Diploma";
+              const isUg = q === "UG Degree"; const isPg = q === "PG Degree";
+              const isHigher = isUg || isPg || q === "BE/B-Tech" || q === "ME/M-Tech" || q === "PHD";
+              
+              const dynamicUgSpecializations = isUg && data.course && UG_MAPPING[data.course] ? UG_MAPPING[data.course] : GENERIC_SPECIALIZATIONS;
+              const dynamicPgSpecializations = isPg && data.course && PG_MAPPING[data.course] ? PG_MAPPING[data.course] : GENERIC_SPECIALIZATIONS;
+              const currentSpecializations = isUg ? dynamicUgSpecializations : isPg ? dynamicPgSpecializations : GENERIC_SPECIALIZATIONS;
+
+              return (
+                <div className="grid md:grid-cols-2 gap-5 animate-in fade-in">
+                  <div><Label>Highest Qualification *</Label><Select value={data.qualification || ""} onValueChange={(v) => { set("qualification", v); set("institution", ""); set("specialization", ""); set("course", ""); set("stateBoardName", ""); }}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{HIGHEST_QUALS.map((qq) => <SelectItem key={qq} value={qq}>{qq}</SelectItem>)}</SelectContent></Select></div>
+                  <div><Label>Year of Passing *</Label><Input value={data.yearOfPassing || ""} onChange={(e) => set("yearOfPassing", e.target.value)} className="mt-1" /></div>
+
+                  {isSchool && (
+                    <>
+                      <div><Label>Board *</Label><Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select board" /></SelectTrigger><SelectContent>{BOARDS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
+                      {data.institution === "State Board" && (<div><Label>Select State *</Label><Select value={data.stateBoardName || ""} onValueChange={(v) => set("stateBoardName", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select state" /></SelectTrigger><SelectContent>{STATE_BOARDS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>)}
+                      <div className={data.institution === "State Board" ? "md:col-span-2" : ""}><Label>School Name *</Label><Input className="mt-1" value={data.schoolName || ""} onChange={(e) => set("schoolName", e.target.value)} /></div>
+                    </>
+                  )}
+
+                  {(isIti || isTata || isDiploma) && (
+                    <>
+                      <div className="md:col-span-2"><Label>{isIti ? "ITI Trade *" : isTata ? "TATA Udyog Course *" : "Diploma Stream *"}</Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{(isIti ? ITI_TRADES : isTata ? TATA_COURSES : DIPLOMA_STREAMS).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select></div>
+                      <div className="md:col-span-2"><Label>Institute Name *</Label><Input className="mt-1" value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} /></div>
+                    </>
+                  )}
+
+                  {isHigher && (
+                    <>
+                      <div className="md:col-span-2"><Label>College / University *</Label><Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select college" /></SelectTrigger><SelectContent>{UNIVERSITIES.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select></div>
+                      <div><Label>Course *</Label><Select value={data.course || ""} onValueChange={(v) => { set("course", v); set("specialization", ""); }}><SelectTrigger className="mt-1"><SelectValue placeholder="Select course" /></SelectTrigger><SelectContent>{(isUg ? UG_COURSES : isPg ? PG_COURSES : BE_ME_COURSES).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select></div>
+                      <div><Label>Specialization / Domain *</Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{currentSpecializations.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select></div>
+                    </>
+                  )}
+
+                  {/* Feature 2: Percentage vs CGPA Mode Toggle */}
                   <div>
-                    <Label>Course</Label>
-                    <Input value={data.course || ""} onChange={(e) => set("course", e.target.value)} className="mt-1" placeholder="e.g. B.Tech, B.Com, Science" />
+                    <Label>Mark Scoring Mode</Label>
+                    <Select value={scoreType} onValueChange={(v: any) => setScoreType(v)}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        <SelectItem value="cgpa">CGPA (Max 10.0)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input 
+                      className="mt-2"
+                      placeholder={scoreType === "percentage" ? "e.g. 85%" : "e.g. 8.5"}
+                      value={data.percentage || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (scoreType === "percentage" && Number(val) > 100) return toast.error("Percentage cannot exceed 100%");
+                        if (scoreType === "cgpa" && Number(val) > 10) return toast.error("CGPA cannot exceed 10.0");
+                        set("percentage", val);
+                      }}
+                    />
                   </div>
-                  <div>
-                    <Label>Specialization</Label>
-                    <Input value={data.specialization || ""} onChange={(e) => set("specialization", e.target.value)} className="mt-1" placeholder="e.g. Computer Science, Accounting" />
-                  </div>
+
+                  <div className="md:col-span-2 pt-2"><Label className="block mb-2">Languages you speak</Label><div className="flex flex-wrap gap-2">{INDIAN_LANGUAGES.map((l) => { const on = data.languagesFluent?.includes(l); return <Badge key={l} onClick={() => toggleArr("languagesFluent", l)} className={`cursor-pointer px-3 py-1 ${on ? "bg-india-green text-white" : "bg-slate-100 text-slate-700"}`}>{l}</Badge>; })}</div></div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* STEP 4: SKILLS */}
-            {STEPS[step].key === "skills" && (
-              <div className="animate-in fade-in">
-                <div className="flex gap-2 mb-4"><Input value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} placeholder="Search a skill (e.g. React, Tally, Welding)" /><Button onClick={() => { if(skillSearch) toggleArr("skills", skillSearch); setSkillSearch(""); }} className="bg-navy text-white">Add</Button></div>
-                <div className="flex flex-wrap gap-2">{data.skills?.map((s) => <Badge key={s} className="bg-saffron text-navy px-3 py-1">{s} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => toggleArr("skills", s)}/></Badge>)}</div>
-                
-                <div className="mt-8">
-                  <Label>Languages Known</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">{["English", "Hindi", "Kannada", "Telugu", "Tamil", "Marathi"].map((l) => <Badge key={l} onClick={() => toggleArr("languagesFluent", l)} className={`cursor-pointer ${data.languagesFluent?.includes(l) ? "bg-navy text-white" : "bg-slate-100 text-slate-700"}`}>{l}</Badge>)}</div>
+            {STEPS[step].key === "skills" && (() => {
+              const query = skillSearch.trim().toLowerCase();
+              const filtered = query ? NSQF_SKILLS.filter((s) => s.toLowerCase().includes(query)) : NSQF_SKILLS;
+              const addSkill = (s: string) => { const v = s.trim(); if (!v) return; if (!(data.skills || []).some((x) => x.toLowerCase() === v.toLowerCase())) { setData((d) => ({ ...d, skills: [...(d.skills || []), v] })); } setSkillSearch(""); };
+              return (
+                <div className="animate-in fade-in">
+                  <div className="flex gap-2 mb-4"><Input value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(skillSearch); } }} placeholder="Search a skill" /><Button onClick={() => addSkill(skillSearch)} disabled={!skillSearch.trim()} className="bg-navy text-white">Add</Button></div>
+                  {(data.skills?.length || 0) > 0 && (<div className="mb-4"><div className="text-xs font-medium text-navy mb-2">Your skills</div><div className="flex flex-wrap gap-2">{data.skills!.map((s) => <Badge key={s} className="bg-saffron text-navy px-3 py-1"><Check className="h-3 w-3 mr-1" /> {s} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => toggleArr("skills", s)}/></Badge>)}</div></div>)}
+                  <div><div className="text-xs font-medium text-muted-foreground mb-2">Suggested skills</div><div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto">{filtered.map((s) => { const on = data.skills?.includes(s); return <Badge key={s} onClick={() => on ? toggleArr("skills", s) : addSkill(s)} className={`cursor-pointer ${on ? "bg-india-green text-white" : "bg-muted text-navy"}`}>{s}</Badge>; })}</div></div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* STEP 5: EXPERIENCE */}
             {STEPS[step].key === "experience" && (
               <div className="grid md:grid-cols-2 gap-4 animate-in fade-in">
                 <div className="md:col-span-2"><Label>Experience Type</Label><div className="mt-2 flex gap-3">{(["Fresher","Experienced"] as const).map((t) => (<button key={t} onClick={() => set("experienceType", t)} className={`flex-1 p-4 rounded-lg border text-left ${data.experienceType === t ? "border-navy bg-navy/5" : "border-border"}`}><div className="font-medium text-navy">{t}</div></button>))}</div></div>
-                
-                {data.experienceType === "Experienced" && (
-                  <>
-                    <div><Label>Years of Experience</Label><Input type="number" step="0.5" value={data.yearsOfExperience || ""} onChange={(e) => set("yearsOfExperience", e.target.value)} className="mt-1" placeholder="e.g. 2.5" /></div>
-                    <div><Label>Current/Last Company</Label><Input value={data.currentCompany || ""} onChange={(e) => set("currentCompany", e.target.value)} className="mt-1" placeholder="Company Name" /></div>
-                    <div className="md:col-span-2"><Label>Current Job Role</Label><Input value={data.currentRole || ""} onChange={(e) => set("currentRole", e.target.value)} className="mt-1" placeholder="e.g. Software Engineer" /></div>
-                  </>
-                )}
+                {data.experienceType === "Experienced" && (<><div className="md:col-span-2 -mb-1 mt-2"><h4 className="font-display font-semibold text-navy text-sm">Current Employment</h4></div><div><Label>Total Years Experience *</Label><Input value={data.yearsOfExperience || ""} onChange={(e) => set("yearsOfExperience", e.target.value)} className="mt-1" /></div><div><Label>Employment Status</Label><Select value={data.employmentStatus || ""} onValueChange={(v) => set("employmentStatus", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["Currently employed","Serving notice period","Not employed"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div><div><Label>Current Job Title *</Label><Input value={data.currentRole || ""} onChange={(e) => set("currentRole", e.target.value)} className="mt-1" /></div><div><Label>Current Company *</Label><Input value={data.currentCompany || ""} onChange={(e) => set("currentCompany", e.target.value)} className="mt-1" /></div></>)}
               </div>
             )}
 
-            {/* STEP 6: RESUME */}
+            {/* STEP 6: RESUME & CERTIFICATIONS */}
             {STEPS[step].key === "resume" && (
-              <div className="text-center py-6 animate-in fade-in">
-                <label className="block border-2 border-dashed border-navy/30 rounded-xl p-8 hover:bg-navy/5 cursor-pointer"><Upload className="h-10 w-10 mx-auto text-navy" /><div className="mt-3 font-medium text-navy">{data.resumeFileName || "Upload your Resume (PDF/Word)"}</div><input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={(e) => { if(e.target.files?.[0]) set("resumeFileName", e.target.files[0].name); }} /></label>
+              <div className="py-4 animate-in fade-in space-y-6">
+                <div>
+                  <Label className="block mb-2">Resume Upload (.pdf, .doc, .docx only) *</Label>
+                  <label className="block border-2 border-dashed border-navy/30 rounded-xl p-6 text-center hover:bg-navy/5 cursor-pointer">
+                    <Upload className="h-8 w-8 mx-auto text-navy" />
+                    <div className="mt-2 font-medium text-navy">{data.resumeFileName || "Click to upload Resume"}</div>
+                    <input 
+                      type="file" 
+                      accept=".pdf,.doc,.docx" 
+                      className="hidden" 
+                      onChange={(e) => { 
+                        const f = e.target.files?.[0]; 
+                        if (f) { 
+                          const ext = f.name.split('.').pop()?.toLowerCase();
+                          if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
+                            return toast.error("Only PDF and Word files are allowed!");
+                          }
+                          set("resumeFileName", f.name); 
+                          toast.success("Resume attached"); 
+                        } 
+                      }} 
+                    />
+                  </label>
+                </div>
+
+                {/* Feature 4: Dynamic Certifications Upload Section */}
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <Label className="font-bold text-navy">Additional Certifications</Label>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const list = data.certifications || [];
+                        set("certifications", [...list, { title: "", fileName: "" }]);
+                      }}
+                    >
+                      + Add Certification
+                    </Button>
+                  </div>
+
+                  {(data.certifications || []).map((cert: any, index: number) => (
+                    <div key={index} className="p-3 bg-slate-50 border rounded-lg mt-3 space-y-2">
+                      <Input 
+                        placeholder="Certification Name (e.g. AWS Cloud Practitioner)" 
+                        value={cert.title} 
+                        onChange={(e) => {
+                          const updated = [...(data.certifications || [])];
+                          updated[index].title = e.target.value;
+                          set("certifications", updated);
+                        }}
+                      />
+                      <input 
+                        type="file" 
+                        accept=".pdf,.doc,.docx"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const ext = file.name.split('.').pop()?.toLowerCase();
+                            if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
+                              return toast.error("Only PDF and Word files allowed!");
+                            }
+                            const updated = [...(data.certifications || [])];
+                            updated[index].fileName = file.name;
+                            set("certifications", updated);
+                          }
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             {/* STEP 7: PREFERENCES */}
             {STEPS[step].key === "preferences" && (
               <div className="grid md:grid-cols-2 gap-4 animate-in fade-in">
-                <div className="md:col-span-2"><Label>Preferred Work Locations *</Label><div className="flex flex-wrap gap-2 mt-2">{["Bengaluru","Mysuru","Hubballi","Mangaluru","Remote"].map((l) => <Badge key={l} onClick={() => toggleArr("preferredLocations", l)} className={`cursor-pointer px-3 py-1 ${data.preferredLocations?.includes(l) ? "bg-navy text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>{l}</Badge>)}</div></div>
-                <div>
-                  <Label>Job Type *</Label>
-                  <Select value={data.preferredJobType || ""} onValueChange={(v) => set("preferredJobType", v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{["Full-time","Part-time","Internship","Contract"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Expected Salary (LPA)</Label>
-                  <Input type="number" step="0.1" value={data.expectedSalary || ""} onChange={(e) => set("expectedSalary", e.target.value)} className="mt-1" placeholder="e.g. 4.5" />
-                </div>
-                <div className="md:col-span-2 flex items-center gap-2 mt-2">
-                  <Checkbox id="relocate" checked={data.willingToRelocate || false} onCheckedChange={(c) => set("willingToRelocate", c === true)} />
-                  <label htmlFor="relocate" className="text-sm font-medium text-navy cursor-pointer">I am willing to relocate for the right opportunity.</label>
-                </div>
+                <div className="md:col-span-2"><Label>Preferred Roles</Label><Input className="mt-1" placeholder="Type a role and press Enter" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const v = e.currentTarget.value.trim(); if (v && !(data.preferredRoles || []).includes(v)) set("preferredRoles", [...(data.preferredRoles || []), v]); e.currentTarget.value = ""; } }} />{(data.preferredRoles?.length || 0) > 0 && (<div className="flex flex-wrap gap-2 mt-3">{data.preferredRoles!.map((r) => <Badge key={r} className="bg-navy text-white">{r} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => set("preferredRoles", data.preferredRoles!.filter((x) => x !== r))}/></Badge>)}</div>)}</div>
+                <div className="md:col-span-2 mt-2"><Label>Preferred Work Locations *</Label><div className="flex flex-wrap gap-2 mt-2">{["Bengaluru","Mysuru","Hubballi","Mangaluru","Remote"].map((l) => { const on = data.preferredLocations?.includes(l); return <Badge key={l} onClick={() => toggleArr("preferredLocations", l)} className={`cursor-pointer ${on ? "bg-navy text-white" : "bg-slate-100 text-slate-700"}`}>{l}</Badge>; })}</div></div>
+                <label className="md:col-span-2 flex items-center gap-2 mt-1 bg-saffron/10 border p-3 rounded-lg"><Checkbox checked={!!data.willingToRelocate} onCheckedChange={(v) => set("willingToRelocate", !!v)} /> <span className="font-medium text-navy">Willing to relocate anywhere in India</span></label>
+                <div><Label>Job Type *</Label><Select value={data.preferredJobType || ""} onValueChange={(v) => set("preferredJobType", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["Full-time","Internship","Contract"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
+                <div><Label>Expected Salary (LPA)</Label><Input value={data.expectedSalary || ""} onChange={(e) => set("expectedSalary", e.target.value)} className="mt-1" /></div>
               </div>
             )}
 
             {/* STEP 8: REVIEW */}
             {STEPS[step].key === "review" && (
               <div className="space-y-6 animate-in fade-in">
-                <ReviewSection title="Basic Information">
-                  <ReviewRow label="Full Name" value={data.fullName} />
-                  <ReviewRow label="Email" value={data.email} />
-                  <ReviewRow label="Phone" value={data.phone} />
-                  <ReviewRow label="Location" value={`${data.district || 'N/A'}, ${data.state || 'N/A'}`} />
-                </ReviewSection>
-
-                <ReviewSection title="Professional Details">
-                  <ReviewRow label="Highest Qualification" value={data.qualification} />
-                  <ReviewRow label="Course & Specialization" value={`${data.course || 'N/A'} - ${data.specialization || 'N/A'}`} />
-                  <ReviewRow label="Skills" value={data.skills?.join(", ")} />
-                  <ReviewRow label="Experience" value={data.experienceType} />
-                </ReviewSection>
+                <ReviewSection title="Basic Information"><ReviewRow label="Full Name" value={data.fullName} /><ReviewRow label="Email" value={data.email} /><ReviewRow label="Phone" value={data.phone} /><ReviewRow label="PIN Code" value={data.pincode} /></ReviewSection>
+                <ReviewSection title="Education"><ReviewRow label="Qualification" value={data.qualification} /><ReviewRow label="Institution" value={data.institution === "State Board" ? `${data.stateBoardName} State Board` : data.institution} /><ReviewRow label="Course/Stream" value={data.course || data.specialization} /><ReviewRow label="Year of Passing" value={data.yearOfPassing} /></ReviewSection>
               </div>
             )}
           </div>
@@ -325,8 +471,9 @@ function SignupPage() {
       <Dialog open={!!done} onOpenChange={(o) => { if (!o && done) navigate({ to: "/auth/login" }); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
+            <div className="mx-auto size-16 rounded-full bg-india-green/15 flex items-center justify-center mb-4"><Check className="h-8 w-8 text-india-green" /></div>
             <DialogTitle className="text-center text-2xl font-display text-navy">Welcome to Bharat Career Connect!</DialogTitle>
-            <DialogDescription className="text-center pt-2">Your candidate account is ready.<br />Candidate ID: <b className="text-navy font-mono bg-navy/5 px-2 py-1 rounded ml-1">{done?.uniqueId}</b></DialogDescription>
+            <DialogDescription className="text-center pt-2">Your candidate account is ready.<br />Unique Candidate ID: <b className="text-navy font-mono bg-navy/5 px-2 py-1 rounded ml-1">{done?.uniqueId}</b></DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4"><Button onClick={() => navigate({ to: "/auth/login" })} className="w-full bg-navy text-white">Go to Login</Button></DialogFooter>
         </DialogContent>
