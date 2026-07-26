@@ -57,7 +57,7 @@ function LoginPage() {
       
       const json = await res.json();
       
-     if (json.success) {
+      if (json.success) {
         toast.success("Login successful!");
         
         const sessionData = { 
@@ -67,10 +67,10 @@ function LoginPage() {
           role: json.data.role 
         };
 
-        // Keep your existing mockStore function
+        // Save session to mockStore
         setSession(sessionData);
         
-        // 🚀 EXPLICITLY save to localStorage so it survives the hard redirect
+        // EXPLICITLY save to localStorage so it survives the hard redirect
         localStorage.setItem("bcc_user", JSON.stringify(sessionData));
         
         // Hard location assignment
@@ -81,10 +81,15 @@ function LoginPage() {
         }
       } else {
         setError(json.message);
-     }
+      }
+    } catch (err) { // <-- This catch block was missing in the broken build
+      console.error("Login error:", err);
+      setError("Server connection failed. Is the backend running?");
+    } finally {
+      setIsLoading(false);
     }
-  }
-};
+  };
+
   const isEmployer = role === "employer";
 
   return (
