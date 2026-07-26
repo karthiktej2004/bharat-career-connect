@@ -211,6 +211,128 @@ export function CandidatesBody() {
   );
 }
 
+export interface SchedulePayload {
+  mode: "Online" | "Walk-in"; date: string; time: string; meetingLink?: string; venue?: string; locationDetail?: string; mapsLink?: string; description?: string; notifyWhatsapp: boolean; notifyEmail: boolean;
+}
+
+// FIXED: Added export keyword so employer.interviews.tsx can import it properly
+export function ScheduleInterviewDialog({ open, applicant, job, onClose, onConfirm, reschedule }: { open: boolean; applicant: any; job: any; onClose: () => void; onConfirm: (p: SchedulePayload) => void; reschedule?: boolean; }) {
+  const [mode, setMode] = useState<"Online" | "Walk-in">("Online");
+  const [date, setDate] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
+  const [time, setTime] = useState("10:00");
+  const [meetingLink, setMeetingLink] = useState("https://meet.google.com/new");
+  const [venue, setVenue] = useState(job.company ? `${job.company}, ${job.location}` : job.location);
+  const [locationDetail, setLocationDetail] = useState("");
+  const [mapsLink, setMapsLink] = useState("");
+  const [description, setDescription] = useState("");
+  const [notifyWhatsapp, setNotifyWhatsapp] = useState(true);
+  const [notifyEmail, setNotifyEmail] = useState(true);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    onConfirm({ mode, date, time, description, notifyWhatsapp, notifyEmail, meetingLink: mode === "Online" ? meetingLink : undefined, venue: mode === "Walk-in" ? venue : undefined, locationDetail: mode === "Walk-in" ? locationDetail : undefined, mapsLink: mode === "Walk-in" ? mapsLink : undefined });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{reschedule ? "Change interview slot" : "Schedule interview"} — {applicant.name}</DialogTitle>
+          <DialogDescription>{job.title} · {job.location} {reschedule && <span className="block text-saffron mt-1">A new interview slot will be added for this candidate.</span>}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <Label className="mb-2 block">Interview mode</Label>
+            <RadioGroup value={mode} onValueChange={(v) => setMode(v as "Online" | "Walk-in")} className="grid grid-cols-2 gap-2">
+              <label className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${mode === "Online" ? "border-saffron bg-saffron/5" : "border-border"}`}><RadioGroupItem value="Online" /><span className="text-sm font-medium">Online</span></label>
+              <label className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${mode === "Walk-in" ? "border-saffron bg-saffron/5" : "border-border"}`}><RadioGroupItem value="Walk-in" /><span className="text-sm font-medium">Walk-in</span></label>
+            </RadioGroup>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1" required /></div>
+            <div><Label>Time</Label><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="mt-1" required /></div>
+          </div>
+          {mode === "Online" ? (
+            <div><Label>Meeting link</Label><Input value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} className="mt-1" placeholder="https://meet.google.com/..." required /></div>
+          ) : (
+            <>
+              <div><Label>Company location</Label><Input value={venue} onChange={(e) => setVenue(e.target.value)} className="mt-1" placeholder="Company name, city" required /></div>
+              <div><Label>Google Maps link</Label><Input value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} className="mt-1" placeholder="https://maps.google.com/?q=..." /><p className="text-[11px] text-muted-foreground mt-1">Paste the Google Maps link — the candidate can tap it to navigate.</p></div>
+              <div><Label>Location details (manual)</Label><textarea value={locationDetail} onChange={(e) => setLocationDetail(e.target.value)} className="mt-1 w-full min-h-[64px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="e.g. 3rd floor, opposite XYZ Mall, near the metro station" /></div>
+            </>
+          )}
+          <div><Label>Description & documents required</Label><textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Round details, documents to bring (resume, ID proof, marksheets), dress code, etc." /></div>
+          <div className="rounded-md border border-border/60 p-3 space-y-2 bg-muted/30">
+            <p className="text-xs font-medium text-navy">Send invite via</p>
+            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={notifyWhatsapp} onChange={(e) => setNotifyWhatsapp(e.target.checked)} />WhatsApp message to candidate</label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />Email to candidate</label>
+            <p className="text-[11px] text-muted-foreground">One combined message with details is sent — and saved in the candidate's message box.</p>
+          </div>
+          <DialogFooter><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit" className="bg-saffron text-navy hover:bg-saffron/90">{reschedule ? "Add changed slot" : "Schedule Meeting"}</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// FIXED: Added export keyword so employer.interviews.tsx can import it properly
+export function ApplicantDetailDialog({ a, open, onOpenChange, onStatus }: { a: any; open: boolean; onOpenChange: (o: boolean) => void; onStatus: (a: any, s: string) => void }) {
+  const d = useMemo(() => buildDetail(a), [a]);
+  const statusLabel = a.status === "Interview" ? "Interviewed" : a.status;
+
+  function downloadResume() {
+    const lines = [`RESUME — ${a.name}`, `Candidate ID: ${d.uniqueId}`, ``, `CONTACT`, `Email: ${d.email}`, `Phone: ${d.phone}`, `Location: ${d.district}, ${d.state} — ${d.pincode}`, ``, `PROFILE`, d.about, ``, `EDUCATION`, `${a.qualification} — ${d.specialization}`, `${d.institution}`, `Year of Passing: ${d.yearOfPassing} · Score: ${d.percentage}`, ``, `EXPERIENCE`, `${d.currentRole} @ ${d.currentCompany} (${a.experience})`, ``, `SKILLS`, a.skills.join(", "), ``, `CERTIFICATIONS`, d.certifications.join(", "), ``, `LANGUAGES`, d.languages.join(", "), ``, `PREFERENCES`, `Roles: ${d.preferredRoles.join(", ")}`, `Locations: ${d.preferredLocations.join(", ")}`, `Job Type: ${d.preferredJobType} · Expected: ${d.expectedSalary}`].join("\n");
+    const blob = new Blob([lines], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = d.resumeFileName.replace(/\.pdf$/, ".txt");
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-4">
+            <div className="size-16 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold text-2xl shrink-0">{a.name ? a.name.charAt(0) : "U"}</div>
+            <div className="min-w-0">
+              <DialogTitle className="text-xl">{a.name}</DialogTitle>
+              <DialogDescription className="flex flex-wrap items-center gap-2 mt-1">
+                <span className="font-mono text-xs">{d.uniqueId}</span>
+                <Badge className="bg-india-green/15 text-india-green gap-1"><Sparkles className="h-3 w-3" />{a.matchScore}% match</Badge>
+                <Badge variant="outline">{statusLabel}</Badge>
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+        <div className="grid sm:grid-cols-2 gap-3 mt-2">
+          <InfoRow icon={Mail} label="Email" value={d.email} />
+          <InfoRow icon={Phone} label="Phone" value={d.phone} />
+          <InfoRow icon={MapPin} label="Location" value={`${d.district}, ${d.state} — ${d.pincode}`} />
+          <InfoRow icon={CalIcon} label="Applied on" value={new Date(a.appliedAt).toLocaleDateString("en-IN")} />
+        </div>
+        <Separator className="my-2" />
+        <Section icon={Users} title="About"><p className="text-sm text-muted-foreground">{d.about}</p></Section>
+        <Section icon={GraduationCap} title="Education"><div className="text-sm"><p className="font-medium text-navy">{a.qualification} — {d.specialization}</p><p className="text-muted-foreground">{d.institution}</p><p className="text-muted-foreground text-xs mt-0.5">Year of Passing: {d.yearOfPassing} · Score: {d.percentage}</p></div></Section>
+        <Section icon={Briefcase} title="Experience"><p className="text-sm"><span className="font-medium text-navy">{d.currentRole}</span>{d.currentCompany !== "—" && <> @ <span className="text-muted-foreground">{d.currentCompany}</span></>}<span className="text-muted-foreground"> · {a.experience}</span></p></Section>
+        <Section icon={Sparkles} title="Skills"><div className="flex flex-wrap gap-1.5">{a.skills && a.skills.map((s: string) => <Badge key={s} variant="outline">{s}</Badge>)}</div></Section>
+        <Section icon={Award} title="Certifications"><div className="flex flex-wrap gap-1.5">{d.certifications.map((c) => <Badge key={c} className="bg-saffron/15 text-saffron">{c}</Badge>)}</div></Section>
+        <Section icon={Users} title="Languages"><p className="text-sm text-muted-foreground">{d.languages.join(" · ")}</p></Section>
+        <Section icon={Briefcase} title="Job Preferences"><div className="grid sm:grid-cols-2 gap-2 text-sm"><div><span className="text-muted-foreground">Roles:</span> {d.preferredRoles.join(", ")}</div><div><span className="text-muted-foreground">Locations:</span> {d.preferredLocations.join(", ")}</div><div><span className="text-muted-foreground">Job Type:</span> {d.preferredJobType}</div><div><span className="text-muted-foreground">Expected Salary:</span> {d.expectedSalary}</div></div></Section>
+        <DialogFooter className="mt-4 flex-wrap gap-2">
+          <Button variant="outline" onClick={downloadResume}><Download className="h-4 w-4 mr-1" />Download Resume</Button>
+          <div className="flex-1" />
+          <Button variant="outline" onClick={() => { onStatus(a, "Shortlisted"); onOpenChange(false); }}>Shortlist</Button>
+          <Button variant="outline" onClick={() => { onStatus(a, "Interview"); onOpenChange(false); }}>Mark Interviewed</Button>
+          <Button className="bg-india-green text-white hover:bg-india-green/90" onClick={() => { onStatus(a, "Hired"); onOpenChange(false); }}><Check className="h-4 w-4 mr-1" />Hire</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ApplicantList({ list, onStatus }: { list: any[]; onStatus: (a: any, s: string) => void }) {
   return (
     <div className="grid gap-3 mt-4">
@@ -276,63 +398,6 @@ function EditStatusDialog({ a, open, onOpenChange, onStatus }: { a: any; open: b
           <div><Label>Description / reason (optional)</Label><textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 w-full min-h-[90px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="e.g. Moved back to Shortlist." /></div>
         </div>
         <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button className="bg-saffron text-navy hover:bg-saffron/90" onClick={update}>Update</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ApplicantDetailDialog({ a, open, onOpenChange, onStatus }: { a: any; open: boolean; onOpenChange: (o: boolean) => void; onStatus: (a: any, s: string) => void }) {
-  const d = useMemo(() => buildDetail(a), [a]);
-  const statusLabel = a.status === "Interview" ? "Interviewed" : a.status;
-
-  function downloadResume() {
-    const lines = [`RESUME — ${a.name}`, `Candidate ID: ${d.uniqueId}`, ``, `CONTACT`, `Email: ${d.email}`, `Phone: ${d.phone}`, `Location: ${d.district}, ${d.state} — ${d.pincode}`, ``, `PROFILE`, d.about, ``, `EDUCATION`, `${a.qualification} — ${d.specialization}`, `${d.institution}`, `Year of Passing: ${d.yearOfPassing} · Score: ${d.percentage}`, ``, `EXPERIENCE`, `${d.currentRole} @ ${d.currentCompany} (${a.experience})`, ``, `SKILLS`, a.skills.join(", "), ``, `CERTIFICATIONS`, d.certifications.join(", "), ``, `LANGUAGES`, d.languages.join(", "), ``, `PREFERENCES`, `Roles: ${d.preferredRoles.join(", ")}`, `Locations: ${d.preferredLocations.join(", ")}`, `Job Type: ${d.preferredJobType} · Expected: ${d.expectedSalary}`].join("\n");
-    const blob = new Blob([lines], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = d.resumeFileName.replace(/\.pdf$/, ".txt");
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-4">
-            <div className="size-16 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold text-2xl shrink-0">{a.name ? a.name.charAt(0) : "U"}</div>
-            <div className="min-w-0">
-              <DialogTitle className="text-xl">{a.name}</DialogTitle>
-              <DialogDescription className="flex flex-wrap items-center gap-2 mt-1">
-                <span className="font-mono text-xs">{d.uniqueId}</span>
-                <Badge className="bg-india-green/15 text-india-green gap-1"><Sparkles className="h-3 w-3" />{a.matchScore}% match</Badge>
-                <Badge variant="outline">{statusLabel}</Badge>
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        <div className="grid sm:grid-cols-2 gap-3 mt-2">
-          <InfoRow icon={Mail} label="Email" value={d.email} />
-          <InfoRow icon={Phone} label="Phone" value={d.phone} />
-          <InfoRow icon={MapPin} label="Location" value={`${d.district}, ${d.state} — ${d.pincode}`} />
-          <InfoRow icon={CalIcon} label="Applied on" value={new Date(a.appliedAt).toLocaleDateString("en-IN")} />
-        </div>
-        <Separator className="my-2" />
-        <Section icon={Users} title="About"><p className="text-sm text-muted-foreground">{d.about}</p></Section>
-        <Section icon={GraduationCap} title="Education"><div className="text-sm"><p className="font-medium text-navy">{a.qualification} — {d.specialization}</p><p className="text-muted-foreground">{d.institution}</p><p className="text-muted-foreground text-xs mt-0.5">Year of Passing: {d.yearOfPassing} · Score: {d.percentage}</p></div></Section>
-        <Section icon={Briefcase} title="Experience"><p className="text-sm"><span className="font-medium text-navy">{d.currentRole}</span>{d.currentCompany !== "—" && <> @ <span className="text-muted-foreground">{d.currentCompany}</span></>}<span className="text-muted-foreground"> · {a.experience}</span></p></Section>
-        <Section icon={Sparkles} title="Skills"><div className="flex flex-wrap gap-1.5">{a.skills && a.skills.map((s: string) => <Badge key={s} variant="outline">{s}</Badge>)}</div></Section>
-        <Section icon={Award} title="Certifications"><div className="flex flex-wrap gap-1.5">{d.certifications.map((c) => <Badge key={c} className="bg-saffron/15 text-saffron">{c}</Badge>)}</div></Section>
-        <Section icon={Users} title="Languages"><p className="text-sm text-muted-foreground">{d.languages.join(" · ")}</p></Section>
-        <Section icon={Briefcase} title="Job Preferences"><div className="grid sm:grid-cols-2 gap-2 text-sm"><div><span className="text-muted-foreground">Roles:</span> {d.preferredRoles.join(", ")}</div><div><span className="text-muted-foreground">Locations:</span> {d.preferredLocations.join(", ")}</div><div><span className="text-muted-foreground">Job Type:</span> {d.preferredJobType}</div><div><span className="text-muted-foreground">Expected Salary:</span> {d.expectedSalary}</div></div></Section>
-        <DialogFooter className="mt-4 flex-wrap gap-2">
-          <Button variant="outline" onClick={downloadResume}><Download className="h-4 w-4 mr-1" />Download Resume</Button>
-          <div className="flex-1" />
-          <Button variant="outline" onClick={() => { onStatus(a, "Shortlisted"); onOpenChange(false); }}>Shortlist</Button>
-          <Button variant="outline" onClick={() => { onStatus(a, "Interview"); onOpenChange(false); }}>Mark Interviewed</Button>
-          <Button className="bg-india-green text-white hover:bg-india-green/90" onClick={() => { onStatus(a, "Hired"); onOpenChange(false); }}><Check className="h-4 w-4 mr-1" />Hire</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
