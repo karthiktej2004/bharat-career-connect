@@ -5,7 +5,7 @@ export const candidateNav: NavItem[] = [
   { to: "/candidate", label: "Overview", icon: LayoutDashboard },
   { to: "/candidate/profile", label: "Profile", icon: UserCircle },
   { to: "/candidate/jobs", label: "Browse Jobs", icon: Briefcase },
-  {to: "/candidate/saved-jobs",label: "Saved Jobs",icon: Bookmark}
+  {to: "/candidate/saved-jobs",label: "Saved Jobs",icon: Bookmark},
   { to: "/candidate/applications", label: "Applications", icon: FileCheck },
   { to: "/candidate/events", label: "Events", icon: Calendar },
   { to: "/candidate/interviews", label: "Interviews", icon: MessageSquareHeart },
