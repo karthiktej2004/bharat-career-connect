@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Briefcase, Pencil, Trash2, Clock, Loader2, CalendarDays } from "lucide-react";
+import { Plus, Briefcase, Pencil, Trash2, Clock, Loader2, CalendarDays, RefreshCw } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
 
@@ -79,6 +79,27 @@ export function JobsBody() {
     }
   };
 
+  // 4. FEATURE 12: 1-CLICK JOB REACTIVATION
+  const handleReactivate = async (job: any) => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/jobs/${job.id}/reactivate`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employerId: userId })
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`"${job.title}" reactivated successfully and moved to the top of the feed!`);
+        fetchJobs();
+      } else {
+        toast.error(json.message || "Failed to reactivate job.");
+      }
+    } catch (error) {
+      toast.error("Server connection error during reactivation.");
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -129,7 +150,6 @@ export function JobsBody() {
                     <TableCell className="font-medium text-navy">
                       <div>{j.title}</div>
                       <div className="text-[11px] text-muted-foreground mt-0.5">{user?.name}</div>
-                      {/* NEW: Show Event Tag if linked */}
                       {j.event_id && (
                         <Badge variant="outline" className="mt-1 bg-blue-50 text-blue-700 border-blue-200 text-[10px] py-0 leading-none">
                           <CalendarDays className="h-3 w-3 mr-1 inline" /> Event Job
@@ -143,13 +163,19 @@ export function JobsBody() {
                     <TableCell>{j.vacancies || 1}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{new Date(j.created_at).toLocaleDateString("en-IN")}</TableCell>
                     <TableCell>
-                      <Badge className={`gap-1 ${approval === "approved" ? "bg-india-green/15 text-india-green" : approval === "rejected" ? "bg-destructive/15 text-destructive" : approval === "inactive" ? "bg-gray-100 text-gray-500" : "bg-saffron/15 text-saffron"}`}>
+                      <Badge className={`gap-1 ${approval === "approved" ? "bg-india-green/15 text-india-green" : approval === "rejected" ? "bg-destructive/15 text-destructive" : approval === "inactive" || approval === "closed" || approval === "deactivated" ? "bg-gray-100 text-gray-500" : "bg-saffron/15 text-saffron"}`}>
                         {approval === "pending" && <Clock className="h-3 w-3" />}
-                        {approval === "approved" ? "Approved" : approval === "rejected" ? "Rejected" : approval === "inactive" ? "Inactive" : "Pending approval"}
+                        {approval === "approved" ? "Approved" : approval === "rejected" ? "Rejected" : approval === "inactive" || approval === "closed" || approval === "deactivated" ? "Inactive" : "Pending approval"}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
+                        {/* FEATURE 12: Reactivate Button for Inactive/Closed/Deactivated Jobs */}
+                        {(approval === "inactive" || approval === "closed" || approval === "deactivated") && (
+                          <Button size="sm" variant="outline" className="text-india-green border-india-green/40 hover:bg-india-green/10" onClick={() => handleReactivate(j)}>
+                            <RefreshCw className="h-3.5 w-3.5 mr-1" />Reactivate
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => { setEditing(j); setOpen(true); }}>
                           <Pencil className="h-3.5 w-3.5 mr-1" />Edit
                         </Button>
@@ -200,17 +226,14 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
   const [form, setForm] = useState(empty);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // NEW: State to hold live events
   const [availableEvents, setAvailableEvents] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch live events when dialog opens
     if (open) {
       fetch("https://bcc-backend-0cny.onrender.com/api/admin/events")
         .then((res) => res.json())
         .then((json) => {
           if (json.success) {
-            // Only show events that are not on hold
             setAvailableEvents(json.data.filter((e: any) => e.status !== "hold" && e.status !== "Deleted"));
           }
         })
@@ -246,7 +269,6 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
 
     setIsSubmitting(true);
     
-    // NEW: Payload updated to include event_id and description
     const payload = {
       employerId: user.id,
       title: form.title,
@@ -264,7 +286,7 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
     try {
       const url = editJob 
         ? `https://bcc-backend-0cny.onrender.com/api/employer/jobs/${editJob.id}` 
-        : `https://bcc-backend-0cny.onrender.com/api/employer/${user.id}/jobs`; // Fixed create URL
+        : `https://bcc-backend-0cny.onrender.com/api/employer/${user.id}/jobs`;
       const method = editJob ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -298,7 +320,6 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
         </DialogHeader>
         <form onSubmit={submit} className="grid sm:grid-cols-2 gap-4">
           
-          {/* NEW: Event Linking Dropdown */}
           <div className="sm:col-span-2 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
             <Label className="text-blue-800 font-semibold flex items-center gap-2">
               <CalendarDays className="h-4 w-4" /> Link to Udyoga Mela (Optional)
