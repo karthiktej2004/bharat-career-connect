@@ -5,287 +5,179 @@ import { employerNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar as CalIcon, Users, QrCode, Store, AlertTriangle, Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { CalendarDays, MapPin, Users, Building2, CheckCircle2, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/employer/events")({
-  head: () => ({ meta: [{ title: "Job Fairs — Bharat Career Connect" }] }),
-  component: JobFairsPage,
+  head: () => ({ meta: [{ title: "Job Fair Participation — Bharat Career Connect" }] }),
+  component: EmployerEvents,
 });
 
-function JobFairsPage() {
+function EmployerEvents() {
   return (
     <DashShell role="employer" nav={employerNav}>
-      <JobFairsBody />
+      <EmployerEventsBody />
     </DashShell>
   );
 }
 
-export function JobFairsBody() {
+export function EmployerEventsBody() {
   const user = getSession();
-  const employerId = user?.id;
+  const userId = user?.id;
 
   const [events, setEvents] = useState<any[]>([]);
-  const [applications, setApplications] = useState<any[]>([]);
+  const [myApplications, setMyApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [applyingEventId, setApplyingEventId] = useState<number | null>(null);
 
-  // Booking Dialog State
-  const [bookingEvent, setBookingEvent] = useState<any | null>(null);
-  const [roles, setRoles] = useState("");
-  const [vacancies, setVacancies] = useState("5");
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-
-  // QR Scanner State
-  const [scanningEvent, setScanningEvent] = useState<any | null>(null);
-  const [qrCode, setQrCode] = useState("");
-
-  const fetchData = useCallback(async () => {
-    if (!employerId) return;
+  const fetchEventsData = useCallback(async () => {
+    if (!userId) return;
     setIsLoading(true);
     try {
-      const [eventsRes, appsRes] = await Promise.all([
-        fetch(`https://bcc-backend-0cny.onrender.com/api/employer/events`),
-        fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/applications`)
-      ]);
+      // 1. Fetch all upcoming/live events
+      const eventsRes = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events");
       const eventsJson = await eventsRes.json();
+
+      // 2. Fetch current employer's stall applications
+      const appsRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${userId}/event-stalls`);
       const appsJson = await appsRes.json();
-      
-      if (eventsJson.success) setEvents(eventsJson.data);
-      if (appsJson.success) setApplications(appsJson.data);
-    } catch (error) {
-      toast.error("Failed to load events.");
+
+      if (eventsJson.success) {
+        setEvents(eventsJson.data);
+      }
+      if (appsJson.success) {
+        setMyApplications(appsJson.data);
+      }
+    } catch (err) {
+      console.error("Error fetching job fair events:", err);
+      toast.error("Failed to load job fair events.");
     } finally {
       setIsLoading(false);
     }
-  }, [employerId]);
+  }, [userId]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchEventsData();
+  }, [fetchEventsData]);
 
-  const handlePaymentAndBook = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!roles || !vacancies) return toast.error("Please fill all details");
-    
-    setIsProcessingPayment(true);
-    
-    setTimeout(async () => {
-      const mockPaymentId = `pay_${Math.random().toString(36).substr(2, 9)}`;
-      
-      try {
-        const res = await fetch("https://bcc-backend-0cny.onrender.com/api/employer/apply", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            employerId,
-            eventId: bookingEvent.id,
-            rolesToHire: roles,
-            candidatesNeeded: vacancies,
-            paymentId: mockPaymentId
-          })
-        });
-
-        const json = await res.json();
-        if (json.success) {
-          toast.success("Payment Successful! Stall booked and pending admin approval.");
-          setBookingEvent(null);
-          fetchData(); 
-        } else {
-          toast.error("Booking failed on server.");
-        }
-      } catch (error) {
-        toast.error("Server connection failed.");
-      } finally {
-        setIsProcessingPayment(false);
-      }
-    }, 1500); 
-  };
-
-  const handleMarkAttendance = async () => {
-    if (!qrCode) return toast.error("Enter the QR Code from the gate.");
+  const handleApplyForStall = async (eventId: number) => {
+    if (!userId) return;
+    setApplyingEventId(eventId);
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/employer/attendance", {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/event-stalls/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employerId, qrString: qrCode })
+        body: JSON.stringify({ employerId: userId, eventId })
       });
       const json = await res.json();
       if (json.success) {
-        toast.success(json.message);
-        setScanningEvent(null);
-        setQrCode("");
+        toast.success("Stall application submitted successfully! Awaiting admin review.");
+        fetchEventsData();
       } else {
-        toast.error(json.message);
+        toast.error(json.message || "Failed to submit stall application.");
       }
-    } catch (error) {
-      toast.error("Failed to mark attendance.");
+    } catch (err) {
+      toast.error("Server connection error.");
+    } finally {
+      setApplyingEventId(null);
     }
   };
-
-  if (isLoading) {
-    return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>;
-  }
 
   return (
     <>
       <PageHeader
         title="Job Fair Participation"
-        description="Apply for a stall, wait for admin approval, mark attendance at the venue, then open your event workspace."
+        description="Apply for a physical or virtual stall, wait for admin approval, and unlock event-specific hiring tools."
       />
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {events.map((event) => {
-          const application = applications.find(a => a.event_id === event.id);
-          const isHold = event.status === 'hold';
+      {isLoading ? (
+        <div className="flex justify-center p-16">
+          <Loader2 className="h-8 w-8 animate-spin text-saffron" />
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-6 mt-6">
+          {events.map((evt) => {
+            const userApp = myApplications.find(a => a.eventId === evt.id);
+            const status = userApp ? userApp.status : null; // 'pending', 'approved', 'rejected'
 
-          return (
-            <Card key={event.id} className="overflow-hidden border-border/60 flex flex-col">
-              <div className="h-32 bg-gradient-to-b from-navy to-navy/70 relative p-4 flex flex-col items-center justify-center text-white/20">
-                <Store className="h-12 w-12" />
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <Badge className="bg-white text-navy font-bold">{event.event_type || 'PHYSICAL'}</Badge>
+            return (
+              <Card key={evt.id} className="p-6 border-border/60 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                <div>
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div>
+                      <Badge variant="outline" className="mb-2 uppercase text-[10px] tracking-widest bg-slate-100 text-navy font-semibold">
+                        {evt.event_type || "Physical"}
+                      </Badge>
+                      <h3 className="font-display font-bold text-xl text-navy">{evt.name}</h3>
+                    </div>
+                    {status === 'approved' && (
+                      <Badge className="bg-india-green/15 text-india-green gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Stall Approved
+                      </Badge>
+                    )}
+                    {status === 'pending' && (
+                      <Badge className="bg-saffron/15 text-saffron gap-1">
+                        <Clock className="h-3.5 w-3.5" /> Pending Approval
+                      </Badge>
+                    )}
+                    {status === 'rejected' && (
+                      <Badge className="bg-destructive/15 text-destructive gap-1">
+                        <AlertCircle className="h-3.5 w-3.5" /> Rejected
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 text-sm text-muted-foreground mb-6">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4 text-saffron shrink-0" />
+                      <span>{new Date(evt.event_date).toLocaleDateString("en-IN", { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-saffron shrink-0" />
+                      <span>{evt.city || "Venue TBD"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-saffron shrink-0" />
+                      <span>Capacity: {evt.employer_capacity || 50} Employer Stalls</span>
+                    </div>
+                  </div>
                 </div>
-                {application && application.status === 'pending' && (
-                  <div className="absolute top-4 left-4"><Badge className="bg-saffron text-navy font-bold">Pending Approval</Badge></div>
-                )}
-                {application && application.status === 'approved' && (
-                  <div className="absolute top-4 left-4"><Badge className="bg-saffron text-navy font-bold">Stall Approved</Badge></div>
-                )}
-                {application && application.status === 'rejected' && (
-                  <div className="absolute top-4 left-4"><Badge className="bg-red-500 text-white font-bold">Application Rejected</Badge></div>
-                )}
-              </div>
 
-              <div className="p-5 flex-1 flex flex-col">
-                <h3 className="font-display font-bold text-navy text-xl mb-3">{event.name}</h3>
-                
-                <div className="space-y-2 mb-6">
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <CalIcon className="h-4 w-4 mr-2" />
-                    {new Date(event.event_date).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    {event.venue_address || event.city || "Venue TBD"}
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Users className="h-4 w-4 mr-2" />
-                    {event.employer_capacity} total stalls capacity
-                  </div>
-                </div>
+                <div className="pt-4 border-t border-border/40 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground font-medium">
+                    Stall Fee: <strong className="text-navy">₹{evt.stall_price || 0}</strong>
+                  </span>
 
-                <div className="mt-auto">
-                  {!application && !isHold && (
-                    <Button className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold" onClick={() => setBookingEvent(event)}>
-                      <Store className="h-4 w-4 mr-2" /> Book Stall — ₹{event.stall_price || "0.00"}
+                  {!status ? (
+                    <Button 
+                      disabled={applyingEventId === evt.id}
+                      onClick={() => handleApplyForStall(evt.id)} 
+                      className="bg-saffron text-navy hover:bg-saffron/90 font-semibold"
+                    >
+                      {applyingEventId === evt.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                      Apply for Stall
+                    </Button>
+                  ) : status === 'approved' ? (
+                    <Button variant="outline" className="border-india-green text-india-green hover:bg-india-green/10">
+                      View Event Workspace
+                    </Button>
+                  ) : (
+                    <Button variant="outline" disabled>
+                      Application Under Review
                     </Button>
                   )}
-
-                  {!application && isHold && (
-                    <Button disabled className="w-full bg-muted text-muted-foreground font-bold">
-                      Registrations Temporarily Paused
-                    </Button>
-                  )}
-
-                  {application && isHold && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-xs flex items-start gap-2 mb-4">
-                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                      <p><b>Event on hold.</b> Please wait until confirmation. If the event is cancelled by the admin, your amount will be refunded entirely.</p>
-                    </div>
-                  )}
-
-                  {application && application.status === 'approved' && !isHold && (
-                    <div className="space-y-4">
-                      <div className="bg-india-green/10 border border-india-green/20 rounded-md p-3 grid grid-cols-2 text-center">
-                        <div className="border-r border-india-green/20">
-                          <p className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Allocated Stall</p>
-                          <p className="font-display font-bold text-navy text-lg">{application.stallNo || "TBD"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Hall / Block</p>
-                          <p className="font-display font-bold text-india-green text-lg">{application.hall || "TBD"}</p>
-                        </div>
-                      </div>
-
-                      {event.google_maps_link && (
-                        <Button variant="outline" className="w-full" onClick={() => window.open(event.google_maps_link, '_blank')}>
-                          <MapPin className="h-4 w-4 mr-2" /> View Map
-                        </Button>
-                      )}
-
-                      <div className="bg-orange-50 border border-orange-200 p-3 rounded-md text-xs flex items-start gap-2 text-orange-800">
-                        <QrCode className="h-5 w-5 shrink-0 mt-0.5 text-orange-600" />
-                        <p>At the venue gate, scan the Event QR on your phone. Once marked present by the admin team, this card unlocks your live Candidate Interviews workspace.</p>
-                      </div>
-
-                      <Button className="w-full bg-navy text-white hover:bg-navy/90" onClick={() => setScanningEvent(event)}>
-                        <QrCode className="h-4 w-4 mr-2" /> Mark Attendance
-                      </Button>
-                    </div>
-                  )}
                 </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      <Dialog open={!!bookingEvent} onOpenChange={(open) => !open && setBookingEvent(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Book Stall — {bookingEvent?.name}</DialogTitle>
-            <DialogDescription>Please provide your hiring requirements to complete your registration.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handlePaymentAndBook} className="space-y-4">
-            <div>
-              <Label>Roles Hiring For</Label>
-              <Input required value={roles} onChange={(e) => setRoles(e.target.value)} placeholder="e.g. Software Engineer, Sales Exec" className="mt-1" />
+              </Card>
+            );
+          })}
+          {events.length === 0 && (
+            <div className="col-span-2 text-center py-12 text-muted-foreground">
+              No active job fair events available right now.
             </div>
-            <div>
-              <Label>Approx. Vacancies</Label>
-              <Input type="number" required min="1" value={vacancies} onChange={(e) => setVacancies(e.target.value)} className="mt-1" />
-            </div>
-
-            <div className="bg-muted p-3 rounded-md mt-4">
-              <div className="flex justify-space text-sm font-bold text-navy">
-                <span>Total Amount:</span>
-                <span>₹{bookingEvent?.stall_price || "0.00"}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1">Payment powered securely by Razorpay.</p>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setBookingEvent(null)} disabled={isProcessingPayment}>Cancel</Button>
-              <Button type="submit" disabled={isProcessingPayment} className="bg-saffron text-navy hover:bg-saffron/90">
-                {isProcessingPayment ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing Razorpay...</> : `Pay ₹${bookingEvent?.stall_price || "0.00"} & Book`}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!scanningEvent} onOpenChange={(open) => !open && setScanningEvent(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Mark Attendance</DialogTitle>
-            <DialogDescription>Ask the admin at the gate for the Event QR code string to unlock your workspace.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div>
-              <Label>Gate QR String</Label>
-              <Input value={qrCode} onChange={(e) => setQrCode(e.target.value)} placeholder="e.g. GATE_1A2B3C" className="mt-1 font-mono uppercase" />
-            </div>
-          </div>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setScanningEvent(null)}>Cancel</Button>
-            <Button onClick={handleMarkAttendance} className="bg-india-green text-white">Unlock Workspace</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          )}
+        </div>
+      )}
     </>
   );
 }
