@@ -67,16 +67,12 @@ export function JobFairsBody() {
     fetchData();
   }, [fetchData]);
 
-  // ====================================================================
-  // RAZORPAY MOCK INTEGRATION
-  // ====================================================================
   const handlePaymentAndBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!roles || !vacancies) return toast.error("Please fill all details");
     
     setIsProcessingPayment(true);
     
-    // MOCK RAZORPAY DELAY (Replace this with real Razorpay window later)
     setTimeout(async () => {
       const mockPaymentId = `pay_${Math.random().toString(36).substr(2, 9)}`;
       
@@ -109,9 +105,6 @@ export function JobFairsBody() {
     }, 1500); 
   };
 
-  // ====================================================================
-  // QR ATTENDANCE
-  // ====================================================================
   const handleMarkAttendance = async () => {
     if (!qrCode) return toast.error("Enter the QR Code from the gate.");
     try {
@@ -151,13 +144,11 @@ export function JobFairsBody() {
 
           return (
             <Card key={event.id} className="overflow-hidden border-border/60 flex flex-col">
-              {/* TOP HEADER: Dark Blue Gradient */}
               <div className="h-32 bg-gradient-to-b from-navy to-navy/70 relative p-4 flex flex-col items-center justify-center text-white/20">
                 <Store className="h-12 w-12" />
                 <div className="absolute top-4 right-4 flex gap-2">
                   <Badge className="bg-white text-navy font-bold">{event.event_type || 'PHYSICAL'}</Badge>
                 </div>
-                {/* Status Badges for Applied Events */}
                 {application && application.status === 'pending' && (
                   <div className="absolute top-4 left-4"><Badge className="bg-saffron text-navy font-bold">Pending Approval</Badge></div>
                 )}
@@ -169,7 +160,6 @@ export function JobFairsBody() {
                 )}
               </div>
 
-              {/* BOTTOM CONTENT */}
               <div className="p-5 flex-1 flex flex-col">
                 <h3 className="font-display font-bold text-navy text-xl mb-3">{event.name}</h3>
                 
@@ -189,7 +179,6 @@ export function JobFairsBody() {
                 </div>
 
                 <div className="mt-auto">
-                  {/* STATE 1: NOT APPLIED YET */}
                   {!application && !isHold && (
                     <Button className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold" onClick={() => setBookingEvent(event)}>
                       <Store className="h-4 w-4 mr-2" /> Book Stall — ₹{event.stall_price || "0.00"}
@@ -202,7 +191,6 @@ export function JobFairsBody() {
                     </Button>
                   )}
 
-                  {/* STATE 2: ALREADY APPLIED & EVENT ON HOLD (The Refund Warning) */}
                   {application && isHold && (
                     <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-xs flex items-start gap-2 mb-4">
                       <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -210,7 +198,6 @@ export function JobFairsBody() {
                     </div>
                   )}
 
-                  {/* STATE 3: APPROVED STALL UI */}
                   {application && application.status === 'approved' && !isHold && (
                     <div className="space-y-4">
                       <div className="bg-india-green/10 border border-india-green/20 rounded-md p-3 grid grid-cols-2 text-center">
@@ -247,7 +234,6 @@ export function JobFairsBody() {
         })}
       </div>
 
-      {/* RAZORPAY / BOOKING DIALOG */}
       <Dialog open={!!bookingEvent} onOpenChange={(open) => !open && setBookingEvent(null)}>
         <DialogContent>
           <DialogHeader>
@@ -265,7 +251,7 @@ export function JobFairsBody() {
             </div>
 
             <div className="bg-muted p-3 rounded-md mt-4">
-              <div className="flex justify-between text-sm font-bold text-navy">
+              <div className="flex justify-space text-sm font-bold text-navy">
                 <span>Total Amount:</span>
                 <span>₹{bookingEvent?.stall_price || "0.00"}</span>
               </div>
@@ -282,7 +268,6 @@ export function JobFairsBody() {
         </DialogContent>
       </Dialog>
 
-      {/* QR ATTENDANCE DIALOG */}
       <Dialog open={!!scanningEvent} onOpenChange={(open) => !open && setScanningEvent(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
