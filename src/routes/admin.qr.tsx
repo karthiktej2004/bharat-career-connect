@@ -22,25 +22,49 @@ function QR() {
   const [stats, setStats] = useState({ total: 0, candidate: 0, employer: 0 });
   const [roleAsk, setRoleAsk] = useState<{ open: boolean; code: string; event: any | null }>({ open: false, code: "", event: null });
 
-  // Fetch Live and Upcoming Events from PostgreSQL
+  // Fetch Live Events & Live Attendance from PostgreSQL
   useEffect(() => {
     const fetchQRData = async () => {
       try {
-        const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events");
-        const json = await res.json();
-        if (json.success) {
+        const [eventsRes, attendanceRes] = await Promise.all([
+          fetch("https://bcc-backend-0cny.onrender.com/api/admin/events"),
+          fetch("https://bcc-backend-0cny.onrender.com/api/admin/attendance-history")
+        ]);
+
+        const eventsJson = await eventsRes.json();
+        const attendanceJson = await attendanceRes.json();
+
+        if (eventsJson.success) {
           // Filter out completed events for the scanner dashboard
-          setEvents(json.data.filter((e: any) => e.status !== "completed"));
+          setEvents(eventsJson.data.filter((e: any) => e.status !== "completed"));
+        }
+
+        if (attendanceJson.success) {
+          const data = attendanceJson.data;
+          setScans(data);
+
+          // Dynamically calculate stats based on fetched attendance data
+          let candCount = 0;
+          let empCount = 0;
+          data.forEach((r: any) => {
+            if (r.role === 'candidate') candCount++;
+            if (r.role === 'employer') empCount++;
+          });
+          setStats({ total: data.length, candidate: candCount, employer: empCount });
         }
       } catch (error) {
-        console.error("Failed to fetch events:", error);
-        toast.error("Failed to load events");
+        console.error("Failed to fetch data:", error);
+        toast.error("Failed to load dashboard data");
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchQRData();
+    
+    // Poll every 15 seconds to keep the dashboard live
+    const interval = setInterval(fetchQRData, 15000); 
+    return () => clearInterval(interval);
   }, []);
 
   // Placeholder function for the actual scan endpoint we will build
@@ -57,7 +81,7 @@ function QR() {
     // We will wire this to a real endpoint in the next sprint
     toast.success(`✓ ${code} checked in via simulation`, { description: `${event.name} · ${role}` });
     
-    // Simulate updating local stats
+    // Simulate updating local stats immediately before the next poll
     setStats(prev => ({
       total: prev.total + 1,
       candidate: role === 'candidate' ? prev.candidate + 1 : prev.candidate,
@@ -72,7 +96,7 @@ function QR() {
       <PageHeader title="QR & Entry Management" description="One scanner per event. Track today's check-ins and allocate venue stalls." />
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
-        <StatCard label="Today's Total Check-ins" value={String(stats.total)} icon={CheckCircle2} accent="india-green" />
+        <StatCard label="Total Check-ins" value={String(stats.total)} icon={CheckCircle2} accent="india-green" />
         <StatCard label="Candidate Check-ins" value={String(stats.candidate)} icon={Users} accent="india-green" />
         <StatCard label="Employer Check-ins" value={String(stats.employer)} icon={Building2} accent="navy" />
       </div>
@@ -90,7 +114,7 @@ function QR() {
         )}
       </div>
 
-      <ScanHistory scans={scans} />
+      <ScanHistory scans={scans} isLoading={isLoading} />
 
       <Dialog open={roleAsk.open} onOpenChange={(o) => !o && setRoleAsk({ open: false, code: "", event: null })}>
         <DialogContent className="max-w-sm">
@@ -193,7 +217,7 @@ function EventScannerCard({ event, onVerify: _onVerify, todayCount }: { event: a
   );
 }
 
-function ScanHistory({ scans }: { scans: any[] }) {
+function ScanHistory({ scans, isLoading }: { scans: any[], isLoading: boolean }) {
   const [filter, setFilter] = useState<"all" | "candidate" | "employer">("all");
   const filtered = filter === "all" ? scans : scans.filter((s) => s.role === filter);
 
@@ -237,8 +261,38 @@ function ScanHistory({ scans }: { scans: any[] }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
-              <tr><td colSpan={7} className="py-6 text-center text-muted-foreground">Live tracking disabled pending database sync.</td></tr>
+            {isLoading ? (
+              <tr>
+                <td colSpan={7} className="py-10 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-navy mx-auto" />
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  No scan history found for the selected filter.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((record) => (
+                <tr key={record.id} className="border-b last:border-0 hover:bg-muted/50">
+                  <td className="py-3 pr-3 text-muted-foreground whitespace-nowrap">
+                    {new Date(record.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td className="py-3 pr-3 font-medium text-navy">{record.user_id}</td>
+                  <td className="py-3 pr-3 font-medium text-gray-900">{record.name}</td>
+                  <td className="py-3 pr-3 text-muted-foreground">{record.event_name}</td>
+                  <td className="py-3 pr-3">
+                    <Badge variant="outline" className="capitalize">{record.role}</Badge>
+                  </td>
+                  <td className="py-3 pr-3 text-muted-foreground">{record.gate}</td>
+                  <td className="py-3 pr-3">
+                    <span className="flex items-center text-india-green font-medium text-xs bg-india-green/10 px-2 py-1 rounded w-fit">
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> {record.status}
+                    </span>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
