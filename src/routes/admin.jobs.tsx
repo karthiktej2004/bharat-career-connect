@@ -10,14 +10,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle2, XCircle, Briefcase, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+// UPDATED: Matched exactly to your PostgreSQL columns
 export interface Job {
   id: string;
   title: string;
-  company: string;
-  type: string;
+  company_name: string;
+  job_type: string;
   location: string;
-  postedAt: string;
-  approvalStatus: "pending" | "approved" | "rejected";
+  created_at: string;
+  status: "pending" | "approved" | "rejected" | "inactive";
 }
 
 export const Route = createFileRoute("/admin/jobs")({
@@ -52,14 +53,16 @@ function AdminJobs() {
     fetchJobs();
   }, []);
 
-  const pending = jobs.filter((j) => (j.approvalStatus ?? "pending") === "pending");
-  const approved = jobs.filter((j) => j.approvalStatus === "approved");
-  const rejected = jobs.filter((j) => j.approvalStatus === "rejected");
+  // UPDATED: Using 'status' instead of 'approvalStatus'
+  const pending = jobs.filter((j) => (j.status ?? "pending") === "pending");
+  const approved = jobs.filter((j) => j.status === "approved");
+  const rejected = jobs.filter((j) => j.status === "rejected");
 
   // 2. Call backend PUT API to approve or reject a job
   async function act(j: Job, status: "approved" | "rejected") {
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${j.id}/review`, {
+      // FIX: Changed from /review to /status to match the backend
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${j.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -72,7 +75,7 @@ function AdminJobs() {
         // Update local component state dynamically
         setJobs((prevJobs) =>
           prevJobs.map((item) =>
-            item.id === j.id ? { ...item, approvalStatus: status } : item
+            item.id === j.id ? { ...item, status: status } : item
           )
         );
       } else {
@@ -156,13 +159,13 @@ function JobTable({
           {jobs.map((j) => (
             <TableRow key={j.id}>
               <TableCell className="font-medium text-navy">{j.title}</TableCell>
-              <TableCell>{j.company}</TableCell>
+              <TableCell>{j.company_name}</TableCell>
               <TableCell>
-                <Badge variant="outline">{j.type}</Badge>
+                <Badge variant="outline">{j.job_type}</Badge>
               </TableCell>
               <TableCell className="text-muted-foreground">{j.location}</TableCell>
               <TableCell className="text-sm text-muted-foreground">
-                {j.postedAt ? new Date(j.postedAt).toLocaleDateString("en-IN") : "Recent"}
+                {j.created_at ? new Date(j.created_at).toLocaleDateString("en-IN") : "Recent"}
               </TableCell>
               {showActions && (
                 <TableCell>
