@@ -141,7 +141,7 @@ export function CandidatesBody() {
       });
 
       if (note) {
-        await fetch(`http://localhost:5000/api/applications/${a.applicationId}/messages`, {
+        await fetch(`https://bcc-backend-0cny.onrender.com/api/applications/${a.applicationId}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ senderType: "employer", senderId: userId?.toString(), message: `Status updated to ${status}. Note: ${note}` })
@@ -215,7 +215,6 @@ export interface SchedulePayload {
   mode: "Online" | "Walk-in"; date: string; time: string; meetingLink?: string; venue?: string; locationDetail?: string; mapsLink?: string; description?: string; notifyWhatsapp: boolean; notifyEmail: boolean;
 }
 
-// FIXED: Added export keyword so employer.interviews.tsx can import it properly
 export function ScheduleInterviewDialog({ open, applicant, job, onClose, onConfirm, reschedule }: { open: boolean; applicant: any; job: any; onClose: () => void; onConfirm: (p: SchedulePayload) => void; reschedule?: boolean; }) {
   const [mode, setMode] = useState<"Online" | "Walk-in">("Online");
   const [date, setDate] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
@@ -275,13 +274,12 @@ export function ScheduleInterviewDialog({ open, applicant, job, onClose, onConfi
   );
 }
 
-// FIXED: Added export keyword so employer.interviews.tsx can import it properly
 export function ApplicantDetailDialog({ a, open, onOpenChange, onStatus }: { a: any; open: boolean; onOpenChange: (o: boolean) => void; onStatus: (a: any, s: string) => void }) {
   const d = useMemo(() => buildDetail(a), [a]);
   const statusLabel = a.status === "Interview" ? "Interviewed" : a.status;
 
   function downloadResume() {
-    const lines = [`RESUME — ${a.name}`, `Candidate ID: ${d.uniqueId}`, ``, `CONTACT`, `Email: ${d.email}`, `Phone: ${d.phone}`, `Location: ${d.district}, ${d.state} — ${d.pincode}`, ``, `PROFILE`, d.about, ``, `EDUCATION`, `${a.qualification} — ${d.specialization}`, `${d.institution}`, `Year of Passing: ${d.yearOfPassing} · Score: ${d.percentage}`, ``, `EXPERIENCE`, `${d.currentRole} @ ${d.currentCompany} (${a.experience})`, ``, `SKILLS`, a.skills.join(", "), ``, `CERTIFICATIONS`, d.certifications.join(", "), ``, `LANGUAGES`, d.languages.join(", "), ``, `PREFERENCES`, `Roles: ${d.preferredRoles.join(", ")}`, `Locations: ${d.preferredLocations.join(", ")}`, `Job Type: ${d.preferredJobType} · Expected: ${d.expectedSalary}`].join("\n");
+    const lines = [`RESUME — ${a.name}`, `Candidate ID: ${d.uniqueId}`, ``, `CONTACT`, `Email: ${d.email}`, `Phone: ${d.phone}`, `Location: ${d.district}, ${d.state} — ${d.pincode}`, ``, `PROFILE`, d.about, ``, `EDUCATION`, `${a.qualification} — ${d.specialization}`, `${d.institution}`, `Year of Passing: ${d.yearOfPassing} · Score: ${d.percentage}`, ``, `EXPERIENCE`, `${d.currentRole} @ ${d.currentCompany} (${a.experience})`, ``, `SKILLS`, a.skills.join(", "), ``, `CERTIFICATIONS`, d.certifications.join(", "), ``, `LANGUAGES`, d.languages.join(" · "), ``, `PREFERENCES`, `Roles: ${d.preferredRoles.join(", ")}`, `Locations: ${d.preferredLocations.join(", ")}`, `Job Type: ${d.preferredJobType} · Expected: ${d.expectedSalary}`].join("\n");
     const blob = new Blob([lines], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -397,7 +395,7 @@ function EditStatusDialog({ a, open, onOpenChange, onStatus }: { a: any; open: b
           </div>
           <div><Label>Description / reason (optional)</Label><textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 w-full min-h-[90px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="e.g. Moved back to Shortlist." /></div>
         </div>
-        <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button className="bg-saffron text-navy hover:bg-saffron/90" onClick={update}>Update</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button className="bg-saffron text-navy hover:bg-s#%%/90" onClick={update}>Update</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -417,8 +415,17 @@ function buildDetail(a: any) {
 }
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
-  return <div className="flex items-start gap-2 text-sm"><Icon className="h-4 w-4 text-saffron mt-0.5 shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{label}</p><p className="text-navy break-words">{value}</p></div></div>;
+  return <div className="flex items-center gap-2 text-sm"><Icon className="h-4 w-4 text-saffron shrink-0" /><span className="text-muted-foreground">{label}:</span> <span className="font-medium text-navy">{value}</span></div>;
 }
+
 function Section({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {
-  return <div className="mt-3"><div className="flex items-center gap-2 mb-1.5"><Icon className="h-4 w-4 text-india-green" /><h4 className="font-display font-bold text-navy text-sm">{title}</h4></div>{children}</div>;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-navy font-semibold text-sm">
+        <Icon className="h-4 w-4 text-saffron" />
+        {title}
+      </div>
+      <div className="pl-6 text-sm">{children}</div>
+    </div>
+  );
 }
