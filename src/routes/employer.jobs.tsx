@@ -31,7 +31,7 @@ function Jobs() {
 
 export function JobsBody() {
   const user = getSession();
-  const userId = user?.id; // Extract just the ID to prevent infinite loops!
+  const userId = user?.id; 
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
@@ -40,7 +40,14 @@ export function JobsBody() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. FETCH JOBS (Wrapped in useCallback to stop the infinite loop bug)
+  // Auto-open modal if URL has ?eventId=
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("eventId")) {
+      setOpen(true);
+    }
+  }, []);
+
   const fetchJobs = useCallback(() => {
     if (!userId) return;
     setIsLoading(true);
@@ -53,12 +60,10 @@ export function JobsBody() {
       .finally(() => setIsLoading(false));
   }, [userId]); 
 
-  // 2. TRIGGER FETCH ON LOAD
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
 
-  // 3. DELETE JOB NATIVELY FROM DATABASE
   const handleDelete = async () => {
     if (!deleting) return;
     try {
@@ -68,7 +73,7 @@ export function JobsBody() {
       const json = await res.json();
       if (json.success) {
         toast.success(`"${deleting.title}" deleted permanently.`);
-        fetchJobs(); // Refresh table safely
+        fetchJobs(); 
       } else {
         toast.error("Failed to delete job.");
       }
@@ -79,7 +84,6 @@ export function JobsBody() {
     }
   };
 
-  // 4. FEATURE 12: 1-CLICK JOB REACTIVATION
   const handleReactivate = async (job: any) => {
     if (!userId) return;
     try {
@@ -170,7 +174,6 @@ export function JobsBody() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
-                        {/* FEATURE 12: Reactivate Button for Inactive/Closed/Deactivated Jobs */}
                         {(approval === "inactive" || approval === "closed" || approval === "deactivated") && (
                           <Button size="sm" variant="outline" className="text-india-green border-india-green/40 hover:bg-india-green/10" onClick={() => handleReactivate(j)}>
                             <RefreshCw className="h-3.5 w-3.5 mr-1" />Reactivate
@@ -220,12 +223,10 @@ export function JobsBody() {
   );
 }
 
-// 4. POST & EDIT DIALOG
 function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open: boolean; onOpenChange: (o: boolean) => void; editJob?: any | null; user: any; onSuccess: () => void }) {
   const empty = { title: "", type: "Full-time", location: "", qualification: "", experience: "", salary: "", skills: "", openings: "1", description: "", eventId: "none" };
   const [form, setForm] = useState(empty);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
   const [availableEvents, setAvailableEvents] = useState<any[]>([]);
 
   useEffect(() => {
@@ -240,6 +241,10 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
         .catch((err) => console.error("Error fetching events:", err));
     }
 
+    // Auto-select event if passed via URL parameter (?eventId=)
+    const params = new URLSearchParams(window.location.search);
+    const urlEventId = params.get("eventId");
+
     if (editJob) {
       setForm({
         title: editJob.title || "",
@@ -253,10 +258,10 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
           : "",
         openings: editJob.vacancies ? editJob.vacancies.toString() : "1",
         description: editJob.description || "", 
-        eventId: editJob.event_id ? editJob.event_id.toString() : "none"
+        eventId: editJob.event_id ? editJob.event_id.toString() : (urlEventId || "none")
       });
     } else {
-      setForm(empty);
+      setForm({ ...empty, eventId: urlEventId || "none" });
     }
   }, [editJob, open]);
 
@@ -298,7 +303,7 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
       const json = await res.json();
       
       if (json.success) {
-        toast.success(editJob ? `"${form.title}" updated — resent for admin approval` : `"${form.title}" submitted — awaiting admin approval`);
+        toast.success(editJob ? `"${form.title}" updated` : `"${form.title}" submitted successfully`);
         onSuccess(); 
         onOpenChange(false);
       } else {
@@ -316,7 +321,7 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5 text-saffron" /> {editJob ? "Edit job" : "Post a new job"}</DialogTitle>
-          <DialogDescription>{editJob ? "Changes will be sent to the admin for re-approval." : "Fill in the details — it will be sent to the admin for approval."}</DialogDescription>
+          <DialogDescription>{editJob ? "Modify the job details." : "Fill in the details for your job posting."}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid sm:grid-cols-2 gap-4">
           
@@ -362,7 +367,7 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
           <DialogFooter className="sm:col-span-2 mt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting} className="bg-saffron text-navy hover:bg-saffron/90">
-              {isSubmitting ? "Saving..." : (editJob ? "Save changes" : "Submit for approval")}
+              {isSubmitting ? "Saving..." : (editJob ? "Save changes" : "Submit Job")}
             </Button>
           </DialogFooter>
         </form>
