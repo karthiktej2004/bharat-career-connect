@@ -13,10 +13,16 @@ export const Route = createFileRoute("/candidate/")({
   component: CandidateHome,
 });
 
-// We keep your completion calculator just in case the backend sends the raw row
+// Profile completion calculator based on actual fields filled
 function computeCompletion(p: any): number {
   if (!p) return 0;
-  const fields: unknown[] = [p.fullName, p.email, p.phone, p.dob, p.gender, p.category, p.state, p.district, p.pincode, p.qualification, p.institution, p.yearOfPassing, p.percentage, p.specialization, p.skills?.length, p.experienceType, p.resumeFileName, p.preferredLocations?.length, p.preferredJobType, p.expectedSalary];
+  const fields: unknown[] = [
+    p.fullName, p.email, p.phone, p.dob, p.gender, p.category, 
+    p.state, p.district, p.pincode, p.qualification, p.institution, 
+    p.yearOfPassing, p.percentage, p.specialization, p.skills?.length, 
+    p.experienceType, p.resumeFileName, p.preferredLocations?.length, 
+    p.preferredJobType, p.expectedSalary
+  ];
   const filled = fields.filter(Boolean).length;
   return Math.round((filled / fields.length) * 100);
 }
@@ -46,10 +52,10 @@ function CandidateHome() {
       }
 
       try {
-        // Fetch everything in parallel
+        // Fetch profile using the dedicated profile route to get all fields for completion calculation
         const [pRes, jRes, aRes, eRes] = await Promise.all([
-          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}`),
-          fetch(`https://bcc-backend-0cny.onrender.com/api/jobs/all`),
+          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/profile/${session.id}`),
+          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/jobs`),
           fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/applications`),
           fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/events`)
         ]);
@@ -182,7 +188,7 @@ function CandidateHome() {
                 <div className="gov-gradient h-24 relative p-4 flex flex-col justify-between text-white">
                   <Badge className="self-start bg-white/20 border border-white/25 text-white hover:bg-white/25">New</Badge>
                   <div>
-                    <p className="text-xs text-white/80">{j.company_name}</p>
+                    <p className="text-xs text-white/80">{j.company}</p>
                     <h3 className="font-display font-bold text-base truncate">{j.title}</h3>
                   </div>
                 </div>
