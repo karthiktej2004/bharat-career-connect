@@ -27,7 +27,6 @@ interface SavedJob {
 }
 
 export function SavedJobsPage() {
-  const session = getSession();
   const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
@@ -35,7 +34,18 @@ export function SavedJobsPage() {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com";
 
   const fetchSavedJobs = async () => {
-    if (!session?.id) return;
+    // Prevent SSR execution if window is not defined
+    if (typeof window === "undefined") {
+      setLoading(false);
+      return;
+    }
+
+    const session = getSession();
+    if (!session?.id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const res = await fetch(`${baseUrl}/api/candidate/${session.id}/saved-jobs`);
@@ -46,7 +56,9 @@ export function SavedJobsPage() {
         toast.error("Failed to load saved jobs.");
       }
     } catch (err) {
-      toast.error("Network error loading saved jobs.");
+      console.error("Saved jobs fetch error:", err);
+      // Fail gracefully instead of crashing
+      setSavedJobs([]);
     } finally {
       setLoading(false);
     }
@@ -54,9 +66,10 @@ export function SavedJobsPage() {
 
   useEffect(() => {
     fetchSavedJobs();
-  }, [session?.id]);
+  }, []);
 
   const handleRemoveSavedJob = async (savedId: number, jobId: number) => {
+    const session = getSession();
     if (!session?.id) return;
     setActionId(savedId);
 
@@ -82,6 +95,7 @@ export function SavedJobsPage() {
   };
 
   const handleApply = async (jobId: number) => {
+    const session = getSession();
     if (!session?.id) return;
     try {
       const res = await fetch(`${baseUrl}/api/applications/apply`, {
