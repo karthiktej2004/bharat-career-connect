@@ -4,10 +4,9 @@ import { employerNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, Users, CalendarCheck, Award, ArrowRight, TrendingUp, ShieldCheck, IdCard, Clock, Loader2 } from "lucide-react";
+import { Briefcase, Users, CalendarCheck, Award, ArrowRight, TrendingUp, ShieldCheck, IdCard, Loader2 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { useEffect, useState } from "react";
-import { getSession } from "@/lib/mockStore";
 
 export const Route = createFileRoute("/employer/")({
   head: () => ({ meta: [{ title: "Employer Dashboard — Bharat Career Connect" }] }),
@@ -20,7 +19,6 @@ function EmployerHome() {
   const [isLoading, setIsLoading] = useState(true);
   const [employerUser, setEmployerUser] = useState<any>(null);
 
-  // Robust session reader supporting multiple storage keys and structures
   useEffect(() => {
     try {
       const keys = ["bcc_user", "user", "employer", "bcc_employer"];
@@ -40,7 +38,6 @@ function EmployerHome() {
         }
       }
 
-      // If no valid session is found, or role is explicitly candidate, redirect to login
       if (!foundUser || foundUser.role === "candidate") {
         navigate({ to: "/auth/login" });
         return;
@@ -48,7 +45,6 @@ function EmployerHome() {
 
       setEmployerUser(foundUser);
 
-      // Fetch Live Data from Backend API using employer ID or email
       const activeId = foundUser.id ? foundUser.id.toString() : foundUser.email;
       fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${activeId}/dashboard`)
         .then((res) => res.json())
