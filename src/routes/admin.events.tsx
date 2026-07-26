@@ -235,7 +235,7 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
     }
   };
 
-  const toggleJobStatus = async (jobId: number, currentStatus: string) => {
+ const toggleJobStatus = async (jobId: number, currentStatus: string) => {
     // Determine the next status based on the current one
     const nextStatus = currentStatus === 'approved' ? 'inactive' : 'approved';
     const confirmMessage = nextStatus === 'inactive' 
@@ -245,12 +245,13 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
     if (!confirm(confirmMessage)) return;
 
     try {
-      // Note: Make sure this endpoint matches your Node.js backend route
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${jobId}/deactivate`, {
+      // FIXED: Targeting the exact /status endpoint with a PUT request
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${jobId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
+      
       const json = await res.json();
       
       if (json.success) {
