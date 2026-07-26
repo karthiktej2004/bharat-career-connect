@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { setSession, NSQF_SKILLS, INDIAN_LANGUAGES, INDIAN_STATES, type CandidateProfile } from "@/lib/mockStore";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Check, Upload, ShieldCheck, Sparkles, GraduationCap, Briefcase, FileText, Target, User as UserIcon, X, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Upload, ShieldCheck, Sparkles, GraduationCap, Briefcase, FileText, Target, User as UserIcon, X, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/auth/signup")({
   head: () => ({ meta: [{ title: "Register as Candidate — Bharat Career Connect" }] }),
@@ -113,8 +113,35 @@ function SignupPage() {
   const [scoreType, setScoreType] = useState<"percentage" | "cgpa">("percentage");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Feature 1: Minimum Age Limit (15+ Years)
+  // Minimum Age Limit (15+ Years)
   const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
+
+  // NAUKRI-STYLE STRICT VALIDATION HELPERS
+  const isNameValid = useMemo(() => {
+    if (!data.fullName) return true;
+    return /^[a-zA-Z\s'.]{2,60}$/.test(data.fullName.trim());
+  }, [data.fullName]);
+
+  const isEmailValid = useMemo(() => {
+    if (!data.email) return true;
+    const cleanEmail = data.email.trim().toLowerCase();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|in|org|net|edu|gov|co|io)$/i;
+    const fakeDomains = ["@pass.com", "@test.com", "@example.com", "@mailinator.com", "@temp.com"];
+    return emailRegex.test(cleanEmail) && !fakeDomains.some(domain => cleanEmail.endsWith(domain));
+  }, [data.email]);
+
+  const isPhoneValid = useMemo(() => {
+    if (!data.phone) return true;
+    const cleanPhone = data.phone.replace(/\D/g, "");
+    return cleanPhone.length === 10 && /^[6-9]\d{9}$/.test(cleanPhone);
+  }, [data.phone]);
+
+  const isYopValid = useMemo(() => {
+    if (!data.yearOfPassing) return true;
+    const yop = Number(data.yearOfPassing);
+    const currentYear = new Date().getFullYear();
+    return !isNaN(yop) && yop >= 1970 && yop <= currentYear + 6;
+  }, [data.yearOfPassing]);
 
   // SMART PIN CODE API
   useEffect(() => {
@@ -145,29 +172,53 @@ function SignupPage() {
 
   const canNext = useMemo(() => {
     switch (STEPS[step].key) {
-      case "basic": return !!(data.fullName && data.email && data.phone && password.length >= 6 && data.dob);
-      case "verify": return !!data.otpVerified;
-      case "education": return !!(data.qualification && data.yearOfPassing);
-      case "skills": return (data.skills?.length || 0) >= 1;
-      case "experience": return !!data.experienceType;
-      case "resume": return true;
-      case "preferences": return (data.preferredLocations?.length || 0) >= 1 && !!data.preferredJobType;
-      case "review": return true;
+      case "basic": 
+        return !!(data.fullName && isNameValid && data.email && isEmailValid && data.phone && isPhoneValid && password.length >= 6 && data.dob && data.pincode?.length === 6);
+      case "verify": 
+        return !!data.otpVerified;
+      case "education": 
+        return !!(data.qualification && data.yearOfPassing && isYopValid);
+      case "skills": 
+        return (data.skills?.length || 0) >= 1;
+      case "experience": 
+        return !!data.experienceType;
+      case "resume": 
+        return !!data.resumeFileName;
+      case "preferences": 
+        return (data.preferredLocations?.length || 0) >= 1 && !!data.preferredJobType;
+      case "review": 
+        return true;
     }
-  }, [step, data, password]);
+  }, [step, data, password, isNameValid, isEmailValid, isPhoneValid, isYopValid]);
 
   const completion = useMemo(() => {
     const fields = [data.fullName, data.email, data.phone, data.qualification, data.skills?.length, data.experienceType, data.resumeFileName, data.preferredLocations?.length, data.category, data.state];
     return Math.round((fields.filter(Boolean).length / fields.length) * 100);
   }, [data]);
 
-  function sendOtp() { setOtpSent("any"); toast.success(`OTP sent to ${data.phone}. Enter 1234 to verify.`); }
-  function verifyOtp() { if (otpInput === "1234" || /^\d{6}$/.test(otpInput)) { set("otpVerified", true); toast.success("Phone verified"); } else { toast.error("Enter 1234"); } }
+  function sendOtp() { 
+    if (!isPhoneValid || !data.phone) return toast.error("Enter a valid 10-digit mobile number!");
+    setOtpSent("any"); 
+    toast.success(`OTP sent to ${data.phone}. Enter 1234 to verify.`); 
+  }
+
+  function verifyOtp() { 
+    if (otpInput === "1234" || /^\d{6}$/.test(otpInput)) { 
+      set("otpVerified", true); 
+      toast.success("Phone verified successfully!"); 
+    } else { 
+      toast.error("Invalid OTP. Enter 1234"); 
+    } 
+  }
 
   // =======================================================
   // 🚀 REAL DATABASE SUBMISSION TO LIVE BACKEND
   // =======================================================
   async function finish() {
+    if (!isNameValid) return toast.error("Please enter a valid Full Name (letters only).");
+    if (!isEmailValid) return toast.error("Please enter a valid professional email address.");
+    if (!isPhoneValid) return toast.error("Please enter a valid 10-digit mobile number.");
+
     setIsSubmitting(true);
     const d: any = data;
 
@@ -176,9 +227,9 @@ function SignupPage() {
     const finalSpecialization = data.specialization === "__other__" ? d.specializationOther : data.specialization;
 
     const payload = {
-      fullName: data.fullName || "", 
-      email: data.email || "", 
-      phone: data.phone || "", 
+      fullName: data.fullName?.trim() || "", 
+      email: data.email?.trim() || "", 
+      phone: data.phone?.replace(/\D/g, "") || "", 
       password: password, 
       dob: data.dob || null, 
       gender: data.gender || "Male", 
@@ -269,20 +320,46 @@ function SignupPage() {
             {/* ================= STEP 1: BASIC INFO ================= */}
             {STEPS[step].key === "basic" && (
               <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500">
-                <div className="md:col-span-2"><Label>Full Name *</Label><Input value={data.fullName || ""} onChange={(e) => set("fullName", e.target.value)} className="mt-1" placeholder="As per official ID" /></div>
-                <div><Label>Email *</Label><Input type="email" value={data.email || ""} onChange={(e) => set("email", e.target.value)} className="mt-1" /></div>
-                <div><Label>Phone *</Label><Input value={data.phone || ""} onChange={(e) => set("phone", e.target.value)} className="mt-1" placeholder="+91 98xxxxxxxx" /></div>
+                <div className="md:col-span-2">
+                  <Label>Full Name <span className="text-red-500">*</span></Label>
+                  <Input 
+                    value={data.fullName || ""} 
+                    onChange={(e) => set("fullName", e.target.value.replace(/[^a-zA-Z\s'.]/g, ""))} 
+                    className="mt-1" 
+                    placeholder="As per official photo ID (Letters only)" 
+                  />
+                  {!isNameValid && data.fullName && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Please enter a valid name (minimum 2 letters, no numbers/special chars)</p>
+                  )}
+                </div>
+
                 <div>
-                  <Label>Password *</Label>
+                  <Label>Email <span className="text-red-500">*</span></Label>
+                  <Input type="email" value={data.email || ""} onChange={(e) => set("email", e.target.value.trim())} className="mt-1" placeholder="name@example.com" />
+                  {!isEmailValid && data.email && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Enter a valid email domain (e.g. user@gmail.com, test domains blocked)</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label>Phone <span className="text-red-500">*</span></Label>
+                  <Input value={data.phone || ""} onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))} className="mt-1" placeholder="10-digit mobile number" maxLength={10} />
+                  {!isPhoneValid && data.phone && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Must be a valid 10-digit Indian phone (starts with 6-9)</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label>Password <span className="text-red-500">*</span></Label>
                   <div className="relative mt-1">
                     <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" className="pr-10" />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground hover:text-navy">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
                   </div>
                 </div>
 
-                {/* Feature 1: Date of Birth with 15+ Age Enforcement */}
+                {/* DOB with 15+ Age Limit */}
                 <div>
-                  <Label>Date of Birth (15+ Years) *</Label>
+                  <Label>Date of Birth (15+ Years) <span className="text-red-500">*</span></Label>
                   <Input 
                     type="date" 
                     max={maxDate} 
@@ -299,13 +376,18 @@ function SignupPage() {
                 <div className="md:col-span-2 p-5 bg-slate-50 border border-border rounded-xl mt-2 space-y-4">
                   <div className="font-display font-bold text-navy flex items-center gap-2">Geographic Location {pinLookup === "loading" && <Loader2 className="h-4 w-4 animate-spin text-saffron" />}</div>
                   <div className="grid sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-3"><Label>PIN Code</Label><Input value={data.pincode || ""} onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 font-mono max-w-[200px]" placeholder="560064" maxLength={6} />{pinLookup === "ok" && <p className="text-xs text-india-green mt-1 font-medium">Details auto-filled</p>}{pinLookup === "error" && <p className="text-xs text-destructive mt-1">Invalid PIN code</p>}</div>
+                    <div className="sm:col-span-3">
+                      <Label>PIN Code <span className="text-red-500">*</span></Label>
+                      <Input value={data.pincode || ""} onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 font-mono max-w-[200px]" placeholder="560064" maxLength={6} />
+                      {pinLookup === "ok" && <p className="text-xs text-india-green mt-1 font-medium">Details auto-filled</p>}
+                      {pinLookup === "error" && <p className="text-xs text-destructive mt-1">Invalid PIN code</p>}
+                    </div>
                     <div><Label>State</Label><Input disabled value={data.state || ""} className="mt-1 bg-white" /></div>
                     <div><Label>District</Label><Input disabled value={data.district || ""} className="mt-1 bg-white" /></div>
                     <div><Label>Taluk</Label><Input disabled value={data.taluk || ""} className="mt-1 bg-white" /></div>
-                    <div><Label>MP</Label><Input disabled value={data.mp || ""} className="mt-1 bg-white font-medium" /></div>
-                    <div><Label>MLA</Label><Input disabled value={data.mla || ""} className="mt-1 bg-white font-medium" /></div>
-                    <div><Label>Panchayat</Label><Input disabled value={data.gramPanchayat || ""} className="mt-1 bg-white font-medium" /></div>
+                    <div><Label>MP Constituency</Label><Input disabled value={data.mp || ""} className="mt-1 bg-white font-medium" /></div>
+                    <div><Label>MLA Constituency</Label><Input disabled value={data.mla || ""} className="mt-1 bg-white font-medium" /></div>
+                    <div><Label>Gram Panchayat</Label><Input disabled value={data.gramPanchayat || ""} className="mt-1 bg-white font-medium" /></div>
                   </div>
                 </div>
               </div>
@@ -316,11 +398,12 @@ function SignupPage() {
               <div className="max-w-md mx-auto text-center py-6 animate-in fade-in">
                 <div className="mx-auto size-14 rounded-full bg-saffron/15 flex items-center justify-center mb-4"><ShieldCheck className="h-7 w-7 text-saffron" /></div>
                 <h3 className="font-display text-lg font-bold text-navy">Verify your phone</h3>
-                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3"><Input value={otpInput} onChange={(e) => setOtpInput(e.target.value)} placeholder="Enter 6-digit OTP" className="text-center tracking-widest" maxLength={6} /><div className="flex gap-2 justify-center"><Button onClick={verifyOtp} className="bg-india-green text-white">Verify</Button><Button variant="outline" onClick={sendOtp}>Resend</Button></div></div>)}
+                <p className="text-xs text-muted-foreground mt-1">OTP sent to: <b>+91 {data.phone}</b></p>
+                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3"><Input value={otpInput} onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Enter OTP (1234)" className="text-center tracking-widest font-mono" maxLength={6} /><div className="flex gap-2 justify-center"><Button onClick={verifyOtp} className="bg-india-green text-white">Verify</Button><Button variant="outline" onClick={sendOtp}>Resend</Button></div></div>)}
               </div>
             )}
 
-            {/* ================= STEP 3: EXCEL EDUCATION & MARKS TOGGLE ================= */}
+            {/* ================= STEP 3: EDUCATION ================= */}
             {STEPS[step].key === "education" && (() => {
               const q = data.qualification || "";
               const isSchool = ["Below 10th / SSLC", "10th std / SSLC", "12th std / 2nd PUC"].includes(q);
@@ -336,33 +419,52 @@ function SignupPage() {
 
               return (
                 <div className="grid md:grid-cols-2 gap-5 animate-in fade-in">
-                  <div><Label>Highest Qualification *</Label><Select value={data.qualification || ""} onValueChange={(v) => { set("qualification", v); set("institution", ""); set("specialization", ""); set("course", ""); set("stateBoardName", ""); }}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{HIGHEST_QUALS.map((qq) => <SelectItem key={qq} value={qq}>{qq}</SelectItem>)}</SelectContent></Select></div>
-                  <div><Label>Year of Passing *</Label><Input value={data.yearOfPassing || ""} onChange={(e) => set("yearOfPassing", e.target.value)} className="mt-1" /></div>
+                  <div>
+                    <Label>Highest Qualification <span className="text-red-500">*</span></Label>
+                    <Select value={data.qualification || ""} onValueChange={(v) => { set("qualification", v); set("institution", ""); set("specialization", ""); set("course", ""); set("stateBoardName", ""); }}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{HIGHEST_QUALS.map((qq) => <SelectItem key={qq} value={qq}>{qq}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Year of Passing <span className="text-red-500">*</span></Label>
+                    <Input 
+                      value={data.yearOfPassing || ""} 
+                      onChange={(e) => set("yearOfPassing", e.target.value.replace(/\D/g, "").slice(0, 4))} 
+                      className="mt-1 font-mono" 
+                      placeholder="e.g. 2024" 
+                      maxLength={4} 
+                    />
+                    {!isYopValid && data.yearOfPassing && (
+                      <p className="text-xs text-red-500 mt-1">Enter a valid 4-digit passing year (1970 - {new Date().getFullYear() + 6})</p>
+                    )}
+                  </div>
 
                   {isSchool && (
                     <>
-                      <div><Label>Board *</Label><Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select board" /></SelectTrigger><SelectContent>{BOARDS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
-                      {data.institution === "State Board" && (<div><Label>Select State *</Label><Select value={data.stateBoardName || ""} onValueChange={(v) => set("stateBoardName", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select state" /></SelectTrigger><SelectContent>{STATE_BOARDS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>)}
-                      <div className={data.institution === "State Board" ? "md:col-span-2" : ""}><Label>School Name *</Label><Input className="mt-1" value={data.schoolName || ""} onChange={(e) => set("schoolName", e.target.value)} /></div>
+                      <div><Label>Board <span className="text-red-500">*</span></Label><Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select board" /></SelectTrigger><SelectContent>{BOARDS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
+                      {data.institution === "State Board" && (<div><Label>Select State <span className="text-red-500">*</span></Label><Select value={data.stateBoardName || ""} onValueChange={(v) => set("stateBoardName", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select state" /></SelectTrigger><SelectContent>{STATE_BOARDS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>)}
+                      <div className={data.institution === "State Board" ? "md:col-span-2" : ""}><Label>School Name <span className="text-red-500">*</span></Label><Input className="mt-1" value={data.schoolName || ""} onChange={(e) => set("schoolName", e.target.value)} /></div>
                     </>
                   )}
 
                   {(isIti || isTata || isDiploma) && (
                     <>
                       <div className="md:col-span-2"><Label>{isIti ? "ITI Trade *" : isTata ? "TATA Udyog Course *" : "Diploma Stream *"}</Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{(isIti ? ITI_TRADES : isTata ? TATA_COURSES : DIPLOMA_STREAMS).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select>{specIsOther && <Input className="mt-2" value={data.specializationOther || ""} onChange={(e) => set("specializationOther", e.target.value)} />}</div>
-                      <div className="md:col-span-2"><Label>Institute Name *</Label><Input className="mt-1" value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} /></div>
+                      <div className="md:col-span-2"><Label>Institute Name <span className="text-red-500">*</span></Label><Input className="mt-1" value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} /></div>
                     </>
                   )}
 
                   {isHigher && (
                     <>
-                      <div className="md:col-span-2"><Label>College / University *</Label><Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select college" /></SelectTrigger><SelectContent>{UNIVERSITIES.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select></div>
-                      <div><Label>Course *</Label><Select value={data.course || ""} onValueChange={(v) => { set("course", v); set("specialization", ""); }}><SelectTrigger className="mt-1"><SelectValue placeholder="Select course" /></SelectTrigger><SelectContent>{(isUg ? UG_COURSES : isPg ? PG_COURSES : BE_ME_COURSES).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select>{courseIsOther && <Input className="mt-2" value={data.courseOther || ""} onChange={(e) => set("courseOther", e.target.value)} />}</div>
-                      <div><Label>Specialization / Domain *</Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{currentSpecializations.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select>{specIsOther && <Input className="mt-2" value={data.specializationOther || ""} onChange={(e) => set("specializationOther", e.target.value)} />}</div>
+                      <div className="md:col-span-2"><Label>College / University <span className="text-red-500">*</span></Label><Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select college" /></SelectTrigger><SelectContent>{UNIVERSITIES.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select></div>
+                      <div><Label>Course <span className="text-red-500">*</span></Label><Select value={data.course || ""} onValueChange={(v) => { set("course", v); set("specialization", ""); }}><SelectTrigger className="mt-1"><SelectValue placeholder="Select course" /></SelectTrigger><SelectContent>{(isUg ? UG_COURSES : isPg ? PG_COURSES : BE_ME_COURSES).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select>{courseIsOther && <Input className="mt-2" value={data.courseOther || ""} onChange={(e) => set("courseOther", e.target.value)} />}</div>
+                      <div><Label>Specialization / Domain <span className="text-red-500">*</span></Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{currentSpecializations.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select>{specIsOther && <Input className="mt-2" value={data.specializationOther || ""} onChange={(e) => set("specializationOther", e.target.value)} />}</div>
                     </>
                   )}
 
-                  {/* Feature 2: Percentage vs CGPA Mode Selector */}
+                  {/* Percentage vs CGPA Restriction Selector */}
                   <div>
                     <Label>Mark Scoring Mode</Label>
                     <Select value={scoreType} onValueChange={(v: any) => setScoreType(v)}>
@@ -374,13 +476,22 @@ function SignupPage() {
                     </Select>
 
                     <Input 
-                      className="mt-2"
+                      className="mt-2 font-mono"
                       placeholder={scoreType === "percentage" ? "e.g. 85%" : "e.g. 8.5"}
                       value={data.percentage || ""}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        if (scoreType === "percentage" && Number(val) > 100) return toast.error("Percentage cannot exceed 100%");
-                        if (scoreType === "cgpa" && Number(val) > 10) return toast.error("CGPA cannot exceed 10.0");
+                        let val = e.target.value.replace(/[^0-9.]/g, "");
+                        const parts = val.split('.');
+                        if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+                        
+                        if (scoreType === "percentage" && Number(val) > 100) {
+                          toast.error("Percentage cannot exceed 100%");
+                          return;
+                        }
+                        if (scoreType === "cgpa" && Number(val) > 10) {
+                          toast.error("CGPA cannot exceed 10.0");
+                          return;
+                        }
                         set("percentage", val);
                       }}
                     />
@@ -398,7 +509,8 @@ function SignupPage() {
               const addSkill = (s: string) => { const v = s.trim(); if (!v) return; if (!(data.skills || []).some((x) => x.toLowerCase() === v.toLowerCase())) { setData((d) => ({ ...d, skills: [...(d.skills || []), v] })); } setSkillSearch(""); };
               return (
                 <div className="animate-in fade-in">
-                  <div className="flex gap-2 mb-4"><Input value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(skillSearch); } }} placeholder="Search a skill" /><Button onClick={() => addSkill(skillSearch)} disabled={!skillSearch.trim()} className="bg-navy text-white">Add</Button></div>
+                  <Label className="mb-2 block">Skills <span className="text-red-500">*</span> (Select at least 1 skill)</Label>
+                  <div className="flex gap-2 mb-4"><Input value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(skillSearch); } }} placeholder="Search or type a skill" /><Button onClick={() => addSkill(skillSearch)} disabled={!skillSearch.trim()} className="bg-navy text-white">Add</Button></div>
                   {(data.skills?.length || 0) > 0 && (<div className="mb-4"><div className="text-xs font-medium text-navy mb-2">Your skills</div><div className="flex flex-wrap gap-2">{data.skills!.map((s) => <Badge key={s} className="bg-saffron text-navy px-3 py-1"><Check className="h-3 w-3 mr-1" /> {s} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => toggleArr("skills", s)}/></Badge>)}</div></div>)}
                   <div><div className="text-xs font-medium text-muted-foreground mb-2">Suggested skills</div><div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto">{filtered.map((s) => { const on = data.skills?.includes(s); return <Badge key={s} onClick={() => on ? toggleArr("skills", s) : addSkill(s)} className={`cursor-pointer ${on ? "bg-india-green text-white" : "bg-muted text-navy"}`}>{s}</Badge>; })}</div></div>
                 </div>
@@ -408,8 +520,24 @@ function SignupPage() {
             {/* STEP 5: EXPERIENCE */}
             {STEPS[step].key === "experience" && (
               <div className="grid md:grid-cols-2 gap-4 animate-in fade-in">
-                <div className="md:col-span-2"><Label>Experience Type</Label><div className="mt-2 flex gap-3">{(["Fresher","Experienced"] as const).map((t) => (<button key={t} onClick={() => set("experienceType", t)} className={`flex-1 p-4 rounded-lg border text-left ${data.experienceType === t ? "border-navy bg-navy/5" : "border-border"}`}><div className="font-medium text-navy">{t}</div></button>))}</div></div>
-                {data.experienceType === "Experienced" && (<><div className="md:col-span-2 -mb-1 mt-2"><h4 className="font-display font-semibold text-navy text-sm">Current Employment</h4></div><div><Label>Total Years Experience *</Label><Input value={data.yearsOfExperience || ""} onChange={(e) => set("yearsOfExperience", e.target.value)} className="mt-1" /></div><div><Label>Employment Status</Label><Select value={data.employmentStatus || ""} onValueChange={(v) => set("employmentStatus", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["Currently employed","Serving notice period","Not employed"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div><div><Label>Current Job Title *</Label><Input value={data.currentRole || ""} onChange={(e) => set("currentRole", e.target.value)} className="mt-1" /></div><div><Label>Current Company *</Label><Input value={data.currentCompany || ""} onChange={(e) => set("currentCompany", e.target.value)} className="mt-1" /></div></>)}
+                <div className="md:col-span-2"><Label>Experience Type <span className="text-red-500">*</span></Label><div className="mt-2 flex gap-3">{(["Fresher","Experienced"] as const).map((t) => (<button key={t} onClick={() => set("experienceType", t)} className={`flex-1 p-4 rounded-lg border text-left ${data.experienceType === t ? "border-navy bg-navy/5" : "border-border"}`}><div className="font-medium text-navy">{t}</div></button>))}</div></div>
+                {data.experienceType === "Experienced" && (
+                  <>
+                    <div className="md:col-span-2 -mb-1 mt-2"><h4 className="font-display font-semibold text-navy text-sm">Current Employment Details</h4></div>
+                    <div>
+                      <Label>Total Years Experience *</Label>
+                      <Input 
+                        value={data.yearsOfExperience || ""} 
+                        onChange={(e) => set("yearsOfExperience", e.target.value.replace(/[^0-9.]/g, "").slice(0, 4))} 
+                        className="mt-1 font-mono" 
+                        placeholder="e.g. 2.5" 
+                      />
+                    </div>
+                    <div><Label>Employment Status</Label><Select value={data.employmentStatus || ""} onValueChange={(v) => set("employmentStatus", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["Currently employed","Serving notice period","Not employed"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+                    <div><Label>Current Job Title *</Label><Input value={data.currentRole || ""} onChange={(e) => set("currentRole", e.target.value)} className="mt-1" placeholder="e.g. Software Engineer" /></div>
+                    <div><Label>Current Company *</Label><Input value={data.currentCompany || ""} onChange={(e) => set("currentCompany", e.target.value)} className="mt-1" placeholder="e.g. Infosys" /></div>
+                  </>
+                )}
               </div>
             )}
 
@@ -417,7 +545,7 @@ function SignupPage() {
             {STEPS[step].key === "resume" && (
               <div className="py-4 animate-in fade-in space-y-6">
                 <div>
-                  <Label className="block mb-2">Resume Upload (.pdf, .doc, .docx only) *</Label>
+                  <Label className="block mb-2">Resume Upload (.pdf, .doc, .docx only) <span className="text-red-500">*</span></Label>
                   <label className="block border-2 border-dashed border-navy/30 rounded-xl p-8 text-center hover:bg-navy/5 cursor-pointer">
                     <Upload className="h-10 w-10 mx-auto text-navy" />
                     <div className="mt-3 font-medium text-navy">{data.resumeFileName || "Upload your Resume"}</div>
@@ -430,17 +558,20 @@ function SignupPage() {
                         if (f) { 
                           const ext = f.name.split('.').pop()?.toLowerCase();
                           if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
-                            return toast.error("Only PDF and Word files allowed!");
+                            return toast.error("Only PDF and Word documents (.pdf, .doc, .docx) are allowed!");
+                          }
+                          if (f.size > 5 * 1024 * 1024) {
+                            return toast.error("File size cannot exceed 5MB!");
                           }
                           set("resumeFileName", f.name); 
-                          toast.success("Resume attached"); 
+                          toast.success("Resume attached successfully"); 
                         } 
                       }} 
                     />
                   </label>
                 </div>
 
-                {/* Feature 4: Dynamic Certifications Section */}
+                {/* Additional Certifications */}
                 <div className="mt-6 border-t pt-4">
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="font-bold text-navy text-sm">Additional Certifications</h4>
@@ -460,7 +591,7 @@ function SignupPage() {
                   {(data.certifications || []).map((cert: any, index: number) => (
                     <div key={index} className="p-3 bg-slate-50 border rounded-lg mt-3 space-y-2">
                       <Input 
-                        placeholder="Certification Description (e.g. AWS Certified Developer)" 
+                        placeholder="Certification Title (e.g. AWS Certified Developer)" 
                         value={cert.title} 
                         onChange={(e) => {
                           const updated = [...(data.certifications || [])];
@@ -476,7 +607,7 @@ function SignupPage() {
                           if (file) {
                             const ext = file.name.split('.').pop()?.toLowerCase();
                             if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
-                              return toast.error("Only PDF and Word files allowed!");
+                              return toast.error("Only PDF and Word documents are allowed!");
                             }
                             const updated = [...(data.certifications || [])];
                             updated[index].fileName = file.name;
@@ -494,10 +625,18 @@ function SignupPage() {
             {STEPS[step].key === "preferences" && (
               <div className="grid md:grid-cols-2 gap-4 animate-in fade-in">
                 <div className="md:col-span-2"><Label>Preferred Roles</Label><Input className="mt-1" placeholder="Type a role and press Enter" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const v = e.currentTarget.value.trim(); if (v && !(data.preferredRoles || []).includes(v)) set("preferredRoles", [...(data.preferredRoles || []), v]); e.currentTarget.value = ""; } }} />{(data.preferredRoles?.length || 0) > 0 && (<div className="flex flex-wrap gap-2 mt-3">{data.preferredRoles!.map((r) => <Badge key={r} className="bg-navy text-white">{r} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => set("preferredRoles", data.preferredRoles!.filter((x) => x !== r))}/></Badge>)}</div>)}</div>
-                <div className="md:col-span-2 mt-2"><Label>Preferred Work Locations *</Label><div className="flex flex-wrap gap-2 mt-2">{["Bengaluru","Mysuru","Hubballi","Mangaluru","Remote"].map((l) => { const on = data.preferredLocations?.includes(l); return <Badge key={l} onClick={() => toggleArr("preferredLocations", l)} className={`cursor-pointer ${on ? "bg-navy text-white" : "bg-slate-100 text-slate-700"}`}>{l}</Badge>; })}</div></div>
+                <div className="md:col-span-2 mt-2"><Label>Preferred Work Locations <span className="text-red-500">*</span></Label><div className="flex flex-wrap gap-2 mt-2">{["Bengaluru","Mysuru","Hubballi","Mangaluru","Remote"].map((l) => { const on = data.preferredLocations?.includes(l); return <Badge key={l} onClick={() => toggleArr("preferredLocations", l)} className={`cursor-pointer ${on ? "bg-navy text-white" : "bg-slate-100 text-slate-700"}`}>{l}</Badge>; })}</div></div>
                 <label className="md:col-span-2 flex items-center gap-2 mt-1 bg-saffron/10 border p-3 rounded-lg"><Checkbox checked={!!data.willingToRelocate} onCheckedChange={(v) => set("willingToRelocate", !!v)} /> <span className="font-medium text-navy">Willing to relocate anywhere in India</span></label>
-                <div><Label>Job Type *</Label><Select value={data.preferredJobType || ""} onValueChange={(v) => set("preferredJobType", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["Full-time","Internship","Contract"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
-                <div><Label>Expected Salary (LPA)</Label><Input value={data.expectedSalary || ""} onChange={(e) => set("expectedSalary", e.target.value)} className="mt-1" /></div>
+                <div><Label>Job Type <span className="text-red-500">*</span></Label><Select value={data.preferredJobType || ""} onValueChange={(v) => set("preferredJobType", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["Full-time","Internship","Contract"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
+                <div>
+                  <Label>Expected Salary (LPA)</Label>
+                  <Input 
+                    value={data.expectedSalary || ""} 
+                    onChange={(e) => set("expectedSalary", e.target.value.replace(/[^0-9.]/g, "").slice(0, 5))} 
+                    className="mt-1 font-mono" 
+                    placeholder="e.g. 4.5" 
+                  />
+                </div>
               </div>
             )}
 
