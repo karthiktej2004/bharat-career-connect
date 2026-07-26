@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar, MapPin, QrCode, Briefcase, Loader2, CheckCircle2, FileText, Check, Lock, Unlock, Clock, ScanLine, Smartphone } from "lucide-react";
+import { Calendar, MapPin, QrCode, Briefcase, Loader2, CheckCircle2, FileText, Check, Unlock, Clock, ScanLine, Smartphone } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -259,7 +259,7 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
 }
 
 // =========================================================
-// 3. NEW: SCAN VENUE ADMIN QR MODAL (OTP FLOW)
+// 3. SCAN VENUE ADMIN QR MODAL (OTP FLOW)
 // =========================================================
 function VenueScanDialog({ event, passId, onSuccess, trigger }: { event: any, passId: string, onSuccess: () => void, trigger: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -269,20 +269,18 @@ function VenueScanDialog({ event, passId, onSuccess, trigger }: { event: any, pa
   const [otp, setOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // Reset state when opened
   useEffect(() => { if (isOpen) { setStep(1); setEmail(""); setPhone(""); setOtp(""); } }, [isOpen]);
 
   const handleVerifyOTP = async () => {
     if (!otp) { toast.error("Please enter the OTP."); return; }
     setIsVerifying(true);
     try {
-      // Re-using your working attendance API by passing the passId silently!
       const res = await fetch("https://bcc-backend-0cny.onrender.com/api/events/attendance", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passId })
       });
       const json = await res.json();
       if (json.success) {
-        toast.success("Attendance verified! Jobs are now unlocked.");
+        toast.success("Attendance verified!");
         setIsOpen(false);
         onSuccess();
       } else { toast.error(json.message); }
@@ -294,7 +292,6 @@ function VenueScanDialog({ event, passId, onSuccess, trigger }: { event: any, pa
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-md bg-white p-0 overflow-hidden">
-        
         <div className="px-6 py-4 border-b border-border bg-slate-50/50">
           <DialogTitle className="text-xl font-display font-bold text-navy flex items-center gap-2">
             <ScanLine className="h-5 w-5 text-saffron" /> Venue Check-In
@@ -396,7 +393,7 @@ function Events() {
 
   return (
     <DashShell role="candidate" nav={candidateNav}>
-      <PageHeader title="My Events" description="Register for events, scan the Admin QR at the venue, and unlock walk-in jobs." />
+      <PageHeader title="My Events" description="Browse Udyoga Melas, check participating companies, and explore exclusive event roles." />
       
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-saffron mb-2" /><p className="text-navy font-medium">Loading events...</p></div>
@@ -458,15 +455,12 @@ function Events() {
                   )}
                 </div>
 
-                {isRegistered && (
-                  <div className="mt-6">
-                    {isAttended ? (
-                      <Button onClick={() => handleViewJobs(e)} className="w-full bg-navy text-white hover:bg-navy/90 shadow-sm"><Unlock className="h-4 w-4 mr-2" /> View Jobs at this Event</Button>
-                    ) : (
-                      <Button disabled className="w-full bg-slate-100 text-slate-400 border border-slate-200"><Lock className="h-4 w-4 mr-2" /> Unlock event jobs</Button>
-                    )}
-                  </div>
-                )}
+                {/* FEATURE 14: Public Job Visibility — "View Jobs" is always open and visible to all candidates */}
+                <div className="mt-6">
+                  <Button onClick={() => handleViewJobs(e)} className="w-full bg-navy text-white hover:bg-navy/90 shadow-sm">
+                    <Unlock className="h-4 w-4 mr-2" /> View Jobs & Companies at this Event
+                  </Button>
+                </div>
               </Card>
             );
           })}
@@ -477,7 +471,7 @@ function Events() {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5 text-saffron" /> Jobs at {viewingEvent?.title || viewingEvent?.name}</DialogTitle>
-            <DialogDescription>These roles are exclusive to this event. Apply directly here to walk-in.</DialogDescription>
+            <DialogDescription>Browse participating companies and their open roles for this event.</DialogDescription>
           </DialogHeader>
           {isLoadingJobs ? (
             <div className="py-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-saffron" /></div>
