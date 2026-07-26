@@ -28,18 +28,30 @@ export function AttendanceScanDialog({ application, open, onOpenChange, onSucces
     setIsSubmitting(true);
     
     try {
-      // Attempt to grab the employer ID from local storage or the application object
-      const authUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
-      const employerId = authUser.id || application.employerId;
-      const eventId = application.eventId || application.event_id;
+      // 1. Bulletproof LocalStorage Check (looks for "user" or "auth_user")
+      const authData = localStorage.getItem("user") || localStorage.getItem("auth_user") || "{}";
+      const authUser = JSON.parse(authData);
+      
+      const role = authUser.role === "employer" ? "employer" : "candidate";
+      const userId = authUser.id || authUser.unique_id || authUser.uniqueId;
 
+      // 2. Extract Event ID
+      const eventId = application.event_id || application.eventId || application.id;
+
+      if (!eventId || !userId) {
+        toast.error("Missing Event or User ID. Please log out and log back in.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 3. Send Request
       const res = await fetch('https://bcc-backend-0cny.onrender.com/api/events/attendance/mark', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           eventId: eventId,
-          userId: employerId,
-          userType: 'employer',
+          userId: userId,
+          userType: role,
           code: c
         })
       });
@@ -49,7 +61,7 @@ export function AttendanceScanDialog({ application, open, onOpenChange, onSucces
       if (json.success) {
         toast.success("Attendance marked ✓ Your event workspace is now unlocked");
         setCode("");
-        onSuccess?.();
+        if (onSuccess) onSuccess(); 
         onOpenChange(false);
       } else {
         toast.error(json.message || "Could not verify code");
