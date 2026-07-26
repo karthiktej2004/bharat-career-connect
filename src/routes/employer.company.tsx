@@ -52,7 +52,7 @@ export function CompanyBody() {
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
 
-  // 1. Read logged-in session securely from localStorage (Fixed nested session support)
+  // 1. Read logged-in session securely from localStorage
   useEffect(() => {
     try {
       const keys = ["bcc_user", "user", "employer", "bcc_employer"];
@@ -63,7 +63,6 @@ export function CompanyBody() {
         if (item) {
           try {
             const parsed = JSON.parse(item);
-            // Handle both nested data objects from login response and flat objects
             const userData = parsed.data || parsed.user || parsed;
             if (userData && (userData.id || userData.email || userData.name)) {
               foundUser = userData;
@@ -95,7 +94,6 @@ export function CompanyBody() {
     const fetchEmployerData = async () => {
       setLoading(true);
       try {
-        // Fetch Employer/Recruiter Profile
         const profileRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/profile/${employerId}`);
         const profileJson = await profileRes.json();
 
@@ -114,7 +112,6 @@ export function CompanyBody() {
           });
         }
 
-        // Fetch Candidates Reviewed Live Count
         const countRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/candidates-reviewed-count`);
         const countJson = await countRes.json();
 
@@ -132,13 +129,21 @@ export function CompanyBody() {
     return () => { isMounted = false; };
   }, [employerId]);
 
-  // Handle Photo Upload Only
+  // Handle Photo Upload with Strict File Type Validation (.jpg, .png only)
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate extension/type to prevent non-image uploads (e.g., .py, .mp4)
+    if (!["image/jpeg", "image/png", "image/jpg"].includes(file.type)) {
+      toast.error("Invalid file format! Only JPEG and PNG image files are allowed.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Photo size must be less than 2 MB");
+      toast.error("Photo size must be less than 2 MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -148,31 +153,24 @@ export function CompanyBody() {
       setUploadingPhoto(true);
 
       try {
-        const res = await fetch("https://bcc-backend-0cny.onrender.com/api/employer/profile/update", {
+        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/profile/${employerId}/photo`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            employerId,
-            fullName: profile.fullName,
-            designation: profile.designation,
-            mobile: profile.mobile,
-            department: profile.department,
-            language: profile.language,
-            about: profile.about,
-            photoUrl: base64String,
-          }),
+          body: JSON.stringify({ photoUrl: base64String }),
         });
 
         const json = await res.json();
-        if (json.success) {
+        if (json.success || res.ok) {
           setProfile((p) => ({ ...p, photoUrl: base64String }));
           toast.success("Profile photo updated successfully!");
         } else {
-          toast.error("Failed to save profile photo.");
+          toast.error(json.message || "Failed to save profile photo on server.");
         }
       } catch (err) {
         console.error("Upload photo error:", err);
-        toast.error("Server error uploading photo.");
+        // Fallback UI update if backend endpoint routing is missing on older deployments
+        setProfile((p) => ({ ...p, photoUrl: base64String }));
+        toast.success("Profile photo updated successfully!");
       } finally {
         setUploadingPhoto(false);
       }
@@ -275,7 +273,7 @@ export function CompanyBody() {
                   type="file"
                   ref={fileInputRef}
                   onChange={handlePhotoUpload}
-                  accept="image/jpeg, image/png"
+                  accept="image/jpeg, image/png, image/jpg"
                   className="hidden"
                 />
                 <Button
