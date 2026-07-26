@@ -52,7 +52,7 @@ export function CompanyBody() {
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
 
-  // 1. Read logged-in session securely from localStorage
+  // 1. Read logged-in session securely from localStorage (Fixed nested session support)
   useEffect(() => {
     try {
       const keys = ["bcc_user", "user", "employer", "bcc_employer"];
@@ -63,8 +63,10 @@ export function CompanyBody() {
         if (item) {
           try {
             const parsed = JSON.parse(item);
-            if (parsed && (parsed.id || parsed.email)) {
-              foundUser = parsed;
+            // Handle both nested data objects from login response and flat objects
+            const userData = parsed.data || parsed.user || parsed;
+            if (userData && (userData.id || userData.email || userData.name)) {
+              foundUser = userData;
               break;
             }
           } catch (e) {}
