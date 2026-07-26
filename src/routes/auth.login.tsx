@@ -57,18 +57,23 @@ function LoginPage() {
       
       const json = await res.json();
       
-      if (json.success) {
+     if (json.success) {
         toast.success("Login successful!");
         
-        // Save session synchronously
-        setSession({ 
+        const sessionData = { 
           id: json.data.id, 
           name: json.data.name, 
           email: json.data.email, 
           role: json.data.role 
-        });
+        };
+
+        // Keep your existing mockStore function
+        setSession(sessionData);
         
-        // Use hard location assignment to prevent router state race conditions
+        // 🚀 EXPLICITLY save to localStorage so it survives the hard redirect
+        localStorage.setItem("bcc_user", JSON.stringify(sessionData));
+        
+        // Hard location assignment
         if (json.data.role === 'candidate') {
           window.location.href = "/candidate";
         } else if (json.data.role === 'employer') {
@@ -76,15 +81,10 @@ function LoginPage() {
         }
       } else {
         setError(json.message);
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("Server connection failed. Is the backend running?");
-    } finally {
-      setIsLoading(false);
+     }
     }
-  };
-
+  }
+};
   const isEmployer = role === "employer";
 
   return (
