@@ -1,885 +1,1027 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Logo, TricolorBar } from "@/components/Brand";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { DashShell, PageHeader, StatCard } from "@/components/DashShell";
+import { employerNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { setSession, NSQF_SKILLS, INDIAN_LANGUAGES, INDIAN_STATES, type CandidateProfile } from "@/lib/mockStore";
-import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Check, Upload, ShieldCheck, Sparkles, GraduationCap, Briefcase, FileText, Target, User as UserIcon, X, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { Briefcase, Users, CalendarCheck, Award, ArrowRight, TrendingUp, ShieldCheck, IdCard, Clock, Loader2 } from "lucide-react";
+import { LineChart, Line, ResponsiveContainer, XAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
+import { useEffect, useState } from "react";
+import { getSession } from "@/lib/mockStore";
 
-export const Route = createFileRoute("/auth/signup")({
-  head: () => ({ meta: [{ title: "Register as Candidate — Bharat Career Connect" }] }),
-  component: SignupPage,
+export const Route = createFileRoute("/employer/")({
+  head: () => ({ meta: [{ title: "Employer Dashboard — Bharat Career Connect" }] }),
+  component: EmployerHome,
 });
 
-type Data = Partial<CandidateProfile> & { 
-  password?: string; otp?: string; otpVerified?: boolean; 
-  mla?: string; mp?: string; gramPanchayat?: string; 
-  institutionOther?: string; course?: string; courseOther?: string; 
-  specializationOther?: string; schoolName?: string; stateBoardName?: string;
-  countryCode?: string; subCategory?: string; socialCategory?: string;
-  certifications?: Array<{ title: string; fileName: string }>;
-};
-
-const STEPS = [
-  { key: "basic", label: "Basic Info", icon: UserIcon },
-  { key: "verify", label: "Verify Phone", icon: ShieldCheck },
-  { key: "education", label: "Education", icon: GraduationCap },
-  { key: "skills", label: "Skills", icon: Sparkles },
-  { key: "experience", label: "Experience", icon: Briefcase },
-  { key: "resume", label: "Resume & Certs", icon: FileText },
-  { key: "preferences", label: "Preferences", icon: Target },
-  { key: "review", label: "Review", icon: Check },
-] as const;
-
-const HIGHEST_QUALS = [
-  "Below 10th / SSLC", 
-  "10th Std / SSLC", 
-  "ITI", 
-  "12th Std / 2nd PUC / Intermediate", 
-  "Diploma", 
-  "UG - Undergraduate Degree", 
-  "PG - Postgraduate Degree", 
-  "BE / B-Tech", 
-  "ME / M-Tech", 
-  "PHD", 
-  "Short Term Courses", 
-  "Others"
-];
-
-const SUB_CATEGORIES = [
-  "Open For All",
-  "Male Candidate(s)",
-  "Female Candidate(s)",
-  "PWD Candidate(s)",
-  "Widow Candidate(s)",
-  "LGBTQ+ Candidate(s)",
-  "Senior Citizens Candidate(s)",
-  "Veterans Candidate(s)",
-  "Other(s)"
-];
-
-const SOCIAL_CATEGORIES = [
-  "SC - Scheduled Castes",
-  "ST - Scheduled Tribes",
-  "OBC - Other Backward Classes (Non-Creamy Layer)",
-  "EWS - Economically Weaker Sections",
-  "UR - Unreserved (General)",
-  "ESM - Ex-Servicemen",
-  "A&PH - Persons with Benchmark Disabilities",
-  "FF - Freedom Fighters",
-  "Sports - Sports Persons",
-  "PM - Project Affected Persons",
-  "DC - Disaster Affected Persons",
-  "Others"
-];
-
-const COUNTRY_CODES = [
-  { code: "+91", label: "India (+91)" },
-  { code: "+1", label: "USA / Canada (+1)" },
-  { code: "+44", label: "UK (+44)" },
-  { code: "+971", label: "UAE (+971)" },
-  { code: "+65", label: "Singapore (+65)" },
-  { code: "+61", label: "Australia (+61)" }
-];
-
-const COMMON_ROLES = [
-  "Software Engineer", "Frontend Developer", "Backend Developer", "Full Stack Developer",
-  "Data Analyst", "Data Scientist", "UI/UX Designer", "Product Manager", "Quality Assurance (QA)",
-  "DevOps Engineer", "HR Executive", "Business Development Manager", "Sales Executive",
-  "Digital Marketing Specialist", "Customer Support Executive", "Accountant / Finance Executive",
-  "Operations Manager", "Machine Learning Engineer", "System Administrator", "Content Writer"
-];
-
-const BOARDS = ["State Board", "CBSE", "ICSE / CISCE", "Other"];
-const STATE_BOARDS_LIST = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"];
-const ITI_TRADES = ["Carpenter", "Computer Operator & Programming Assistant (COPA)", "Electrician", "Fitter", "Machinist", "Mechanic (Motor Vehicle)", "Plumber", "Welder", "Wireman", "Other Trade"];
-const DIPLOMA_STREAMS = ["Civil Engineering", "Computer Science Engineering", "Electrical Engineering", "Electronics & Communication", "Mechanical Engineering", "Commercial Practice", "Pharmacy", "Other"];
-
-const UG_MAPPING: Record<string, string[]> = {
-  "BA": ["Economics", "English Literature", "History", "Journalism", "Political Science", "Sociology", "Psychology"],
-  "Bachelor of Science (BSc)": ["Computer Science", "Information Technology", "Mathematics", "Physics", "Chemistry", "Biotechnology", "Microbiology"],
-  "Bachelor of Commerce (BCom)": ["Accounting", "Banking and Finance", "Taxation", "Computer Applications", "General"],
-  "Bachelor of Computer Applications (BCA)": ["Software Development", "Database Management", "Networking", "Cyber Security", "Web Development", "AI / Machine Learning", "Data Science"],
-  "BBA": ["Finance", "Marketing", "Human Resource Management (HR)", "Business Analytics", "International Business"],
-  "Bachelor of Pharmacy (BPharm)": ["Pharmaceutical Technology", "Pharmacology", "Pharmaceutical Chemistry", "Quality Assurance"]
-};
-const UG_COURSES = Object.keys(UG_MAPPING);
-
-const PG_MAPPING: Record<string, string[]> = {
-  "MA": ["Political Science", "History", "English Literature", "Sociology", "Economics"],
-  "MSc": ["Physics", "Chemistry", "Mathematics", "Computer Science", "Biotechnology", "Data Analytics"],
-  "MBA": ["Finance", "Marketing", "Human Resources", "Operations", "Business Analytics", "International Business"],
-  "MCA (Master in Computer Application)": ["Software Development", "Data Science", "Artificial Intelligence", "Cybersecurity", "Cloud Computing"]
-};
-const PG_COURSES = Object.keys(PG_MAPPING);
-
-const BE_ME_COURSES = ["Computer Science", "Information Technology", "Electronics & Communication", "Electrical", "Mechanical", "Civil", "Aerospace", "Chemical", "Biotechnology", "Artificial Intelligence & ML", "Other"];
-const UNIVERSITIES = ["IIT (Any)", "NIT (Any)", "IIIT (Any)", "IISc Bengaluru", "BITS Pilani", "Delhi University", "Anna University", "VTU", "Bangalore University", "Mysore University", "Osmania University", "Other"];
-const GENERIC_SPECIALIZATIONS = ["Artificial Intelligence & Machine Learning", "Data Science", "Cyber Security", "Finance", "Marketing", "Human Resources", "Operations", "Business Analytics", "Accounting", "Economics", "Physics", "Chemistry", "Mathematics", "Biology", "English Literature"];
-
-function SignupPage() {
-  const navigate = useNavigate();
-  const [step, setStep] = useState(0);
-  const [data, setData] = useState<Data>({ 
-    language: "English", 
-    experienceType: "Fresher", 
-    certifications: [], 
-    skills: [], 
-    languagesFluent: ["English"], 
-    preferredRoles: [], 
-    preferredLocations: [],
-    countryCode: "+91",
-    subCategory: "Open For All",
-    socialCategory: "UR - Unreserved (General)"
-  });
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [otpSent, setOtpSent] = useState<string | null>(null);
-  const [otpInput, setOtpInput] = useState("");
-  const [done, setDone] = useState<CandidateProfile | null>(null);
-  const [pinLookup, setPinLookup] = useState<"idle" | "loading" | "ok" | "error">("idle");
-  const [skillSearch, setSkillSearch] = useState("");
-  const [scoreType, setScoreType] = useState<"percentage" | "cgpa">("percentage");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
-
-  const isNameValid = useMemo(() => {
-    if (!data.fullName) return true;
-    return /^[a-zA-Z\s'.]{2,60}$/.test(data.fullName.trim());
-  }, [data.fullName]);
-
-  const isEmailValid = useMemo(() => {
-    if (!data.email) return true;
-    const cleanEmail = data.email.trim().toLowerCase();
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|in|org|net|edu|gov|co|io)$/i;
-    const fakeDomains = ["@pass.com", "@test.com", "@example.com", "@mailinator.com", "@temp.com"];
-    return emailRegex.test(cleanEmail) && !fakeDomains.some(domain => cleanEmail.endsWith(domain));
-  }, [data.email]);
-
-  const isPhoneValid = useMemo(() => {
-    if (!data.phone) return true;
-    const cleanPhone = data.phone.replace(/\D/g, "");
-    return cleanPhone.length === 10 && /^[6-9]\d{9}$/.test(cleanPhone);
-  }, [data.phone]);
-
-  const isYopValid = useMemo(() => {
-    if (!data.yearOfPassing) return true;
-    const yop = Number(data.yearOfPassing);
-    const currentYear = new Date().getFullYear();
-    return !isNaN(yop) && yop >= 1970 && yop <= currentYear + 6;
-  }, [data.yearOfPassing]);
-
-  useEffect(() => {
-    const pin = (data.pincode || "").trim();
-    if (!/^\d{6}$/.test(pin)) { setPinLookup("idle"); return; }
-    let cancelled = false;
-    setPinLookup("loading");
-    
-    fetch(`https://api.postalpincode.in/pincode/${pin}`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (cancelled) return;
-        const rec = Array.isArray(json) ? json[0] : null;
-        const offices = rec?.PostOffice as Array<{ State: string; District: string; Block: string; Name: string }> | null;
-        if (rec?.Status === "Success" && offices && offices.length) {
-          const o = offices[0];
-          let mappedMla = "Auto-mapped"; let mappedMp = "Auto-mapped"; let mappedGp = "Auto-mapped";
-          if (pin === "560064") { mappedMla = "Yelahanka"; mappedMp = "Chikkaballapur"; mappedGp = "Rajanukunte"; }
-          setData((d) => ({ ...d, state: INDIAN_STATES.includes(o.State) ? o.State : d.state || o.State, district: o.District, taluk: o.Block && o.Block !== "NA" ? o.Block : o.Name, mla: mappedMla, mp: mappedMp, gramPanchayat: mappedGp }));
-          setPinLookup("ok");
-        } else { setPinLookup("error"); }
-      }).catch(() => { if (!cancelled) setPinLookup("error"); });
-    return () => { cancelled = true; };
-  }, [data.pincode]);
-
-  const set = <K extends keyof Data>(k: K, v: Data[K]) => setData((d) => ({ ...d, [k]: v }));
-  const toggleArr = (k: "skills" | "certifications" | "languagesFluent" | "preferredRoles" | "preferredLocations", v: string) => { setData((d) => { const arr = (d[k] as any[]) || []; return { ...d, [k]: arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v] }; }); };
-
-  const canNext = useMemo(() => {
-    switch (STEPS[step].key) {
-      case "basic": 
-        return !!(data.fullName && isNameValid && data.email && isEmailValid && data.phone && isPhoneValid && password.length >= 6 && data.dob && data.pincode?.length === 6);
-      case "verify": 
-        return !!data.otpVerified;
-      case "education": 
-        return !!(data.qualification && data.yearOfPassing && isYopValid);
-      case "skills": 
-        return (data.skills?.length || 0) >= 1;
-      case "experience": 
-        return !!data.experienceType;
-      case "resume": 
-        return !!data.resumeFileName;
-      case "preferences": 
-        return (data.preferredLocations?.length || 0) >= 1 && !!data.preferredJobType;
-      case "review": 
-        return true;
-    }
-  }, [step, data, password, isNameValid, isEmailValid, isPhoneValid, isYopValid]);
-
-  const completion = useMemo(() => {
-    const fields = [data.fullName, data.email, data.phone, data.qualification, data.skills?.length, data.experienceType, data.resumeFileName, data.preferredLocations?.length, data.category, data.state];
-    return Math.round((fields.filter(Boolean).length / fields.length) * 100);
-  }, [data]);
-
-  function sendOtp() { 
-    if (!isPhoneValid || !data.phone) return toast.error("Enter a valid 10-digit mobile number!");
-    setOtpSent("any"); 
-    toast.success(`OTP sent to ${data.countryCode || "+91"} ${data.phone}. Enter 1234 to verify.`); 
-  }
-
-  function verifyOtp() { 
-    if (otpInput === "1234" || /^\d{6}$/.test(otpInput)) { 
-      set("otpVerified", true); 
-      toast.success("Phone verified successfully!"); 
-    } else { 
-      toast.error("Invalid OTP. Enter 1234"); 
-    } 
-  }
-
-  // Strict Validation to block gibberish text in skills
-  function validateAndAddSkill(skillName: string) {
-    const trimmed = skillName.trim();
-    if (!trimmed) return;
-    if (trimmed.length < 2 || trimmed.length > 40) {
-      return toast.error("Enter a valid skill name (between 2 and 40 characters).");
-    }
-    if (/(.)\1{4,}/.test(trimmed)) {
-      return toast.error("Please enter a valid skill name (avoid repeating random letters).");
-    }
-    if (!/[aeiouAEIOU]/.test(trimmed) && trimmed.length > 4) {
-      return toast.error("Please enter a valid skill name (invalid text structure).");
-    }
-
-    const currentSkills = data.skills || [];
-    if (!currentSkills.some(s => s.toLowerCase() === trimmed.toLowerCase())) {
-      set("skills", [...currentSkills, trimmed]);
-      toast.success(`Added skill: ${trimmed}`);
-    } else {
-      toast.error("Skill already added.");
-    }
-    setSkillSearch("");
-  }
-
-  function validateAndAddRole(roleName: string) {
-    const trimmed = roleName.trim();
-    if (!trimmed) return;
-    if (trimmed.length < 2 || trimmed.length > 50) {
-      return toast.error("Role name must be between 2 and 50 characters.");
-    }
-    if (/(.)\1{4,}/.test(trimmed)) {
-      return toast.error("Please enter a valid job title.");
-    }
-
-    const currentRoles = data.preferredRoles || [];
-    if (!currentRoles.some(r => r.toLowerCase() === trimmed.toLowerCase())) {
-      set("preferredRoles", [...currentRoles, trimmed]);
-      toast.success(`Added role: ${trimmed}`);
-    } else {
-      toast.error("Role already added.");
-    }
-  }
-
-  async function finish() {
-    if (!isNameValid) return toast.error("Please enter a valid Full Name (letters only).");
-    if (!isEmailValid) return toast.error("Please enter a valid professional email address.");
-    if (!isPhoneValid) return toast.error("Please enter a valid 10-digit mobile number.");
-
-    setIsSubmitting(true);
-    const d: any = data;
-
-    const finalInstitution = data.institution === "State Board" ? `${data.stateBoardName} State Board` : data.institution === "__other__" ? d.institutionOther : data.institution;
-    const finalCourse = data.course === "__other__" ? d.courseOther : data.course;
-    const finalSpecialization = data.specialization === "__other__" ? d.specializationOther : data.specialization;
-
-    const payload = {
-      fullName: data.fullName?.trim() || "", 
-      email: data.email?.trim() || "", 
-      phone: `${data.countryCode || "+91"} ${data.phone?.replace(/\D/g, "")}` || "", 
-      password: password, 
-      dob: data.dob || null, 
-      gender: data.gender || "Male", 
-      language: data.language || "English", 
-      category: data.category || "General Merit (GM)",
-      subCategory: data.subCategory || "Open For All",
-      socialCategory: data.socialCategory || "UR - Unreserved (General)",
-      state: data.state || "", 
-      district: data.district || "", 
-      taluk: data.taluk || "", 
-      pincode: data.pincode || "",
-      mla: data.mla || "", 
-      mp: data.mp || "", 
-      gramPanchayat: data.gramPanchayat || "",
-      qualification: data.qualification || "", 
-      institution: finalInstitution || "", 
-      schoolName: data.schoolName || "",
-      course: finalCourse || "", 
-      specialization: finalSpecialization || "", 
-      yearOfPassing: data.yearOfPassing || "", 
-      percentage: data.percentage || "", 
-      languagesFluent: data.languagesFluent || [],
-      skills: data.skills || [], 
-      experienceType: data.experienceType || "Fresher", 
-      yearsOfExperience: data.yearsOfExperience || "", 
-      employmentStatus: data.employmentStatus || "",
-      currentRole: data.currentRole || "", 
-      currentCompany: data.currentCompany || "", 
-      resumeFileName: data.resumeFileName || "",
-      certifications: data.certifications || [],
-      preferredRoles: data.preferredRoles || [], 
-      preferredLocations: data.preferredLocations || [], 
-      preferredJobType: data.preferredJobType || "Full-time", 
-      expectedSalary: data.expectedSalary || "", 
-      willingToRelocate: Boolean(data.willingToRelocate)
-    };
-
-    try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/auth/candidate/register", {
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify(payload)
-      });
-      
-      const json = await res.json();
-
-      if (res.ok && json.success) {
-        setSession({ id: json.uniqueId, name: payload.fullName, email: payload.email, role: "candidate" });
-        setDone({ uniqueId: json.uniqueId } as CandidateProfile);
-        toast.success("Account securely created in Database!");
-      } else {
-        toast.error(json.message || "Registration failed.");
-      }
-    } catch (err) {
-      console.error("Database connection failed:", err);
-      toast.error("Could not reach backend server. Please check your connection.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col hero-gradient">
-      <TricolorBar />
-      <div className="p-4"><Button asChild variant="ghost" size="sm" className="text-navy hover:bg-navy/5"><Link to="/"><ArrowLeft className="h-4 w-4 mr-1" /> Back to home</Link></Button></div>
-      <div className="flex-1 flex items-center justify-center p-4 py-6">
-        <Card className="w-full max-w-3xl p-6 md:p-8 shadow-elegant border-border/60 bg-white">
-          <div className="mb-4 rounded-lg bg-orange-50 border border-orange-200 px-4 py-3 text-sm text-orange-900 text-center">This is for new users. If you already have an account, <Link to="/auth/login" className="font-bold underline">go to Sign In</Link>.</div>
-          <div className="flex justify-center mb-4"><Logo /></div>
-          <h1 className="text-2xl md:text-3xl font-display font-bold text-navy text-center">Candidate Registration</h1>
-          <p className="text-sm text-muted-foreground text-center mt-1">Complete all steps — your account is created at the end.</p>
-
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-2"><span className="text-xs font-bold text-navy">Step {step + 1} of {STEPS.length} — {STEPS[step].label}</span><span className="text-xs font-bold text-india-green">{completion}% profile</span></div>
-            <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-india-green transition-all duration-500" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div>
-            <div className="hidden md:flex mt-4 gap-2 overflow-x-auto pb-2">
-              {STEPS.map((s, i) => {
-                const Icon = s.icon; const active = i === step, isDone = i < step;
-                return (
-                  <button key={s.key} onClick={() => i < step && setStep(i)} className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 border transition ${active ? "bg-navy text-white border-navy" : isDone ? "bg-white text-navy border-border hover:bg-slate-50" : "bg-transparent text-muted-foreground border-transparent opacity-50"}`}><Icon className="h-3.5 w-3.5" /> {s.label}</button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mt-6 min-h-[350px]">
-            {/* ================= STEP 1: BASIC INFO ================= */}
-            {STEPS[step].key === "basic" && (
-              <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500">
-                <div className="md:col-span-2">
-                  <Label>Full Name <span className="text-red-500">*</span></Label>
-                  <Input 
-                    value={data.fullName || ""} 
-                    onChange={(e) => set("fullName", e.target.value.replace(/[^a-zA-Z\s'.]/g, ""))} 
-                    className="mt-1" 
-                    placeholder="As per official photo ID (Letters only)" 
-                  />
-                  {!isNameValid && data.fullName && (
-                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Please enter a valid name (minimum 2 letters, no numbers/special chars)</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label>Email <span className="text-red-500">*</span></Label>
-                  <Input type="email" value={data.email || ""} onChange={(e) => set("email", e.target.value.trim())} className="mt-1" placeholder="name@example.com" />
-                  {!isEmailValid && data.email && (
-                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Enter a valid email domain (e.g. user@gmail.com)</p>
-                  )}
-                </div>
-
-                {/* Phone Number with Country Code Dropdown */}
-                <div>
-                  <Label>Phone <span className="text-red-500">*</span></Label>
-                  <div className="flex gap-2 mt-1">
-                    <Select value={data.countryCode || "+91"} onValueChange={(v) => set("countryCode", v)}>
-                      <SelectTrigger className="w-[110px] font-mono"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {COUNTRY_CODES.map((c) => (
-                          <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input value={data.phone || ""} onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))} className="flex-1" placeholder="10-digit mobile" maxLength={10} />
-                  </div>
-                  {!isPhoneValid && data.phone && (
-                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Must be a valid 10-digit Indian phone (starts with 6-9)</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label>Password <span className="text-red-500">*</span></Label>
-                  <div className="relative mt-1">
-                    <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" className="pr-10" />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground hover:text-navy">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Date of Birth (15+ Years) <span className="text-red-500">*</span></Label>
-                  <Input 
-                    type="date" 
-                    max={maxDate} 
-                    value={data.dob || ""} 
-                    onChange={(e) => set("dob", e.target.value)} 
-                    className="mt-1" 
-                  />
-                </div>
-
-                {/* GENDER (Left Side) & SOCIAL CATEGORY (Right Side) */}
-                <div>
-                  <Label>Gender <span className="text-red-500">*</span></Label>
-                  <Select value={data.gender || ""} onValueChange={(v) => set("gender", v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select Gender" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Social Category (As per Govt. of India) <span className="text-red-500">*</span></Label>
-                  <Select value={data.socialCategory || "UR - Unreserved (General)"} onValueChange={(v) => set("socialCategory", v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select Social Category" /></SelectTrigger>
-                    <SelectContent>
-                      {SOCIAL_CATEGORIES.map((sc) => (
-                        <SelectItem key={sc} value={sc}>{sc}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div><Label>Preferred Language</Label><Select value={data.language || "English"} onValueChange={(v) => set("language", v)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{INDIAN_LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent></Select></div>
-                
-                <div>
-                  <Label>Sub Category (Employer Classification)</Label>
-                  <Select value={data.subCategory || "Open For All"} onValueChange={(v) => set("subCategory", v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select Sub Category" /></SelectTrigger>
-                    <SelectContent>
-                      {SUB_CATEGORIES.map((sub) => (
-                        <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="md:col-span-2 p-5 bg-slate-50 border border-border rounded-xl mt-2 space-y-4">
-                  <div className="font-display font-bold text-navy flex items-center gap-2">Geographic Location {pinLookup === "loading" && <Loader2 className="h-4 w-4 animate-spin text-saffron" />}</div>
-                  <div className="grid sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-3">
-                      <Label>PIN Code <span className="text-red-500">*</span></Label>
-                      <Input value={data.pincode || ""} onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 font-mono max-w-[200px]" placeholder="560064" maxLength={6} />
-                      {pinLookup === "ok" && <p className="text-xs text-india-green mt-1 font-medium">Details auto-filled</p>}
-                      {pinLookup === "error" && <p className="text-xs text-destructive mt-1">Invalid PIN code</p>}
-                    </div>
-                    <div><Label>State</Label><Input disabled value={data.state || ""} className="mt-1 bg-white" /></div>
-                    <div><Label>District</Label><Input disabled value={data.district || ""} className="mt-1 bg-white" /></div>
-                    <div><Label>Taluk</Label><Input disabled value={data.taluk || ""} className="mt-1 bg-white" /></div>
-                    <div><Label>MP Constituency</Label><Input disabled value={data.mp || ""} className="mt-1 bg-white font-medium" /></div>
-                    <div><Label>MLA Constituency</Label><Input disabled value={data.mla || ""} className="mt-1 bg-white font-medium" /></div>
-                    <div><Label>Gram Panchayat</Label><Input disabled value={data.gramPanchayat || ""} className="mt-1 bg-white font-medium" /></div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* STEP 2: VERIFY */}
-            {STEPS[step].key === "verify" && (
-              <div className="max-w-md mx-auto text-center py-6 animate-in fade-in">
-                <div className="mx-auto size-14 rounded-full bg-saffron/15 flex items-center justify-center mb-4"><ShieldCheck className="h-7 w-7 text-saffron" /></div>
-                <h3 className="font-display text-lg font-bold text-navy">Verify your phone</h3>
-                <p className="text-xs text-muted-foreground mt-1">OTP sent to: <b>{data.countryCode || "+91"} {data.phone}</b></p>
-                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3"><Input value={otpInput} onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Enter OTP (1234)" className="text-center tracking-widest font-mono" maxLength={6} /><div className="flex gap-2 justify-center"><Button onClick={verifyOtp} className="bg-india-green text-white">Verify</Button><Button variant="outline" onClick={sendOtp}>Resend</Button></div></div>)}
-              </div>
-            )}
-
-            {/* ================= STEP 3: EDUCATION ================= */}
-            {STEPS[step].key === "education" && (() => {
-              const q = data.qualification || "";
-              const isSchool = ["Below 10th / SSLC", "10th Std / SSLC"].includes(q);
-              const is12th = q === "12th Std / 2nd PUC / Intermediate";
-              const isIti = q === "ITI"; 
-              const isDiploma = q === "Diploma";
-              const isUg = q === "UG - Undergraduate Degree"; 
-              const isPg = q === "PG - Postgraduate Degree";
-              const isEngineering = q === "BE / B-Tech" || q === "ME / M-Tech";
-              const isPhd = q === "PHD";
-              const isShortTerm = q === "Short Term Courses";
-              
-              const specIsOther = data.specialization === "__other__";
-              
-              const dynamicUgSpecializations = isUg && data.course && UG_MAPPING[data.course] ? UG_MAPPING[data.course] : GENERIC_SPECIALIZATIONS;
-              const dynamicPgSpecializations = isPg && data.course && PG_MAPPING[data.course] ? PG_MAPPING[data.course] : GENERIC_SPECIALIZATIONS;
-              const currentSpecializations = isUg ? dynamicUgSpecializations : isPg ? dynamicPgSpecializations : GENERIC_SPECIALIZATIONS;
-
-              return (
-                <div className="grid md:grid-cols-2 gap-5 animate-in fade-in">
-                  <div>
-                    <Label>Highest Qualification (Category) <span className="text-red-500">*</span></Label>
-                    <Select value={data.qualification || ""} onValueChange={(v) => { set("qualification", v); set("institution", ""); set("specialization", ""); set("course", ""); set("stateBoardName", ""); }}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select Qualification" /></SelectTrigger>
-                      <SelectContent>{HIGHEST_QUALS.map((qq) => <SelectItem key={qq} value={qq}>{qq}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Year of Passing <span className="text-red-500">*</span></Label>
-                    <Input 
-                      value={data.yearOfPassing || ""} 
-                      onChange={(e) => set("yearOfPassing", e.target.value.replace(/\D/g, "").slice(0, 4))} 
-                      className="mt-1 font-mono" 
-                      placeholder="e.g. 2024" 
-                      maxLength={4} 
-                    />
-                    {!isYopValid && data.yearOfPassing && (
-                      <p className="text-xs text-red-500 mt-1">Enter a valid 4-digit passing year (1970 - {new Date().getFullYear() + 6})</p>
-                    )}
-                  </div>
-
-                  {isSchool && (
-                    <>
-                      <div><Label>Board <span className="text-red-500">*</span></Label><Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select board" /></SelectTrigger><SelectContent>{BOARDS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
-                      {data.institution === "State Board" && (<div><Label>Select State <span className="text-red-500">*</span></Label><Select value={data.stateBoardName || ""} onValueChange={(v) => set("stateBoardName", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select state" /></SelectTrigger><SelectContent>{STATE_BOARDS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>)}
-                      <div className={data.institution === "State Board" ? "md:col-span-2" : ""}><Label>School Name <span className="text-red-500">*</span></Label><Input className="mt-1" value={data.schoolName || ""} onChange={(e) => set("schoolName", e.target.value)} placeholder="e.g. Govt High School" /></div>
-                    </>
-                  )}
-
-                  {is12th && (
-                    <>
-                      <div><Label>Intermediate Stream <span className="text-red-500">*</span></Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select Stream" /></SelectTrigger><SelectContent>{["Science (PCMB / PCMC)", "Commerce (EBACS / ABMS)", "Arts / Humanities", "Vocational"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                      <div><Label>College / Institution Name <span className="text-red-500">*</span></Label><Input className="mt-1" value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} placeholder="e.g. MES PU College" /></div>
-                    </>
-                  )}
-
-                  {(isIti || isDiploma) && (
-                    <>
-                      <div className="md:col-span-2"><Label>{isIti ? "ITI Trade *" : "Diploma Stream *"}</Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select stream/trade" /></SelectTrigger><SelectContent>{(isIti ? ITI_TRADES : DIPLOMA_STREAMS).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select>{specIsOther && <Input className="mt-2" value={data.specializationOther || ""} onChange={(e) => set("specializationOther", e.target.value)} />}</div>
-                      <div className="md:col-span-2"><Label>Institute Name <span className="text-red-500">*</span></Label><Input className="mt-1" value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} placeholder="e.g. Govt Polytechnic" /></div>
-                    </>
-                  )}
-
-                  {(isUg || isPg || isEngineering) && (
-                    <>
-                      <div className="md:col-span-2"><Label>College / University <span className="text-red-500">*</span></Label><Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select college" /></SelectTrigger><SelectContent>{UNIVERSITIES.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select></div>
-                      <div><Label>Course <span className="text-red-500">*</span></Label><Select value={data.course || ""} onValueChange={(v) => { set("course", v); set("specialization", ""); }}><SelectTrigger className="mt-1"><SelectValue placeholder="Select course" /></SelectTrigger><SelectContent>{(isUg ? UG_COURSES : isPg ? PG_COURSES : BE_ME_COURSES).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select></div>
-                      <div><Label>Specialization / Domain <span className="text-red-500">*</span></Label><Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select specialization" /></SelectTrigger><SelectContent>{currentSpecializations.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}<SelectItem value="__other__">Other</SelectItem></SelectContent></Select></div>
-                    </>
-                  )}
-
-                  {isPhd && (
-                    <>
-                      <div><Label>Research Field / Subject <span className="text-red-500">*</span></Label><Input className="mt-1" value={data.specialization || ""} onChange={(e) => set("specialization", e.target.value)} placeholder="e.g. Artificial Intelligence" /></div>
-                      <div><Label>University / Institute <span className="text-red-500">*</span></Label><Input className="mt-1" value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} placeholder="e.g. IISc Bengaluru" /></div>
-                    </>
-                  )}
-
-                  {isShortTerm && (
-                    <>
-                      <div><Label>Training Course Name <span className="text-red-500">*</span></Label><Input className="mt-1" value={data.course || ""} onChange={(e) => set("course", e.target.value)} placeholder="e.g. Full Stack Web Dev" /></div>
-                      <div><Label>Training Institute <span className="text-red-500">*</span></Label><Input className="mt-1" value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} placeholder="e.g. NSDC Partner" /></div>
-                    </>
-                  )}
-
-                  <div>
-                    <Label>Mark Scoring Mode</Label>
-                    <Select value={scoreType} onValueChange={(v: any) => setScoreType(v)}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="percentage">Percentage (%)</SelectItem>
-                        <SelectItem value="cgpa">CGPA (Max 10.0)</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Input 
-                      className="mt-2 font-mono"
-                      placeholder={scoreType === "percentage" ? "e.g. 85%" : "e.g. 8.5"}
-                      value={data.percentage || ""}
-                      onChange={(e) => {
-                        let val = e.target.value.replace(/[^0-9.]/g, "");
-                        const parts = val.split('.');
-                        if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
-                        
-                        if (scoreType === "percentage" && Number(val) > 100) {
-                          toast.error("Percentage cannot exceed 100%");
-                          return;
-                        }
-                        if (scoreType === "cgpa" && Number(val) > 10) {
-                          toast.error("CGPA cannot exceed 10.0");
-                          return;
-                        }
-                        set("percentage", val);
-                      }}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 pt-2"><Label className="block mb-2">Languages you speak</Label><div className="flex flex-wrap gap-2">{INDIAN_LANGUAGES.map((l) => { const on = data.languagesFluent?.includes(l); return <Badge key={l} onClick={() => toggleArr("languagesFluent", l)} className={`cursor-pointer px-3 py-1 ${on ? "bg-india-green text-white" : "bg-slate-100 text-slate-700"}`}>{l}</Badge>; })}</div></div>
-                </div>
-              );
-            })()}
-
-            {/* STEP 4: SKILLS (With Strict Validation to block random gibberish) */}
-            {STEPS[step].key === "skills" && (() => {
-              const query = skillSearch.trim().toLowerCase();
-              const filtered = query ? NSQF_SKILLS.filter((s) => s.toLowerCase().includes(query)) : NSQF_SKILLS;
-              return (
-                <div className="animate-in fade-in">
-                  <Label className="mb-2 block">Skills <span className="text-red-500">*</span> (Select or type valid professional skills)</Label>
-                  <div className="flex gap-2 mb-4">
-                    <Input 
-                      value={skillSearch} 
-                      onChange={(e) => setSkillSearch(e.target.value)} 
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); validateAndAddSkill(skillSearch); } }} 
-                      placeholder="e.g. Python, React, Accounting, Welding" 
-                    />
-                    <Button onClick={() => validateAndAddSkill(skillSearch)} disabled={!skillSearch.trim()} className="bg-navy text-white">Add</Button>
-                  </div>
-                  {(data.skills?.length || 0) > 0 && (<div className="mb-4"><div className="text-xs font-medium text-navy mb-2">Your selected skills</div><div className="flex flex-wrap gap-2">{data.skills!.map((s) => <Badge key={s} className="bg-saffron text-navy px-3 py-1"><Check className="h-3 w-3 mr-1" /> {s} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => toggleArr("skills", s)}/></Badge>)}</div></div>)}
-                  <div><div className="text-xs font-medium text-muted-foreground mb-2">Suggested professional skills</div><div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto">{filtered.map((s) => { const on = data.skills?.includes(s); return <Badge key={s} onClick={() => on ? toggleArr("skills", s) : validateAndAddSkill(s)} className={`cursor-pointer ${on ? "bg-india-green text-white" : "bg-muted text-navy"}`}>{s}</Badge>; })}</div></div>
-                </div>
-              );
-            })()}
-
-            {/* STEP 5: EXPERIENCE */}
-            {STEPS[step].key === "experience" && (
-              <div className="grid md:grid-cols-2 gap-4 animate-in fade-in">
-                <div className="md:col-span-2"><Label>Experience Type <span className="text-red-500">*</span></Label><div className="mt-2 flex gap-3">{(["Fresher","Experienced"] as const).map((t) => (<button key={t} onClick={() => set("experienceType", t)} className={`flex-1 p-4 rounded-lg border text-left ${data.experienceType === t ? "border-navy bg-navy/5" : "border-border"}`}><div className="font-medium text-navy">{t}</div></button>))}</div></div>
-                {data.experienceType === "Experienced" && (
-                  <>
-                    <div className="md:col-span-2 -mb-1 mt-2"><h4 className="font-display font-semibold text-navy text-sm">Current Employment Details</h4></div>
-                    <div>
-                      <Label>Total Years Experience *</Label>
-                      <Input 
-                        value={data.yearsOfExperience || ""} 
-                        onChange={(e) => set("yearsOfExperience", e.target.value.replace(/[^0-9.]/g, "").slice(0, 4))} 
-                        className="mt-1 font-mono" 
-                        placeholder="e.g. 2.5" 
-                      />
-                    </div>
-                    <div><Label>Employment Status</Label><Select value={data.employmentStatus || ""} onValueChange={(v) => set("employmentStatus", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["Currently employed","Serving notice period","Not employed"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                    <div><Label>Current Job Title *</Label><Input value={data.currentRole || ""} onChange={(e) => set("currentRole", e.target.value)} className="mt-1" placeholder="e.g. Software Engineer" /></div>
-                    <div><Label>Current Company *</Label><Input value={data.currentCompany || ""} onChange={(e) => set("currentCompany", e.target.value)} className="mt-1" placeholder="e.g. Infosys" /></div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* STEP 6: RESUME & CERTIFICATIONS */}
-            {STEPS[step].key === "resume" && (
-              <div className="py-4 animate-in fade-in space-y-6">
-                <div>
-                  <Label className="block mb-2">Resume Upload (.pdf, .doc, .docx only) <span className="text-red-500">*</span></Label>
-                  <label className="block border-2 border-dashed border-navy/30 rounded-xl p-8 text-center hover:bg-navy/5 cursor-pointer">
-                    <Upload className="h-10 w-10 mx-auto text-navy" />
-                    <div className="mt-3 font-medium text-navy">{data.resumeFileName || "Upload your Resume"}</div>
-                    <input 
-                      type="file" 
-                      accept=".pdf,.doc,.docx" 
-                      className="hidden" 
-                      onChange={(e) => { 
-                        const f = e.target.files?.[0]; 
-                        if (f) { 
-                          const ext = f.name.split('.').pop()?.toLowerCase();
-                          if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
-                            return toast.error("Only PDF and Word documents (.pdf, .doc, .docx) are allowed!");
-                          }
-                          if (f.size > 5 * 1024 * 1024) {
-                            return toast.error("File size cannot exceed 5MB!");
-                          }
-                          set("resumeFileName", f.name); 
-                          toast.success("Resume attached successfully"); 
-                        } 
-                      }} 
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-6 border-t pt-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-bold text-navy text-sm">Additional Certifications</h4>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        const list = data.certifications || [];
-                        set("certifications", [...list, { title: "", fileName: "" }]);
-                      }}
-                    >
-                      + Add Certification
-                    </Button>
-                  </div>
-
-                  {(data.certifications || []).map((cert: any, index: number) => (
-                    <div key={index} className="p-3 bg-slate-50 border rounded-lg mt-3 space-y-2">
-                      <Input 
-                        placeholder="Certification Title (e.g. AWS Certified Developer)" 
-                        value={cert.title} 
-                        onChange={(e) => {
-                          const updated = [...(data.certifications || [])];
-                          updated[index].title = e.target.value;
-                          set("certifications", updated);
-                        }}
-                      />
-                      <input 
-                        type="file" 
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const ext = file.name.split('.').pop()?.toLowerCase();
-                            if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
-                              return toast.error("Only PDF and Word documents are allowed!");
-                            }
-                            const updated = [...(data.certifications || [])];
-                            updated[index].fileName = file.name;
-                            set("certifications", updated);
-                          }
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* STEP 7: PREFERENCES (With Naukri-Style Common Roles) */}
-            {STEPS[step].key === "preferences" && (
-              <div className="grid md:grid-cols-2 gap-4 animate-in fade-in">
-                <div className="md:col-span-2">
-                  <Label>Preferred Roles <span className="text-red-500">*</span></Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input 
-                      placeholder="Type a role (e.g. Software Engineer) and press Add" 
-                      id="role-input"
-                      onKeyDown={(e) => { 
-                        if (e.key === "Enter") { 
-                          e.preventDefault(); 
-                          validateAndAddRole(e.currentTarget.value);
-                          e.currentTarget.value = ""; 
-                        } 
-                      }} 
-                    />
-                    <Button 
-                      type="button" 
-                      className="bg-navy text-white"
-                      onClick={() => {
-                        const inputEl = document.getElementById("role-input") as HTMLInputElement;
-                        if (inputEl && inputEl.value) {
-                          validateAndAddRole(inputEl.value);
-                          inputEl.value = "";
-                        }
-                      }}
-                    >
-                      Add
-                    </Button>
-                  </div>
-                  
-                  <div className="mt-2">
-                    <span className="text-xs text-muted-foreground block mb-1.5">Common professional roles (click to add):</span>
-                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-50 border rounded-lg">
-                      {COMMON_ROLES.map((role) => {
-                        const isSelected = (data.preferredRoles || []).includes(role);
-                        return (
-                          <Badge 
-                            key={role} 
-                            onClick={() => !isSelected && validateAndAddRole(role)}
-                            className={`cursor-pointer text-xs py-1 px-2.5 ${isSelected ? "bg-india-green text-white" : "bg-white border text-navy hover:bg-slate-100"}`}
-                          >
-                            {isSelected ? <Check className="h-3 w-3 mr-1" /> : "+ "} {role}
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {(data.preferredRoles?.length || 0) > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {data.preferredRoles!.map((r) => (
-                        <Badge key={r} className="bg-navy text-white px-3 py-1">
-                          {r} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => set("preferredRoles", data.preferredRoles!.filter((x) => x !== r))}/>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="md:col-span-2 mt-2"><Label>Preferred Work Locations <span className="text-red-500">*</span></Label><div className="flex flex-wrap gap-2 mt-2">{["Bengaluru","Mysuru","Hubballi","Mangaluru","Remote"].map((l) => { const on = data.preferredLocations?.includes(l); return <Badge key={l} onClick={() => toggleArr("preferredLocations", l)} className={`cursor-pointer ${on ? "bg-navy text-white" : "bg-slate-100 text-slate-700"}`}>{l}</Badge>; })}</div></div>
-                <label className="md:col-span-2 flex items-center gap-2 mt-1 bg-saffron/10 border p-3 rounded-lg"><Checkbox checked={!!data.willingToRelocate} onCheckedChange={(v) => set("willingToRelocate", !!v)} /> <span className="font-medium text-navy">Willing to relocate anywhere in India</span></label>
-                <div><Label>Job Type <span className="text-red-500">*</span></Label><Select value={data.preferredJobType || ""} onValueChange={(v) => set("preferredJobType", v)}><SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["Full-time","Internship","Contract"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
-                <div>
-                  <Label>Expected Salary (LPA)</Label>
-                  <Input 
-                    value={data.expectedSalary || ""} 
-                    onChange={(e) => set("expectedSalary", e.target.value.replace(/[^0-9.]/g, "").slice(0, 5))} 
-                    className="mt-1 font-mono" 
-                    placeholder="e.g. 4.5" 
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* STEP 8: REVIEW */}
-            {STEPS[step].key === "review" && (
-              <div className="space-y-6 animate-in fade-in">
-                <ReviewSection title="Basic Information"><ReviewRow label="Full Name" value={data.fullName} /><ReviewRow label="Email" value={data.email} /><ReviewRow label="Phone" value={`${data.countryCode || "+91"} ${data.phone}`} /><ReviewRow label="Gender" value={data.gender} /><ReviewRow label="Social Category" value={data.socialCategory} /><ReviewRow label="PIN Code" value={data.pincode} /></ReviewSection>
-                <ReviewSection title="Education"><ReviewRow label="Qualification" value={data.qualification} /><ReviewRow label="Institution" value={data.institution === "State Board" ? `${data.stateBoardName} State Board` : data.institution} /><ReviewRow label="Course/Stream" value={data.course || data.specialization} /><ReviewRow label="Year of Passing" value={data.yearOfPassing} /></ReviewSection>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-8 flex items-center justify-between gap-3 pt-6 border-t border-border">
-            <Button variant="outline" disabled={step === 0} onClick={() => setStep((s) => s - 1)}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
-            {step < STEPS.length - 1 ? (<Button disabled={!canNext} onClick={() => setStep((s) => s + 1)} className="bg-navy hover:bg-navy/90 text-white px-8">Next <ArrowRight className="h-4 w-4 ml-1" /></Button>) : (<Button onClick={finish} disabled={isSubmitting} className="bg-saffron text-navy px-8 font-semibold">{isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-1" />} {isSubmitting ? "Creating..." : "Create Account"}</Button>)}
-          </div>
-
-        </Card>
-      </div>
-
-      <Dialog open={!!done} onOpenChange={(o) => { if (!o && done) navigate({ to: "/auth/login" }); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="mx-auto size-16 rounded-full bg-india-green/15 flex items-center justify-center mb-4"><Check className="h-8 w-8 text-india-green" /></div>
-            <DialogTitle className="text-center text-2xl font-display text-navy">Welcome to Bharat Career Connect!</DialogTitle>
-            <DialogDescription className="text-center pt-2">Your candidate account is ready.<br />Unique Candidate ID: <b className="text-navy font-mono bg-navy/5 px-2 py-1 rounded ml-1">{done?.uniqueId}</b></DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-4"><Button onClick={() => navigate({ to: "/auth/login" })} className="w-full bg-navy text-white">Go to Login</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+function EmployerHome() {
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const user = getSession(); // Grabs the logged-in Employer securely
+
+  // 1. Fetch Live Data from Backend API
+  useEffect(() => {
+    if (!user || user.role !== "employer") return;
+
+    fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${user.id}/dashboard`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) {
+          setData(json.data);
+        }
+      })
+      .catch((err) => console.error("Dashboard fetch error:", err))
+      .finally(() => setIsLoading(false));
+  }, [user]);
+
+  // 2. Format Data for Recharts
+  const trend = data?.chartData?.map((d: any) => ({ d: d.day, v: d.applications })) || [];
+  
+  const funnel = data ? [
+    { stage: "Applied", v: data.funnelData.Applied || 0 },
+    { stage: "Shortlisted", v: data.funnelData.Shortlisted || 0 },
+    { stage: "Interview", v: data.funnelData.Interview || 0 },
+    { stage: "Offer", v: data.funnelData.Offer || 0 },
+    { stage: "Hired", v: data.funnelData.Hired || 0 },
+  ] : [];
+
+  // Loading State
+  if (isLoading) {
+    return (
+      <DashShell role="employer" nav={employerNav}>
+        <div className="flex h-[60vh] items-center justify-center flex-col gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-saffron" />
+          <p className="text-muted-foreground animate-pulse">Loading dashboard metrics...</p>
+        </div>
+      </DashShell>
+    );
+  }
+
+  return (
+    <DashShell role="employer" nav={employerNav}>
+      <PageHeader
+        title="Hiring Overview"
+        description="Real-time view of your pipeline across all events."
+        action={<Button asChild className="bg-saffron text-navy hover:bg-saffron/90"><Link to="/employer/jobs">Post a Job</Link></Button>}
+      />
+
+      {user && (
+        <Card className="p-4 border-border/60 mb-6 flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-india-green" />
+            <span className="font-display font-bold text-navy">{user.name}</span>
+            <Badge className="bg-india-green/15 text-india-green">Verified employer</Badge>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <IdCard className="h-4 w-4" />
+            Employer ID: <span className="font-mono text-navy">EMP-{user.id}</span>
+          </div>
+          <div className="text-sm text-muted-foreground">Contact: <b className="text-navy">{user.email}</b></div>
+        </Card>
+      )}
+
+      {/* KPI Cards */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Active Jobs" value={data?.kpis?.activeJobs || 0} icon={Briefcase} />
+        <StatCard label="Applications" value={data?.kpis?.applications || 0} icon={Users} accent="navy" />
+        <StatCard label="Interviews" value={data?.kpis?.interviews || 0} icon={CalendarCheck} accent="india-green" />
+        <StatCard label="Offers Made" value={data?.kpis?.offersMade || 0} icon={Award} accent="india-green" />
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Card className="p-6 border-border/60">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-bold text-navy">Applications — last 7 days</h2>
+            <TrendingUp className="h-5 w-5 text-india-green" />
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={trend}>
+              <XAxis dataKey="d" axisLine={false} tickLine={false} className="text-xs" />
+              <Tooltip />
+              <Line type="monotone" dataKey="v" stroke="var(--saffron)" strokeWidth={3} dot={{ fill: "var(--navy)", r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+        
+        <Card className="p-6 border-border/60">
+          <h2 className="font-display font-bold text-navy mb-4">Hiring Funnel</h2>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={funnel}>
+              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+              <XAxis dataKey="stage" axisLine={false} tickLine={false} className="text-xs" />
+              <Tooltip />
+              <Bar dataKey="v" fill="var(--india-green)" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Recent Applicants Section */}
+      <Card className="p-6 border-border/60 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display font-bold text-navy">Recent applicants</h2>
+          <Button asChild variant="ghost" size="sm"><Link to="/employer/candidates">View all <ArrowRight className="ml-1 h-4 w-4" /></Link></Button>
+        </div>
+        <div className="space-y-3">
+          {data?.recentApplicants?.length > 0 ? (
+            data.recentApplicants.map((app: any) => {
+              // Convert DB timestamp to relative time (e.g., "Applied Today")
+              const appliedDate = new Date(app.applied_at).toLocaleDateString();
+              
+              return (
+                <div key={app.application_id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/40 transition-colors">
+                  <div className="size-10 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold shrink-0">
+                    {app.candidate_name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-navy truncate">{app.candidate_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{app.job_title} · Applied on {appliedDate}</p>
+                  </div>
+                  <Badge className="bg-india-green/15 text-india-green hidden sm:flex">{app.match_score}% Match</Badge>
+                  <Button size="sm" variant="outline" className="shrink-0">Review</Button>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-6 text-center text-muted-foreground rounded-lg border border-dashed border-border/60">
+              No recent applications found. Post a job to start receiving candidates!
+            </div>
+          )}
+        </div>
+      </Card>
+    </DashShell>
+  );
 }
 
-function ReviewRow({ label, value }: { label: string; value?: string }) {
-  return (<div className="p-3 bg-slate-50 border border-border/50 rounded-lg"><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium text-navy mt-0.5">{value || <span className="text-muted-foreground italic">—</span>}</div></div>);
-}
 
-function ReviewSection({ title, children }: { title: string; children: ReactNode }) {
-  return (<div><h3 className="font-display font-semibold text-navy text-sm mb-3">{title}</h3><div className="grid md:grid-cols-2 gap-3 text-sm">{children}</div></div>);
-}
+is it connected to backend 
+
+const express = require('express');
+const bcrypt = require('bcrypt');
+const cors = require('cors');
+const { Pool } = require('pg');
+const jwt = require('jsonwebtoken'); 
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// ==========================================
+// 1. MIDDLEWARE (CORS & Body Parsers)
+// ==========================================
+app.use(cors({ origin: '*' })); 
+app.use(express.json({ limit: '50mb' })); 
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// ==========================================
+// 2. DATABASE CONNECTION
+// ==========================================
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL, 
+    ssl: { rejectUnauthorized: false }
+});
+
+pool.connect((err) => {
+    if (err) console.error('❌ Database connection error:', err.stack);
+    else console.log('✅ Successfully connected to the PostgreSQL database.');
+});
+
+// ==========================================
+// 3. HEALTH CHECK ROUTE
+// ==========================================
+app.get('/api/health', async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        res.json({ status: "online", db: "connected", timestamp: new Date() });
+    } catch (err) {
+        res.status(500).json({ status: "online", db: "error", error: err.message });
+    }
+});
+
+// ==========================================
+// 4. AUTHENTICATION & REGISTRATION APIS
+// ==========================================
+
+// --- CANDIDATE REGISTRATION ---
+app.post('/api/auth/candidate/register', async (req, res) => {
+    const data = req.body;
+    try {
+        if (!data.fullName || (!data.email && !data.phone)) {
+            return res.status(400).json({ success: false, message: "Full Name and Email or Mobile Number are required." });
+        }
+
+        const cleanEmail = data.email ? data.email.trim().toLowerCase() : null;
+        const cleanPhone = data.phone ? data.phone.replace(/\D/g, "").trim() : null;
+
+        if (cleanEmail) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(cleanEmail)) {
+                return res.status(400).json({ success: false, message: "Invalid email address format." });
+            }
+        }
+
+        const userExists = await pool.query(
+            "SELECT id FROM candidates WHERE (email IS NOT NULL AND email != '' AND LOWER(email) = $1) OR (phone IS NOT NULL AND phone != '' AND phone = $2)",
+            [cleanEmail, cleanPhone]
+        );
+
+        if (userExists.rows.length > 0) {
+            return res.status(400).json({ success: false, message: "An account with this Email or Mobile Number is already registered!" });
+        }
+
+        let parsedDob = null;
+        if (data.dob && typeof data.dob === 'string' && data.dob.trim() !== '' && !isNaN(Date.parse(data.dob))) {
+            parsedDob = new Date(data.dob);
+            const ageDiff = new Date().getFullYear() - parsedDob.getFullYear();
+            if (ageDiff < 15) {
+                return res.status(400).json({ success: false, message: "You must be at least 15 years old to register." });
+            }
+        }
+
+        if (data.resumeFileName) {
+            const ext = data.resumeFileName.split('.').pop().toLowerCase();
+            if (!['pdf', 'doc', 'docx'].includes(ext)) {
+                return res.status(400).json({ success: false, message: "Only PDF and Word documents (.pdf, .doc, .docx) are allowed." });
+            }
+        }
+
+        const unique_id = 'BCC-CAN-' + Math.floor(100000 + Math.random() * 900000);
+
+        const insertQuery = `
+            INSERT INTO candidates (
+                unique_id, full_name, email, phone, password, dob, gender, preferred_language, category,
+                pincode, state, district, taluk, mla_constituency, mp_constituency, gram_panchayat,
+                highest_qualification, year_of_passing, institution, school_name, course, specialization, percentage_cgpa, languages_fluent,
+                skills, experience_type, years_of_experience, employment_status, current_job_role, current_company,
+                resume_file_name, certifications, preferred_roles, preferred_locations, willing_to_relocate, preferred_job_type, expected_salary, status, account_status, created_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24,
+                $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, 'Pending', 'Verified', NOW()
+            ) RETURNING unique_id;
+        `;
+
+        const values = [
+            unique_id,
+            data.fullName ? data.fullName.trim() : "",
+            cleanEmail,
+            cleanPhone,
+            data.password || "BccPass@123",
+            parsedDob,
+            data.gender || null,
+            data.language || 'English',
+            data.category || 'General Merit (GM)',
+            data.pincode || null,
+            data.state || null,
+            data.district || null,
+            data.taluk || null,
+            data.mla || null,
+            data.mp || null,
+            data.gramPanchayat || null,
+            data.qualification || null,
+            data.yearOfPassing || null,
+            data.institution || null,
+            data.schoolName || null,
+            data.course || null,
+            data.specialization || null,
+            data.percentage || null,
+            JSON.stringify(data.languagesFluent || []),
+            JSON.stringify(data.skills || []),
+            data.experienceType || 'Fresher',
+            data.yearsOfExperience || null,
+            data.employmentStatus || null,
+            data.currentRole || null,
+            data.currentCompany || null,
+            data.resumeFileName || null,
+            JSON.stringify(data.certifications || []),
+            JSON.stringify(data.preferredRoles || []),
+            JSON.stringify(data.preferredLocations || []),
+            Boolean(data.willingToRelocate),
+            data.preferredJobType || 'Full-time',
+            data.expectedSalary || null
+        ];
+
+        const result = await pool.query(insertQuery, values);
+        console.log(`✅ Candidate registered: ${result.rows[0].unique_id}`);
+        res.status(201).json({ success: true, message: "Candidate registered successfully", uniqueId: result.rows[0].unique_id });
+    } catch (error) {
+        console.error("❌ Candidate Register DB Error:", error);
+        res.status(500).json({ success: false, message: "Database Error: " + (error.detail || error.message || "Server error during registration.") });
+    }
+});
+
+// --- EMPLOYER REGISTRATION ---
+app.post('/api/auth/employer/register', async (req, res) => {
+    const { company_name, email_domain, gst_cin, industry, sector, company_size, website, hq_city, about_company, hr_name, hr_phone, email, password } = req.body;
+    try {
+        const cleanEmail = email ? email.trim().toLowerCase() : "";
+        const userExists = await pool.query("SELECT * FROM employers WHERE LOWER(email) = $1", [cleanEmail]);
+        if (userExists.rows.length > 0) return res.status(400).json({ success: false, message: "Email already registered." });
+        
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(password, salt);
+        
+        await pool.query(`
+            INSERT INTO employers (company_name, email_domain, gst_cin, industry, sector, company_size, website, hq_city, about_company, hr_name, hr_phone, email, password_hash, password, status) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'pending')
+        `, [company_name, email_domain, gst_cin, industry, sector, company_size, website, hq_city, about_company, hr_name, hr_phone, cleanEmail, password_hash, password]);
+        
+        res.status(201).json({ success: true, message: "Registration submitted successfully." });
+    } catch (error) { 
+        res.status(500).json({ success: false, message: "Server error during registration." }); 
+    }
+});
+
+// --- MASTER AUTHENTICATION (LOGIN) ---
+app.post('/api/auth/login', async (req, res) => {
+    const { role, password } = req.body;
+    const emailInput = req.body.email || req.body.identifier || "";
+
+    try {
+        const rawInput = emailInput.trim();
+        const digitsOnly = rawInput.replace(/\D/g, "");
+        const last10Digits = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+
+        if (role === 'admin') {
+            const adminResult = await pool.query("SELECT * FROM admins WHERE LOWER(TRIM(email)) = LOWER($1)", [rawInput]);
+            if (adminResult.rows.length === 0) return res.status(401).json({ success: false, message: 'Admin account not found.' });
+
+            const admin = adminResult.rows[0];
+            let isMatch = admin.password && admin.password.startsWith('$2') 
+                ? await bcrypt.compare(password, admin.password) 
+                : (password === admin.password);
+
+            if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid Admin Credentials.' });
+
+            return res.json({ 
+                success: true, 
+                data: { id: admin.unique_id || admin.id, name: admin.full_name || 'Admin', email: admin.email, role: 'admin' } 
+            });
+        }
+
+        if (role === 'employer') {
+            const empResult = await pool.query("SELECT * FROM employers WHERE LOWER(TRIM(email)) = LOWER($1)", [rawInput]);
+            if (empResult.rows.length === 0) return res.status(401).json({ success: false, message: 'Employer account not found.' });
+
+            const employer = empResult.rows[0];
+            const currentStatus = (employer.status || 'pending').toLowerCase().trim();
+
+            if (currentStatus === 'pending') return res.status(403).json({ success: false, message: 'Your company registration is currently PENDING admin approval.' });
+            if (currentStatus === 'rejected' || currentStatus === 'blacklisted') return res.status(403).json({ success: false, message: 'Your company registration has been restricted by the admin.' });
+            if (currentStatus !== 'approved') return res.status(403).json({ success: false, message: 'Account not approved for login.' });
+
+            let isMatch = employer.password && employer.password.startsWith('$2') 
+                ? await bcrypt.compare(password, employer.password) 
+                : (password === employer.password);
+
+            if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid Password.' });
+
+            return res.json({ success: true, data: { id: employer.id, name: employer.company_name, email: employer.email, role: 'employer' } });
+        }
+
+        if (role === 'candidate' || !role) {
+            const queryText = `
+                SELECT * FROM candidates 
+                WHERE LOWER(TRIM(email)) = LOWER($1) 
+                   OR LOWER(TRIM(unique_id)) = LOWER($1)
+                   OR TRIM(phone) = $1
+                   OR ($2 != '' AND RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 10) = $2)
+            `;
+
+            const candResult = await pool.query(queryText, [rawInput, last10Digits]);
+
+            if (candResult.rows.length === 0) {
+                return res.status(401).json({ 
+                    success: false, 
+                    message: 'Candidate account not found. Please check your Email, Mobile Number, or Candidate ID.' 
+                });
+            }
+
+            const candidate = candResult.rows[0];
+
+            if (candidate.account_status === 'Blocked') {
+                return res.status(403).json({ success: false, message: 'Your candidate account has been blocked by administrators.' });
+            }
+
+            let isMatch = candidate.password && candidate.password.startsWith('$2') 
+                ? await bcrypt.compare(password, candidate.password) 
+                : (password === candidate.password);
+
+            if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid Password. Please try again.' });
+
+            console.log(`🔑 LOGIN SUCCESS: ${candidate.full_name} (${candidate.unique_id})`);
+            return res.json({ 
+                success: true, 
+                data: { id: candidate.unique_id, name: candidate.full_name, email: candidate.email, phone: candidate.phone, role: 'candidate' } 
+            });
+        }
+
+        return res.status(400).json({ success: false, message: 'Invalid role selected.' });
+    } catch (error) {
+        console.error("❌ Login Server Error:", error);
+        return res.status(500).json({ success: false, message: "Server Error: " + error.message });
+    }
+});
+
+// --- FORGOT & RESET PASSWORD ---
+app.post('/api/auth/forgot-password', async (req, res) => {
+    const { identifier } = req.body;
+    const rawInput = identifier ? identifier.trim() : "";
+    const digitsOnly = rawInput.replace(/\D/g, "");
+    const last10Digits = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+
+    try {
+        const queryText = `
+            SELECT id FROM candidates 
+            WHERE LOWER(TRIM(email)) = LOWER($1) 
+               OR LOWER(TRIM(unique_id)) = LOWER($1)
+               OR TRIM(phone) = $1
+               OR ($2 != '' AND RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 10) = $2)
+        `;
+        const result = await pool.query(queryText, [rawInput, last10Digits]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: "No registered account found with these details." });
+        }
+
+        return res.json({ success: true, message: "OTP sent successfully! Use 1234 to verify." });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Server error checking account." });
+    }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+    const { identifier, otp, newPassword } = req.body;
+    
+    if (otp !== "1234" && otp !== "123456") {
+        return res.status(400).json({ success: false, message: "Invalid OTP code." });
+    }
+
+    const rawInput = identifier ? identifier.trim() : "";
+    const digitsOnly = rawInput.replace(/\D/g, "");
+    const last10Digits = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+
+    try {
+        const updateQuery = `
+            UPDATE candidates 
+            SET password = $1 
+            WHERE LOWER(TRIM(email)) = LOWER($2) 
+               OR LOWER(TRIM(unique_id)) = LOWER($2)
+               OR TRIM(phone) = $2
+               OR ($3 != '' AND RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 10) = $3)
+            RETURNING unique_id;
+        `;
+        const result = await pool.query(updateQuery, [newPassword, rawInput, last10Digits]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: "Account update failed. User not found." });
+        }
+
+        return res.json({ success: true, message: "Password updated successfully! You can now log in." });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Database error updating password." });
+    }
+});
+
+
+// ==========================================
+// 5. CANDIDATE PORTAL & SAVED JOBS APIS (FEATURE 5 & 13)
+// ==========================================
+app.get('/api/candidate/:id/saved-jobs', async (req, res) => {
+    try {
+        const candCheck = await pool.query("SELECT id, unique_id FROM candidates WHERE unique_id = $1 OR id::text = $1", [req.params.id]);
+        if (candCheck.rows.length === 0) return res.status(404).json({ success: false, message: "Candidate not found." });
+
+        const candidateDbId = candCheck.rows[0].id;
+
+        const result = await pool.query(`
+            SELECT sj.id as saved_id, sj.status, sj.updated_at, j.id as job_id, j.title, j.company_name, j.location, j.job_type, j.salary_range, j.qualification_required
+            FROM candidate_saved_jobs sj
+            JOIN jobs j ON sj.job_id = j.id
+            WHERE sj.candidate_id = $1
+            ORDER BY sj.updated_at DESC
+        `, [candidateDbId]);
+
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        console.error("❌ Error fetching saved jobs:", error);
+        res.status(500).json({ success: false, message: "Database error fetching saved jobs: " + error.message });
+    }
+});
+
+app.post('/api/candidate/saved-jobs/toggle', async (req, res) => {
+    const { candidateId, jobId, draftData } = req.body;
+    try {
+        const candCheck = await pool.query("SELECT id FROM candidates WHERE unique_id = $1", [candidateId]);
+        if (candCheck.rows.length === 0) return res.status(404).json({ success: false, message: "Candidate not found." });
+
+        const dbCandId = candCheck.rows[0].id;
+
+        const existing = await pool.query(
+            "SELECT id FROM candidate_saved_jobs WHERE candidate_id = $1 AND job_id = $2",
+            [dbCandId, jobId]
+        );
+
+        if (existing.rows.length > 0) {
+            await pool.query("DELETE FROM candidate_saved_jobs WHERE id = $1", [existing.rows[0].id]);
+            return res.json({ success: true, saved: false, message: "Job removed from saved list." });
+        } else {
+            await pool.query(
+                "INSERT INTO candidate_saved_jobs (candidate_id, job_id, status, draft_data) VALUES ($1, $2, 'saved', $3)",
+                [dbCandId, jobId, draftData ? JSON.stringify(draftData) : null]
+            );
+            return res.json({ success: true, saved: true, message: "Job saved successfully!" });
+        }
+    } catch (error) {
+        console.error("Error toggling saved job:", error);
+        res.status(500).json({ success: false, message: "Server error toggling saved job." });
+    }
+});
+
+app.delete('/api/candidate/saved-jobs/:savedId', async (req, res) => {
+    try {
+        await pool.query("DELETE FROM candidate_saved_jobs WHERE id = $1", [req.params.savedId]);
+        res.json({ success: true, message: "Saved job removed." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to remove saved job." });
+    }
+});
+
+app.get('/api/candidate/:id', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM candidates WHERE unique_id = $1", [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Candidate not found" });
+        const dbUser = result.rows[0];
+        res.status(200).json({ success: true, data: { uniqueId: dbUser.unique_id, fullName: dbUser.full_name, email: dbUser.email, phone: dbUser.phone, qualification: dbUser.highest_qualification || "N/A", experienceType: dbUser.experience_type || "Fresher", skills: dbUser.skills || [], completion: 95 } });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/candidate/profile/:id', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM candidates WHERE unique_id = $1", [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false });
+        const dbUser = result.rows[0];
+        res.json({ success: true, data: {
+            uniqueId: dbUser.unique_id, fullName: dbUser.full_name, email: dbUser.email, phone: dbUser.phone, dob: dbUser.dob ? new Date(dbUser.dob).toISOString().split('T')[0] : "", gender: dbUser.gender, language: dbUser.preferred_language, category: dbUser.category,
+            state: dbUser.state, district: dbUser.district, taluk: dbUser.taluk, pincode: dbUser.pincode, qualification: dbUser.highest_qualification, institution: dbUser.institution, schoolName: dbUser.school_name,
+            course: dbUser.course, specialization: dbUser.specialization, yearOfPassing: dbUser.year_of_passing, percentage: dbUser.percentage_cgpa, languagesFluent: dbUser.languages_fluent || [], skills: dbUser.skills || [],
+            experienceType: dbUser.experience_type, yearsOfExperience: dbUser.years_of_experience, employmentStatus: dbUser.employment_status, currentRole: dbUser.current_job_role, currentCompany: dbUser.current_company,
+            resumeFileName: dbUser.resume_file_name, preferredRoles: dbUser.preferred_roles || [], preferredLocations: dbUser.preferred_locations || [],
+            preferredJobType: dbUser.preferred_job_type, expectedSalary: dbUser.expected_salary, willingToRelocate: dbUser.willing_to_relocate
+        }});
+    } catch (e) { res.status(500).json({ success: false }); }
+});
+
+app.put('/api/candidate/profile/update', async (req, res) => {
+    const data = req.body;
+    try {
+        await pool.query(`
+            UPDATE candidates SET full_name=$1, email=$2, phone=$3, dob=$4, gender=$5, preferred_language=$6, category=$7, state=$8, district=$9, taluk=$10, pincode=$11,
+            highest_qualification=$12, institution=$13, school_name=$14, course=$15, specialization=$16, year_of_passing=$17, percentage_cgpa=$18, languages_fluent=$19,
+            skills=$20, experience_type=$21, years_of_experience=$22, employment_status=$23, current_job_role=$24, current_company=$25,
+            resume_file_name=$26, preferred_roles=$27, preferred_locations=$28, willing_to_relocate=$29, preferred_job_type=$30, expected_salary=$31 WHERE unique_id=$32
+        `, [
+            data.fullName, data.email, data.phone, data.dob || null, data.gender, data.language, data.category, data.state, data.district, data.taluk, data.pincode, data.qualification, data.institution, data.schoolName, data.course, data.specialization, data.yearOfPassing, data.percentage, JSON.stringify(data.languagesFluent || []),
+            JSON.stringify(data.skills || []), data.experienceType, data.yearsOfExperience, data.employmentStatus, data.currentRole, data.currentCompany,
+            data.resumeFileName, JSON.stringify(data.preferredRoles || []), JSON.stringify(data.preferredLocations || []), data.willing_to_relocate || false, data.preferredJobType, data.expectedSalary, data.uniqueId
+        ]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/candidate/:id/jobs', async (req, res) => {
+    try {
+        const candidateRes = await pool.query("SELECT * FROM candidates WHERE unique_id = $1", [req.params.id]);
+        if (candidateRes.rows.length === 0) return res.status(404).json({ success: false });
+        const candidate = candidateRes.rows[0];
+        const jobsRes = await pool.query("SELECT * FROM jobs WHERE status = 'approved'");
+        
+        const savedRes = await pool.query("SELECT job_id FROM candidate_saved_jobs WHERE candidate_id = $1", [candidate.id]);
+        const savedJobIds = new Set(savedRes.rows.map(r => r.job_id));
+
+        const matchedJobs = jobsRes.rows.map(job => {
+            let score = 0;
+            let jobSkills = []; try { jobSkills = typeof job.skills_required === 'string' ? JSON.parse(job.skills_required) : (job.skills_required || []); } catch(e){}
+            let candidateSkills = []; try { candidateSkills = typeof candidate.skills === 'string' ? JSON.parse(candidate.skills) : (candidate.skills || []); } catch(e){}
+            
+            if (jobSkills.length > 0) {
+                const matchedSkills = jobSkills.filter(js => candidateSkills.some(cs => cs.toLowerCase() === js.toLowerCase()));
+                score += (matchedSkills.length / jobSkills.length) * 50;
+            } else { score += 50; }
+            
+            let preferredLocs = []; try { preferredLocs = typeof candidate.preferred_locations === 'string' ? JSON.parse(candidate.preferred_locations) : []; } catch(e){}
+            if ((job.location || "").toLowerCase() === (candidate.district || "").toLowerCase() || preferredLocs.some(loc => loc.toLowerCase() === (job.location || "").toLowerCase()) || candidate.willing_to_relocate) score += 20;
+            
+            if (!job.qualification_required || job.qualification_required === "Any Degree" || job.qualification_required === candidate.highest_qualification || candidate.highest_qualification === "PG Degree" || candidate.highest_qualification === "BE/B-Tech") score += 15;
+            
+            let prefRoles = []; try { prefRoles = typeof candidate.preferred_roles === 'string' ? JSON.parse(candidate.preferred_roles) : []; } catch(e){}
+            if (prefRoles.some(role => (job.title || "").toLowerCase().includes(role.toLowerCase()))) score += 15;
+            
+            return { 
+                id: job.id, 
+                company: job.company_name, 
+                title: job.title, 
+                type: job.job_type, 
+                location: job.location, 
+                qualification: job.qualification_required, 
+                experience: job.experience_required, 
+                salary: job.salary_range, 
+                skills: jobSkills, 
+                matchScore: Math.round(score),
+                isSaved: savedJobIds.has(job.id)
+            };
+        }).sort((a, b) => b.matchScore - a.matchScore);
+
+        res.json({ success: true, data: matchedJobs });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.post('/api/applications/apply', async (req, res) => {
+    try {
+        const checkDuplicate = await pool.query("SELECT * FROM job_applications WHERE job_id = $1 AND candidate_id = $2", [req.body.jobId, req.body.candidateId]);
+        if (checkDuplicate.rows.length > 0) return res.status(400).json({ success: false, message: "You have already applied for this job." });
+        await pool.query("INSERT INTO job_applications (job_id, candidate_id, employer_id, status) VALUES ($1, $2, $3, 'Applied')", [req.body.jobId, req.body.candidateId, req.body.employerId]);
+        res.status(200).json({ success: true, message: "Application submitted successfully!" });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/candidate/:id/applications', async (req, res) => {
+    try {
+        const candCheck = await pool.query("SELECT id FROM candidates WHERE unique_id = $1", [req.params.id]);
+        const candidateIntId = candCheck.rows.length > 0 ? candCheck.rows[0].id : 0;
+        const result = await pool.query(`
+            SELECT ja.id as application_id, j.title as job_title, j.company_name as company, ja.applied_at, ja.status, j.employer_id, j.id as job_id, j.event_id, e.name as event_name
+            FROM job_applications ja JOIN jobs j ON ja.job_id = j.id LEFT JOIN events e ON j.event_id = e.id
+            WHERE ja.candidate_id::text = $1 OR ja.candidate_id::text = $2 ORDER BY ja.applied_at DESC
+        `, [req.params.id, candidateIntId.toString()]);
+        res.json({ success: true, data: result.rows });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/candidate/:id/events', async (req, res) => {
+    try {
+        const candCheck = await pool.query("SELECT id FROM candidates WHERE unique_id = $1", [req.params.id]);
+        const candidateIntId = candCheck.rows.length > 0 ? candCheck.rows[0].id : 0;
+        const result = await pool.query(`
+            SELECT e.*, r.entry_pass_id, r.queue_token, r.attendance_status, r.registered_at FROM events e
+            LEFT JOIN event_candidate_registrations r ON e.id = r.event_id AND (r.candidate_id::text = $1 OR r.candidate_id::text = $2)
+            WHERE (e.status IS NULL OR e.status != 'Deleted') OR r.id IS NOT NULL ORDER BY e.id DESC
+        `, [req.params.id, candidateIntId.toString()]);
+        res.json({ success: true, data: result.rows });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.post('/api/events/apply', async (req, res) => {
+    try {
+        const candCheck = await pool.query("SELECT id FROM candidates WHERE unique_id = $1", [req.body.candidateId]);
+        if (candCheck.rows.length === 0) return res.status(404).json({ success: false, message: "Candidate account not found." });
+        const eventCheck = await pool.query("SELECT status FROM events WHERE id = $1", [req.body.eventId]);
+        if (eventCheck.rows.length > 0 && eventCheck.rows[0].status === 'Hold') return res.status(400).json({ success: false, message: "This event is currently on hold." });
+        const duplicateCheck = await pool.query("SELECT id FROM event_candidate_registrations WHERE event_id = $1 AND (candidate_id::text = $2 OR candidate_id::text = $3)", [req.body.eventId, req.body.candidateId, candCheck.rows[0].id.toString()]);
+        if (duplicateCheck.rows.length > 0) return res.status(400).json({ success: false, message: "You have already registered for this event." });
+        
+        const passId = `BCC-evt-${req.body.eventId}-${Date.now().toString().slice(-5)}`;
+        const queueToken = `A-${Math.floor(100 + Math.random() * 900)}`;
+        try {
+            await pool.query("INSERT INTO event_candidate_registrations (event_id, candidate_id, entry_pass_id, queue_token, attendance_status) VALUES ($1, $2, $3, $4, 'Pending')", [req.body.eventId, req.body.candidateId, passId, queueToken]);
+        } catch (insertError) {
+            if (insertError.code === '22P02') await pool.query("INSERT INTO event_candidate_registrations (event_id, candidate_id, entry_pass_id, queue_token, attendance_status) VALUES ($1, $2, $3, $4, 'Pending')", [req.body.eventId, candCheck.rows[0].id, passId, queueToken]);
+            else throw insertError;
+        }
+        res.json({ success: true, message: "Successfully registered!", passId, queueToken });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/candidate/:id/interviews', async (req, res) => {
+    try {
+        const candCheck = await pool.query("SELECT id FROM candidates WHERE unique_id = $1", [req.params.id]);
+        const candidateIntId = candCheck.rows.length > 0 ? candCheck.rows[0].id : 0;
+        const result = await pool.query(`
+            SELECT i.id as interview_id, i.interview_type, i.interview_date, i.interview_time, i.location_or_link, i.status as interview_status, ja.id as application_id, j.title as job_title, j.company_name
+            FROM interviews i JOIN job_applications ja ON i.application_id = ja.id JOIN jobs j ON ja.job_id = j.id
+            WHERE (ja.candidate_id::text = $1 OR ja.candidate_id::text = $2) ORDER BY i.interview_date ASC, i.interview_time ASC
+        `, [req.params.id, candidateIntId.toString()]);
+        res.json({ success: true, data: result.rows });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/candidate/:id/history', async (req, res) => {
+    try {
+        const candCheck = await pool.query("SELECT id FROM candidates WHERE unique_id = $1", [req.params.id]);
+        if (candCheck.rows.length === 0) return res.json({ success: true, data: [] });
+        const result = await pool.query("SELECT * FROM candidate_activity_logs WHERE candidate_id = $1 ORDER BY created_at DESC", [candCheck.rows[0].id]);
+        res.json({ success: true, data: result.rows });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.post('/api/candidate/history/log', async (req, res) => {
+    try {
+        const candCheck = await pool.query("SELECT id FROM candidates WHERE unique_id = $1", [req.body.candidateId]);
+        if (candCheck.rows.length === 0) return res.status(404).json({ success: false });
+        await pool.query("INSERT INTO candidate_activity_logs (candidate_id, action_type, title, description) VALUES ($1, $2, $3, $4)", [candCheck.rows[0].id, req.body.actionType, req.body.title, req.body.description]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.delete('/api/candidate/:id/history', async (req, res) => {
+    try {
+        const candCheck = await pool.query("SELECT id FROM candidates WHERE unique_id = $1", [req.params.id]);
+        if (candCheck.rows.length === 0) return res.status(404).json({ success: false });
+        await pool.query("DELETE FROM candidate_activity_logs WHERE candidate_id = $1", [candCheck.rows[0].id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.post('/api/candidate/feedback', async (req, res) => {
+    try {
+        const candCheck = await pool.query("SELECT id FROM candidates WHERE unique_id = $1", [req.body.candidateId]);
+        if (candCheck.rows.length === 0) return res.status(404).json({ success: false });
+        await pool.query("INSERT INTO candidate_feedback (candidate_id, overall_rating, registration_exp, interview_quality, event_management, video_url) VALUES ($1, $2, $3, $4, $5, $6)", 
+        [candCheck.rows[0].id, req.body.rating, req.body.registrationExp, req.body.interviewQuality, req.body.eventManagement, req.body.videoUrl]);
+        res.json({ success: true, message: "Feedback submitted successfully!" });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+
+// ==========================================
+// 6. ADMIN DASHBOARD & MANAGEMENT APIS
+// ==========================================
+app.get('/api/admin/live-events', async (req, res) => {
+    try {
+        const eventsResult = await pool.query('SELECT * FROM events WHERE is_live = TRUE ORDER BY created_at DESC');
+        const liveEvents = eventsResult.rows;
+        if (liveEvents.length === 0) return res.json({ success: true, data: [] });
+
+        const dashboardData = await Promise.all(liveEvents.map(async (event) => {
+            const regCount = await pool.query('SELECT COUNT(*) FROM event_candidate_registrations WHERE event_id = $1', [event.id]);
+            const candidateAtt = await pool.query("SELECT COUNT(*) FROM event_attendance WHERE event_id = $1 AND user_type = 'candidate'", [event.id]);
+            const employerAtt = await pool.query("SELECT COUNT(*) FROM event_attendance WHERE event_id = $1 AND user_type = 'employer'", [event.id]);
+            const interviews = await pool.query("SELECT COUNT(*) FROM event_interviews WHERE event_id = $1 AND status = 'interviewed'", [event.id]);
+            const offers = await pool.query("SELECT COUNT(*) FROM event_interviews WHERE event_id = $1 AND status = 'hired'", [event.id]);
+
+            return {
+                id: event.id, name: event.name, location: event.location,
+                registrations: parseInt(regCount.rows[0].count),
+                attendance: { candidates: parseInt(candidateAtt.rows[0].count), employers: parseInt(employerAtt.rows[0].count) },
+                interviews: parseInt(interviews.rows[0].count),
+                offers: parseInt(offers.rows[0].count)
+            };
+        }));
+        res.status(200).json({ success: true, data: dashboardData });
+    } catch (error) { res.status(500).json({ success: false, message: 'Server error' }); }
+});
+
+app.get('/api/admin/events', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT id, name, event_date, event_type, city, employer_capacity, status, stall_price,
+            (SELECT COUNT(*) FROM employer_event_stalls WHERE event_id = events.id) as registered_count
+            FROM events ORDER BY event_date DESC
+        `);
+        res.json({ success: true, data: result.rows });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.post('/api/admin/events', async (req, res) => {
+    const { name, date, type, city, venue, maps_link, capacity, price, desc } = req.body;
+    try {
+        const qrString = `GATE_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+        await pool.query(`
+            INSERT INTO events (name, event_date, event_type, city, venue_address, google_maps_link, employer_capacity, stall_price, qr_code_string, status, description) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'upcoming', $10)
+        `, [name, date, type, city, venue, maps_link, parseInt(capacity), parseFloat(price), qrString, desc]);
+        res.status(201).json({ success: true, message: 'Event created' });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.put('/api/admin/events/:id', async (req, res) => {
+    const { name, event_date, event_type, city, venue_address, employer_capacity, stall_price, description } = req.body;
+    try {
+        await pool.query(`UPDATE events SET name = $1, event_date = $2, event_type = $3, city = $4, venue_address = $5, employer_capacity = $6, stall_price = $7, description = $8 WHERE id = $9`, 
+        [name, event_date, event_type, city, venue_address, parseInt(employer_capacity), parseFloat(stall_price), description, req.params.id]);
+        res.json({ success: true, message: 'Event details updated successfully' });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.put('/api/admin/events/:id/hold', async (req, res) => {
+    try {
+        await pool.query("UPDATE events SET status = 'hold' WHERE id = $1", [req.params.id]);
+        res.json({ success: true, message: 'Event placed on hold' });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.put('/api/admin/events/:id/live', async (req, res) => {
+    try {
+        await pool.query("UPDATE events SET status = 'live' WHERE id = $1", [req.params.id]);
+        res.json({ success: true, message: "Event is now live!" });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.delete('/api/admin/events/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query("DELETE FROM event_interviews WHERE event_id = $1", [id]);
+        await pool.query("DELETE FROM employer_event_stalls WHERE event_id = $1", [id]);
+        await pool.query("DELETE FROM event_attendance WHERE event_id = $1", [id]);
+        await pool.query("DELETE FROM event_candidate_registrations WHERE event_id = $1", [id]);
+        await pool.query("DELETE FROM events WHERE id = $1", [id]);
+        res.json({ success: true, message: 'Event deleted' });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/admin/events/:eventId/venue', async (req, res) => {
+    try {
+        const blocks = await pool.query("SELECT * FROM venue_blocks WHERE event_id = $1 ORDER BY id ASC", [req.params.eventId]);
+        const rooms = await pool.query("SELECT * FROM venue_rooms WHERE block_id IN (SELECT id FROM venue_blocks WHERE event_id = $1)", [req.params.eventId]);
+        const stalls = await pool.query(`
+            SELECT s.*, e.company_name as allocated_name 
+            FROM venue_stalls s LEFT JOIN employers e ON s.employer_id = e.id 
+            WHERE s.event_id = $1 ORDER BY s.code ASC
+        `, [req.params.eventId]);
+
+        const venueStructure = blocks.rows.map(block => {
+            const blockRooms = rooms.rows.filter(r => r.block_id === block.id).map(room => ({
+                id: room.id.toString(), name: room.name, code: room.code,
+                stalls: stalls.rows.filter(s => s.room_id === room.id).map(s => ({
+                    id: s.id.toString(), code: s.code, allocatedToAppId: s.employer_id ? s.employer_id.toString() : null, allocatedName: s.allocated_name
+                }))
+            }));
+            const blockStalls = stalls.rows.filter(s => s.block_id === block.id && s.room_id === null).map(s => ({
+                id: s.id.toString(), code: s.code, allocatedToAppId: s.employer_id ? s.employer_id.toString() : null, allocatedName: s.allocated_name
+            }));
+            return { id: block.id.toString(), kind: block.type, name: block.name, code: block.code, sections: blockRooms, stalls: blockStalls };
+        });
+        res.json({ success: true, data: venueStructure });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/admin/stall-applications', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT es.id, es.status, es.payment_status, es.applied_at, es.roles_to_hire as "rolesToHire", es.vacancies_count as "vacanciesCount",
+                   e.company_name as "employerName", e.email as "contactEmail", ev.id as "eventId", ev.name as "eventName", s.code as "allocatedStall"
+            FROM employer_event_stalls es
+            JOIN employers e ON es.employer_id = e.id JOIN events ev ON es.event_id = ev.id
+            LEFT JOIN venue_stalls s ON s.employer_id = e.id AND s.event_id = ev.id ORDER BY es.applied_at DESC
+        `);
+        res.json({ success: true, data: result.rows });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/admin/jobs', async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT id, title, company_name AS company, job_type AS type, location, status AS "approvalStatus", created_at AS "postedAt" FROM jobs ORDER BY created_at DESC`);
+        res.json({ success: true, data: result.rows });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/admin/employers', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT e.id, e.company_name AS name, COALESCE(e.gst_cin, 'Pending') AS gst_status, e.status,
+                   COALESCE(AVG(ef.overall_rating), 4.0)::numeric(2,1) AS rating,
+                   (SELECT COUNT(*) FROM jobs j WHERE j.employer_id = e.id AND j.status = 'approved') AS jobs
+            FROM employers e LEFT JOIN employer_feedback ef ON e.id = ef.employer_id GROUP BY e.id ORDER BY e.created_at DESC
+        `);
+        const formattedData = result.rows.map(e => ({
+            id: `EMP-${String(e.id).padStart(3, '0')}`, dbId: e.id, name: e.name,
+            gst: e.gst_status !== 'Pending' ? 'Verified' : 'Pending', jobs: parseInt(e.jobs) || 0,
+            rating: parseFloat(e.rating), status: e.status === 'approved' ? 'Active' : e.status === 'blacklisted' ? 'Blacklisted' : 'Pending'
+        }));
+        res.json({ success: true, data: formattedData });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/admin/candidates', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT c.unique_id AS id, c.full_name AS name, COALESCE(c.highest_qualification, 'N/A') AS qual,
+                   COALESCE(c.district, 'N/A') AS district, COALESCE(c.account_status, 'Pending') AS status,
+                   EXISTS (SELECT 1 FROM event_candidate_registrations ecr WHERE ecr.candidate_id::text = c.unique_id AND LOWER(ecr.attendance_status) = 'present') AS attended
+            FROM candidates c ORDER BY c.created_at DESC
+        `);
+        res.json({ success: true, data: result.rows });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+
+// ==========================================
+// 7. EMPLOYER PORTAL APIS
+// ==========================================
+app.get('/api/employer/:employerId/dashboard', async (req, res) => {
+    const { employerId } = req.params;
+    try {
+        const activeJobs = await pool.query("SELECT COUNT(*) FROM jobs WHERE employer_id = $1 AND status = 'approved'", [employerId]);
+        const totalApps = await pool.query("SELECT COUNT(*) FROM job_applications WHERE employer_id = $1", [employerId]);
+        const interviews = await pool.query("SELECT COUNT(*) FROM job_applications WHERE employer_id = $1 AND status IN ('Interview', 'Interviewed', 'Interview Scheduled')", [employerId]);
+        const offers = await pool.query("SELECT COUNT(*) FROM job_applications WHERE employer_id = $1 AND status IN ('Offered', 'Hired')", [employerId]);
+
+        const funnelRes = await pool.query("SELECT status, COUNT(*) as count FROM job_applications WHERE employer_id = $1 GROUP BY status", [employerId]);
+        const funnel = { Applied: 0, Shortlisted: 0, Interview: 0, Offer: 0, Hired: 0 };
+        funnelRes.rows.forEach(row => {
+            if (row.status === 'Applied') funnel.Applied = parseInt(row.count);
+            if (row.status === 'Shortlisted') funnel.Shortlisted = parseInt(row.count);
+            if (row.status.includes('Interview')) funnel.Interview += parseInt(row.count);
+            if (row.status === 'Offered' || row.status === 'Offer') funnel.Offer += parseInt(row.count);
+            if (row.status === 'Hired') funnel.Hired += parseInt(row.count);
+        });
+
+        const recentApps = await pool.query(`
+            SELECT ja.id as application_id, ja.status, ja.applied_at, COALESCE(c.full_name, 'Candidate') as candidate_name, ja.candidate_id, j.title as job_title, FLOOR(RANDOM() * (98 - 75 + 1) + 75) as match_score
+            FROM job_applications ja LEFT JOIN candidates c ON ja.candidate_id = c.unique_id JOIN jobs j ON ja.job_id = j.id
+            WHERE ja.employer_id = $1 ORDER BY ja.applied_at DESC LIMIT 5
+        `, [employerId]);
+
+        res.json({ success: true, data: {
+            kpis: { activeJobs: parseInt(activeJobs.rows[0].count), applications: parseInt(totalApps.rows[0].count), interviews: parseInt(interviews.rows[0].count), offersMade: parseInt(offers.rows[0].count) },
+            funnelData: funnel, recentApplicants: recentApps.rows
+        }});
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+app.get('/api/employer/:employerId/analytics', async (req, res) => {
+    const { employerId } = req.params;
+    try {
+        const appsRes = await pool.query("SELECT COUNT(*) FROM job_applications WHERE employer_id = $1", [employerId]);
+        const hiresRes = await pool.query("SELECT COUNT(*) FROM job_applications WHERE employer_id = $1 AND status = 'Hired'", [employerId]);
+        const totalApps = parseInt(appsRes.rows[0].count) || 0;
+        const totalHires = parseInt(hiresRes.rows[0].count) || 0;
+
+        const historyRes = await pool.query(`
+            SELECT ja.applied_at as date, COALESCE(c.full_name, 'Candidate') as candidate_name, 
+                   j.title as job_title, ja.status as action_type, j.event_id, e.name as event_name
+            FROM job_applications ja 
+            LEFT JOIN candidates c ON ja.candidate_id::text = c.unique_id OR ja.candidate_id = c.id
+            JOIN jobs j ON ja.job_id = j.id 
+            LEFT JOIN events e ON j.event_id = e.id
+            WHERE ja.employer_id = $1 
+            ORDER BY ja.applied_at DESC
+        `, [employerId]);
+
+        const monthlyData = [
+            { month: "Jan", apps: Math.floor(totalApps * 0.2), hires: Math.floor(totalHires * 0.2) },
+            { month: "Feb", apps: Math.floor(totalApps * 0.3), hires: Math.floor(totalHires * 0.3) },
+            { month: "Mar", apps: Math.floor(totalApps * 0.5), hires: totalHires - Math.floor(totalHires * 0.5) },
+        ];
+
+        res.json({
+            success: true,
+            data: {
+                kpis: { 
+                    conversionRate: totalApps > 0 ? ((totalHires / totalApps) * 100).toFixed(1) : "0.0", 
+                    avgTime: totalHires > 0 ? "6 days" : "N/A", 
+                    totalHires, 
+                    talentPool: totalApps 
+                },
+                monthlyData,
+                history: historyRes.rows
+            }
+        });
+    } catch (error) {
+        console.error("❌ Analytics Error:", error);
+        res.status(500).json({ success: false, message: "Server error fetching analytics." });
+    }
+});
+// --- GET EMPLOYER PROFILE ---
+app.get('/api/employer/profile/:employerId', async (req, res) => {
+    const { employerId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT id, company_name as "companyName", hr_name as "fullName", designation, email, 
+                    hr_phone as mobile, department, language, about_company as about, photo_url as "photoUrl" 
+             FROM employers WHERE id::text = $1 OR email = $1`, 
+            [employerId]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: "Employer profile not found." });
+        }
+        res.json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        console.error("❌ Profile Fetch Error:", error);
+        res.status(500).json({ success: false, message: "Server error fetching profile." });
+    }
+});
+
+// --- GET CANDIDATES REVIEWED COUNT FOR SPECIFIC EMPLOYER ---
+app.get('/api/employer/:employerId/candidates-reviewed-count', async (req, res) => {
+    const { employerId } = req.params;
+    try {
+        const countRes = await pool.query(
+            "SELECT COUNT(*) FROM job_applications WHERE employer_id::text = $1", 
+            [employerId]
+        );
+        const count = parseInt(countRes.rows[0].count) || 0;
+        res.json({ success: true, count });
+    } catch (error) {
+        console.error("❌ Count Fetch Error:", error);
+        res.status(500).json({ success: false, count: 0 });
+    }
+});
+// ==========================================
+// SERVER STARTUP
+// ==========================================
+app.listen(PORT, () => {
+    console.log(`🚀 Backend server running on port ${PORT}`);
+});
+
+
+full updaeed working code of this 
