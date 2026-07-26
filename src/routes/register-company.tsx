@@ -15,6 +15,21 @@ export const Route = createFileRoute("/register-company")({
   component: RegisterCompany,
 });
 
+const INDUSTRIES = [
+  "Information Technology",
+  "Manufacturing",
+  "Healthcare",
+  "Finance & Banking",
+  "Automotive",
+  "Retail & E-Commerce",
+  "Education & Training",
+  "Telecommunications",
+  "Hospitality & Tourism",
+  "Construction & Real Estate",
+  "Media & Entertainment",
+  "Energy & Utilities"
+];
+
 const SECTORS = [
   "Aerospace and Aviation Sector", "Agriculture Sector", "Apparel Sector", "Automotive Sector",
   "Beauty & Wellness Sector", "BFSI Sector", "Capital Goods Sector", "Construction Sector",
@@ -43,6 +58,7 @@ function RegisterCompany() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sectorQuery, setSectorQuery] = useState("");
   const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false);
+  const [passwordMismatch, setPasswordMismatch] = useState(false);
   
   // OTP States
   const [otpSent, setOtpSent] = useState(false);
@@ -64,18 +80,13 @@ function RegisterCompany() {
       return;
     }
 
-    // Structural Check against standard Indian GST Identification Numbers
     if (!gstRegex.test(formattedGst)) {
       toast.error("Invalid GST/CIN number! This is not a legal or verified tax identifier.");
-      // Clear the invalid input and keep it unlocked
       setF(prev => ({ ...prev, company_name: "", gst_cin: "" }));
       return;
     }
 
-    // Success Simulation if structural integrity passes
     toast.success("Legal GSTIN Detected! Authenticating profile records...");
-    
-    // Auto-populate the company name based on legal business name data matching format
     setF(prev => ({ 
       ...prev, 
       gst_cin: formattedGst,
@@ -106,9 +117,13 @@ function RegisterCompany() {
     e.preventDefault();
     
     if (f.password !== f.confirmPassword) {
+      setPasswordMismatch(true);
       toast.error("Passwords do not match");
       return;
+    } else {
+      setPasswordMismatch(false);
     }
+
     if (!f.sector) {
       toast.error("Please select a valid sector from the dropdown list");
       return;
@@ -129,7 +144,6 @@ function RegisterCompany() {
       const json = await res.json();
       if (json.success) {
         setShowSuccess(true);
-        // Wait 4 seconds for them to read the message, then redirect
         setTimeout(() => {
           navigate({ to: "/for-employers" }); 
         }, 4000);
@@ -223,17 +237,17 @@ function RegisterCompany() {
                     </div>
 
                     <div>
-                      <Label>Industry</Label>
+                      <Label>Industry *</Label>
                       <Select value={f.industry} onValueChange={(v) => setF({...f, industry: v})}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select Industry" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="IT">Information Technology</SelectItem>
-                          <SelectItem value="Manufacturing">Manufacturing</SelectItem>
-                          <SelectItem value="Healthcare">Healthcare</SelectItem>
-                          <SelectItem value="Finance">Finance & Banking</SelectItem>
+                          {INDUSTRIES.map((ind) => (
+                            <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
+
                     <div>
                       <Label>Company Size</Label>
                       <Select value={f.company_size} onValueChange={(v) => setF({...f, company_size: v})}>
@@ -323,7 +337,6 @@ function RegisterCompany() {
                       </div>
                     </div>
 
-                    {/* OTP INPUT BOX (Hidden until OTP is sent) */}
                     {otpSent && !isOtpVerified && (
                       <div className="sm:col-span-2 bg-saffron/10 border border-saffron/30 p-4 rounded-lg flex gap-3 items-end">
                         <div className="flex-1">
@@ -346,7 +359,19 @@ function RegisterCompany() {
                     </div>
                     <div>
                       <Label>Confirm Password *</Label>
-                      <Input required type="password" value={f.confirmPassword} onChange={(e) => setF({...f, confirmPassword: e.target.value})} className="mt-1" />
+                      <Input 
+                        required 
+                        type="password" 
+                        value={f.confirmPassword} 
+                        onChange={(e) => {
+                          setF({...f, confirmPassword: e.target.value});
+                          if (passwordMismatch) setPasswordMismatch(false);
+                        }} 
+                        className={`mt-1 ${passwordMismatch ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                      />
+                      {passwordMismatch && (
+                        <p className="text-xs text-destructive mt-1 font-medium">Passwords do not match.</p>
+                      )}
                     </div>
                     <p className="text-[11px] text-muted-foreground sm:col-span-2">This password will be used by the HR contact above to sign in to the Company Admin Panel after approval.</p>
                   </div>
