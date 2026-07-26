@@ -28,7 +28,7 @@ function LoginPage() {
   
   // States for the form
   const [companyName, setCompanyName] = useState("");
-  const [identifier, setIdentifier] = useState(""); // Used for Email or Phone
+  const [identifier, setIdentifier] = useState(""); // Used for Email, Phone, or Candidate ID
   const [password, setPassword] = useState(""); 
   
   const [showPassword, setShowPassword] = useState(false);
@@ -44,13 +44,12 @@ function LoginPage() {
     setIsLoading(true);
     
     try {
-      // Pulls the backend URL from Render's environment variables safely
       const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com"; 
       
-      // Setup payload dynamically based on role
+      // Sends both 'email' and 'identifier' keys so backend accepts either key
       const payload = role === "employer" 
-        ? { role, company_name: companyName, email: identifier, password }
-        : { role, identifier, password };
+        ? { role, company_name: companyName, email: identifier.trim(), identifier: identifier.trim(), password }
+        : { role, email: identifier.trim(), identifier: identifier.trim(), password };
 
       const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: "POST",
@@ -63,7 +62,7 @@ function LoginPage() {
       if (json.success) {
         toast.success("Login successful!");
         
-        // Save the session data dynamically
+        // Save session
         setSession({ 
           id: json.data.id, 
           name: json.data.name, 
@@ -71,14 +70,13 @@ function LoginPage() {
           role: json.data.role 
         });
         
-        // Smart Redirect based on role
+        // Smart Redirect
         if (json.data.role === 'candidate') {
           navigate({ to: "/candidate" });
         } else if (json.data.role === 'employer') {
           navigate({ to: "/employer" }); 
         }
       } else {
-        // Displays backend's specific error messages
         setError(json.message);
       }
     } catch (err) {
@@ -126,8 +124,6 @@ function LoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="mt-6 space-y-4">
-            
-            {/* Conditional Company Name Field for Employers */}
             {isEmployer && (
               <div>
                 <Label>Company Name</Label>
@@ -187,9 +183,8 @@ function LoginPage() {
   );
 }
 
-
 // ==========================================
-// 🚀 FORGOT PASSWORD DIALOG WITH BACKEND API
+// 🚀 FORGOT PASSWORD DIALOG
 // ==========================================
 function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole: string, defaultIdentifier: string }) {
   const [open, setOpen] = useState(false);
@@ -209,7 +204,6 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
     setPwd2("");
   }
 
-  // 1. Send Request to check DB and generate OTP
   async function sendOtp() {
     const id = identifier.trim();
     if (!id) { toast.error("Enter your registered email or phone"); return; }
@@ -225,9 +219,9 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
       
       if (json.success) {
         setStep("verify");
-        toast.success(json.message); // Shows the success message from backend
+        toast.success(json.message);
       } else {
-        toast.error(json.message); // Shows "Not registered" error from backend
+        toast.error(json.message);
       }
     } catch (err) {
       toast.error("Network error. Please try again.");
@@ -236,13 +230,11 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
     }
   }
 
-  // 2. Just UI move to next step for OTP verification
   function verify() {
-    if (otp.length < 6) { toast.error("Please enter a valid 6-digit OTP"); return; }
+    if (otp.length < 4) { toast.error("Please enter a valid OTP"); return; }
     setStep("reset");
   }
 
-  // 3. Final submission with new password and OTP verification
   async function submitReset() {
     if (pwd.length < 6) { toast.error("Password must be at least 6 characters"); return; }
     if (pwd !== pwd2) { toast.error("Passwords do not match"); return; }
@@ -266,7 +258,7 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
         setOpen(false); 
         reset();
       } else {
-        toast.error(json.message); // E.g., "Invalid OTP"
+        toast.error(json.message);
       }
     } catch (err) {
       toast.error("Network error. Please try again.");
@@ -287,7 +279,7 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
           </DialogTitle>
           <DialogDescription>
             {step === "identify" && `Enter your registered ${currentRole === 'employer' ? 'Work Email' : 'Email or Mobile Number'} to receive an OTP.`}
-            {step === "verify" && "Enter the 6-digit OTP sent to your contact details."}
+            {step === "verify" && "Enter the OTP sent to your contact details (use 1234 for testing)."}
             {step === "reset" && "Create a new password for your account."}
           </DialogDescription>
         </DialogHeader>
@@ -303,7 +295,7 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
           <div className="space-y-4">
             <div>
               <Label>Enter OTP</Label>
-              <Input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" className="mt-1" />
+              <Input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="4-digit code (1234)" className="mt-1 font-mono tracking-widest text-center" />
             </div>
             <button type="button" onClick={sendOtp} disabled={isLoading} className="text-xs text-saffron font-medium hover:underline">
               {isLoading ? "Sending..." : "Resend OTP"}
