@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Logo, TricolorBar } from "@/components/Brand";
 import { Card } from "@/components/ui/card";
@@ -23,7 +23,6 @@ const ROLES = [
 type RoleId = (typeof ROLES)[number]["id"];
 
 function LoginPage() {
-  const navigate = useNavigate();
   const [role, setRole] = useState<RoleId>("candidate");
   
   // States for the form
@@ -46,7 +45,6 @@ function LoginPage() {
     try {
       const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com"; 
       
-      // Sends both 'email' and 'identifier' keys so backend accepts either key
       const payload = role === "employer" 
         ? { role, company_name: companyName, email: identifier.trim(), identifier: identifier.trim(), password }
         : { role, email: identifier.trim(), identifier: identifier.trim(), password };
@@ -62,7 +60,7 @@ function LoginPage() {
       if (json.success) {
         toast.success("Login successful!");
         
-        // Save session
+        // Save session synchronously
         setSession({ 
           id: json.data.id, 
           name: json.data.name, 
@@ -70,11 +68,11 @@ function LoginPage() {
           role: json.data.role 
         });
         
-        // Smart Redirect
+        // Use hard location assignment to prevent router state race conditions
         if (json.data.role === 'candidate') {
-          navigate({ to: "/candidate" });
+          window.location.href = "/candidate";
         } else if (json.data.role === 'employer') {
-          navigate({ to: "/employer" }); 
+          window.location.href = "/employer"; 
         }
       } else {
         setError(json.message);
