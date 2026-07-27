@@ -1,48 +1,101 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { DashShell, PageHeader } from "@/components/DashShell";
-import { adminNav } from "@/lib/dashNav";
-import { Card } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
-export const Route = createFileRoute("/admin/stalls")({
-  head: () => ({ meta: [{ title: "Stalls & Venue — Admin" }] }),
-  component: Stalls,
-});
+export function AddBlockModal({ eventId, onClose, onSuccess }: { eventId: number; onClose: () => void; onSuccess: () => void }) {
+  const [kind, setKind] = useState("Building");
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-const zones = [
-  { name: "Hall A — IT & Software", color: "bg-saffron/20 border-saffron", stalls: ["A-01", "A-02", "A-03", "A-04", "A-05", "A-06", "A-07", "A-08", "A-09", "A-10", "A-11", "A-12"] },
-  { name: "Hall B — Retail & Services", color: "bg-india-green/20 border-india-green", stalls: ["B-01", "B-02", "B-03", "B-04", "B-05", "B-06", "B-07", "B-08"] },
-  { name: "Hall C — Manufacturing & ITI", color: "bg-navy/15 border-navy", stalls: ["C-01", "C-02", "C-03", "C-04", "C-05", "C-06", "C-07", "C-08", "C-09", "C-10"] },
-];
+  const handleCreateBlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !code.trim()) {
+      toast.error("Please fill in both Name and Code.");
+      return;
+    }
 
-function Stalls() {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${eventId}/venue/blocks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, name: name.trim(), code: code.trim() })
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Venue block created successfully!");
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(json.message || "Failed to create block.");
+      }
+    } catch (err) {
+      console.error("Error creating block:", err);
+      toast.error("Server connection error.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <DashShell role="admin" nav={adminNav}>
-      <PageHeader title="Stalls & Venue Layout" description="Udyoga Mela Bengaluru · Palace Grounds, Halls 1-3" action={<Button className="bg-saffron text-navy hover:bg-saffron/90">Auto-assign stalls</Button>} />
-      <div className="grid lg:grid-cols-3 gap-6">
-        {zones.map((z) => (
-          <Card key={z.name} className="p-5 border-border/60">
-            <h3 className="font-display font-bold text-navy mb-3">{z.name}</h3>
-            <div className="grid grid-cols-4 gap-2">
-              {z.stalls.map((s, i) => {
-                const assigned = i % 3 !== 2;
-                return (
-                  <div key={s} className={`aspect-square rounded-lg border-2 ${assigned ? z.color : "border-dashed border-border bg-muted/30"} flex flex-col items-center justify-center text-xs cursor-pointer hover:scale-105 transition`}>
-                    <span className="font-bold text-navy">{s}</span>
-                    {assigned ? <Badge className="mt-1 text-[9px] py-0 px-1.5 bg-white">Assigned</Badge> : <span className="text-muted-foreground text-[10px] mt-1">Empty</span>}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        ))}
+    <form onSubmit={handleCreateBlock} className="space-y-4 p-4 bg-white rounded-xl shadow-lg border border-border">
+      <div>
+        <h3 className="font-bold text-navy text-lg">Add Block</h3>
+        <p className="text-xs text-muted-foreground">Pick the type of container. You can add rooms and stalls inside after creating it.</p>
       </div>
-      <Card className="p-6 border-border/60 mt-6 grid sm:grid-cols-4 gap-4 text-center">
-        {[{ k: "Total Stalls", v: 30 }, { k: "Assigned", v: 22 }, { k: "Open", v: 8 }, { k: "Utilisation", v: "73%" }].map((s) => (
-          <div key={s.k}><p className="text-xs uppercase tracking-widest text-muted-foreground">{s.k}</p><p className="font-display font-bold text-2xl text-navy">{s.v}</p></div>
-        ))}
-      </Card>
-    </DashShell>
+
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs font-semibold text-navy block mb-1">Type</label>
+          <select 
+            className="w-full border border-border rounded-lg px-3 py-2 bg-white text-navy text-sm font-medium"
+            value={kind}
+            onChange={(e) => setKind(e.target.value)}
+          >
+            <option value="Building">Building</option>
+            <option value="Hall">Hall</option>
+            <option value="Ground">Ground</option>
+            <option value="Block">Block</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-navy block mb-1">Name *</label>
+          <input 
+            type="text" 
+            placeholder="e.g. Main Exhibition Hall"
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm text-navy"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-navy block mb-1">Code *</label>
+          <input 
+            type="text" 
+            placeholder="e.g. HALL-A"
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm text-navy uppercase"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isSubmitting} className="bg-saffron text-navy hover:bg-saffron/90 font-bold">
+          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+          Create
+        </Button>
+      </div>
+    </form>
   );
 }
