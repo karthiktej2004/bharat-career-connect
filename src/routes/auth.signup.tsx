@@ -231,10 +231,10 @@ function SignupPage() {
     }
   }, [step, data, password, isNameValid, isEmailValid, isPhoneValid, isYopValid]);
 
-  const completion = useMemo(() => {
-    const fields = [data.fullName, data.email, data.phone, data.qualification, data.skills?.length, data.experienceType, data.resumeFileName, data.preferredLocations?.length, data.category, data.state];
-    return Math.round((fields.filter(Boolean).length / fields.length) * 100);
-  }, [data]);
+ const completion = useMemo(() => {
+  const fields = [data.fullName, data.email, data.phone, data.qualification, data.skills?.length, data.experienceType, data.resumeFileName, data.preferredLocations?.length, data.category, data.state];
+  return Math.round((fields.filter(Boolean).length / fields.length) * 100);
+}, [data]);
 
   function sendOtp() { 
     if (!isPhoneValid || !data.phone) return toast.error("Enter a valid 10-digit mobile number!");
