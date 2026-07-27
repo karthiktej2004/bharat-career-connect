@@ -238,8 +238,7 @@ const completion = useMemo(() => {
       Boolean(data.phone?.trim()),
       Boolean(data.qualification?.trim()),
       (data.skills?.length || 0) > 0,
-      // Only count experience if the user moved past default or entered details
-      data.experienceType === "Experienced" ? Boolean(data.currentRole?.trim()) : true,
+      Boolean(data.experienceType && data.experienceType !== "Fresher" ? data.currentRole?.trim() : data.experienceType),
       Boolean(data.resumeFileName?.trim()),
       (data.preferredLocations?.length || 0) > 0,
       Boolean(data.category?.trim()),
