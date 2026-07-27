@@ -51,6 +51,7 @@ export const employerNav: NavItem[] = [
   { to: "/employer/candidates", label: "Applications", icon: Users },
   { to: "/employer/interviews", label: "Interviews", icon: CalendarCheck },
   { to: "/employer/events", label: "Job Fair", icon: Calendar },
+  {to: "/employer/event-queue",label:"Live Queue",icon: Ticket, // or Users / PhoneCall},
   { to: "/employer/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/employer/feedback", label: "Feedback", icon: MessageSquare },
 ];
