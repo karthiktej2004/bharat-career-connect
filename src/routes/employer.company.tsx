@@ -61,7 +61,7 @@ export function CompanyBody() {
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
 
-  // 1. Read logged-in session securely from localStorage
+  // 1. Read logged-in session securely from localStorage (Robust parser)
   useEffect(() => {
     try {
       const keys = ["bcc_user", "user", "employer", "bcc_employer"];
@@ -71,13 +71,30 @@ export function CompanyBody() {
         const item = localStorage.getItem(key);
         if (item) {
           try {
-            const parsed = JSON.parse(item);
+            // Clean up stored strings if they are prefixed or raw JSON
+            const cleanItem = item.startsWith("{") ? item : item.replace(/^[a-zA-Z_]+/, "");
+            const parsed = JSON.parse(cleanItem);
             const userData = parsed.data || parsed.user || parsed;
             if (userData && (userData.id || userData.email || userData.name)) {
               foundUser = userData;
               break;
             }
-          } catch (e) {}
+          } catch (e) {
+            // Fallback manual regex match for raw stored objects
+            if (item.includes("id")) {
+              const idMatch = item.match(/"id"\s*:\s*([0-9]+)/);
+              const nameMatch = item.match(/"name"\s*:\s*"([^"]+)"/);
+              const emailMatch = item.match(/"email"\s*:\s*"([^"]+)"/);
+              if (idMatch) {
+                foundUser = {
+                  id: idMatch[1],
+                  name: nameMatch ? nameMatch[1] : "Your Company",
+                  email: emailMatch ? emailMatch[1] : ""
+                };
+                break;
+              }
+            }
+          }
         }
       }
 
@@ -163,7 +180,7 @@ export function CompanyBody() {
     }
   };
 
-  // Handle Add HR
+  // Handle Add HR (Feature 16)
   const handleAddHr = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newHrName || !newHrEmail || !newHrPass) {
@@ -200,7 +217,7 @@ export function CompanyBody() {
     }
   };
 
-  // Handle Delete HR
+  // Handle Delete HR (Feature 16)
   const handleDeleteHr = async (hrId: number) => {
     try {
       const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/hrs/${hrId}`, {
