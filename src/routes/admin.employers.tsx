@@ -49,8 +49,15 @@ function Employers() {
     fetchEmployers();
   }, []);
 
-  // Update employer status dynamically
+  // Update employer status dynamically with zero-flicker optimistic update
   const handleStatusUpdate = async (dbId: number, status: "approved" | "rejected" | "blacklisted") => {
+    // 1. Optimistically update local state immediately so UI changes instantly
+    const targetStatusMapped = status === "approved" ? "Active" : status === "blacklisted" ? "Blacklisted" : "Pending";
+    
+    setEmployers((prev) =>
+      prev.map((e) => (e.dbId === dbId ? { ...e, status: targetStatusMapped as any } : e))
+    );
+
     try {
       const response = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/employers/${dbId}/status`, {
         method: "PUT",
@@ -60,13 +67,14 @@ function Employers() {
       const json = await response.json();
       if (json.success) {
         toast.success(`Employer successfully marked as ${status}!`);
-        fetchEmployers(); // Reload list after update
       } else {
         toast.error(json.message || "Failed to update status.");
+        fetchEmployers(); // Roll back if backend rejected it
       }
     } catch (error) {
       console.error("Failed to update status:", error);
       toast.error("Server connection error.");
+      fetchEmployers(); // Roll back on network error
     }
   };
 
