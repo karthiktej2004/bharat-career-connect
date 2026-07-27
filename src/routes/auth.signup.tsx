@@ -238,11 +238,12 @@ const completion = useMemo(() => {
       Boolean(data.phone?.trim()),
       Boolean(data.qualification?.trim()),
       (data.skills?.length || 0) > 0,
-      Boolean(data.experienceType),
+      // Only count experience if the user moved past default or entered details
+      data.experienceType === "Experienced" ? Boolean(data.currentRole?.trim()) : true,
       Boolean(data.resumeFileName?.trim()),
       (data.preferredLocations?.length || 0) > 0,
       Boolean(data.category?.trim()),
-      Boolean(data.state?.trim())
+      Boolean(data.pincode?.trim() && data.pincode.length === 6)
     ];
     return Math.round((fields.filter(Boolean).length / fields.length) * 100);
   }, [data]);
