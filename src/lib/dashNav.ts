@@ -74,4 +74,5 @@ export const adminNav: NavItem[] = [
   { to: "/admin/roles", label: "Roles & Access", icon: KeyRound },
   { to: "/admin/data", label: "Data Controls", icon: Database },
   { to: "/admin/settings", label: "Security & Compliance", icon: Settings },
+  { to: "/admin/crowd-monitor", label: "Live Crowd Monitor", icon: Users },
 ];
