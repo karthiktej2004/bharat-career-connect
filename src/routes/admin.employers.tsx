@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Star, CheckCircle2, XCircle, Ban, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/employers")({
   head: () => ({ meta: [{ title: "Employers — Admin" }] }),
@@ -38,6 +39,7 @@ function Employers() {
       }
     } catch (error) {
       console.error("Failed to load employers:", error);
+      toast.error("Failed to load employers.");
     } finally {
       setLoading(false);
     }
@@ -57,10 +59,14 @@ function Employers() {
       });
       const json = await response.json();
       if (json.success) {
+        toast.success(`Employer successfully marked as ${status}!`);
         fetchEmployers(); // Reload list after update
+      } else {
+        toast.error(json.message || "Failed to update status.");
       }
     } catch (error) {
       console.error("Failed to update status:", error);
+      toast.error("Server connection error.");
     }
   };
 
@@ -115,15 +121,30 @@ function Employers() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="text-india-green hover:bg-india-green/10" onClick={() => handleStatusUpdate(e.dbId, "approved")} title="Approve Employer">
-                          <CheckCircle2 className="h-4 w-4" />
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 border-india-green/40 text-india-green hover:bg-india-green/10" 
+                          onClick={() => handleStatusUpdate(e.dbId, "approved")}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
                         </Button>
-                        <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleStatusUpdate(e.dbId, "rejected")} title="Reject Employer">
-                          <XCircle className="h-4 w-4" />
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 border-amber-500/40 text-amber-600 hover:bg-amber-500/10" 
+                          onClick={() => handleStatusUpdate(e.dbId, "rejected")}
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
                         </Button>
-                        <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleStatusUpdate(e.dbId, "blacklisted")} title="Blacklist Employer">
-                          <Ban className="h-4 w-4" />
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 border-destructive/40 text-destructive hover:bg-destructive/10" 
+                          onClick={() => handleStatusUpdate(e.dbId, "blacklisted")}
+                        >
+                          <Ban className="h-3.5 w-3.5 mr-1" /> Blacklist
                         </Button>
                       </div>
                     </TableCell>
