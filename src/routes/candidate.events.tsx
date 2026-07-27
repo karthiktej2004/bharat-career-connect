@@ -239,18 +239,31 @@ function VenueScanDialog({ event, passId, onSuccess, trigger }: { event: any, pa
   const handleVerifyOTP = async () => {
     if (!otp) { toast.error("Please enter the OTP."); return; }
     setIsVerifying(true);
+    const session = getSession();
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/events/attendance", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passId })
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/events/attendance/mark", {
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ 
+          eventId: event.id, 
+          userId: session?.id, 
+          userType: 'candidate', 
+          code: otp 
+        })
       });
       const json = await res.json();
       if (json.success) {
-        toast.success("Attendance verified!");
+        toast.success("Attendance verified! Venue unlocked.");
         setIsOpen(false);
         onSuccess();
-      } else { toast.error(json.message); }
-    } catch (err) { toast.error("Network error marking attendance."); }
-    finally { setIsVerifying(false); }
+      } else { 
+        toast.error(json.message || "Failed to verify attendance."); 
+      }
+    } catch (err) { 
+      toast.error("Network error marking attendance."); 
+    } finally { 
+      setIsVerifying(false); 
+    }
   };
 
   return (
