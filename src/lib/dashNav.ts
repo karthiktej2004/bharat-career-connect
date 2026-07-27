@@ -28,7 +28,8 @@ import {
   Database, 
   LifeBuoy, 
   Sparkles, 
-  Bookmark 
+  Bookmark,
+  Ticket 
 } from "lucide-react";
 import type { NavItem } from "@/components/DashShell";
 
@@ -51,7 +52,7 @@ export const employerNav: NavItem[] = [
   { to: "/employer/candidates", label: "Applications", icon: Users },
   { to: "/employer/interviews", label: "Interviews", icon: CalendarCheck },
   { to: "/employer/events", label: "Job Fair", icon: Calendar },
-  {to: "/employer/event-queue",label:"Live Queue",icon: Ticket, // or Users / PhoneCall},
+  { to: "/employer/event-queue", label: "Live Queue", icon: Ticket },
   { to: "/employer/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/employer/feedback", label: "Feedback", icon: MessageSquare },
 ];
