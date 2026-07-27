@@ -38,10 +38,6 @@ const STEPS = [
   { key: "review", label: "Review", icon: Check },
 ] as const;
 
-// =========================================================================
-// MASSIVE EXCEL DATA MAPPINGS (Based on Udyoga Mela Table Structure)
-// =========================================================================
-
 const HIGHEST_QUALS = [
   "Below 10th / SSLC", 
   "10th Std / SSLC", 
@@ -153,10 +149,8 @@ function SignupPage() {
   const [scoreType, setScoreType] = useState<"percentage" | "cgpa">("percentage");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Minimum Age Limit (15+ Years)
   const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
 
-  // NAUKRI-STYLE STRICT VALIDATION HELPERS
   const isNameValid = useMemo(() => {
     if (!data.fullName) return true;
     return /^[a-zA-Z\s'.]{2,60}$/.test(data.fullName.trim());
@@ -183,7 +177,6 @@ function SignupPage() {
     return !isNaN(yop) && yop >= 1970 && yop <= currentYear + 6;
   }, [data.yearOfPassing]);
 
-  // SMART PIN CODE API
   useEffect(() => {
     const pin = (data.pincode || "").trim();
     if (!/^\d{6}$/.test(pin)) { setPinLookup("idle"); return; }
@@ -231,14 +224,15 @@ function SignupPage() {
     }
   }, [step, data, password, isNameValid, isEmailValid, isPhoneValid, isYopValid]);
 
-const completion = useMemo(() => {
+  // True 0% Profile Calculation (Ignores preset defaults until interacted with)
+  const completion = useMemo(() => {
     const fields = [
       Boolean(data.fullName?.trim()),
       Boolean(data.email?.trim()),
       Boolean(data.phone?.trim()),
       Boolean(data.qualification?.trim()),
       (data.skills?.length || 0) > 0,
-      Boolean(data.experienceType && data.experienceType !== "Fresher" ? data.currentRole?.trim() : data.experienceType),
+      data.experienceType === "Experienced" ? Boolean(data.currentRole?.trim()) : false,
       Boolean(data.resumeFileName?.trim()),
       (data.preferredLocations?.length || 0) > 0,
       Boolean(data.category?.trim()),
@@ -262,12 +256,10 @@ const completion = useMemo(() => {
     } 
   }
 
-  // STRICT VALIDATION FOR SKILLS AND ROLES (Prevents random gibberish like "sadghqwu")
   function validateAndAddSkill(skillName: string) {
     const trimmed = skillName.trim();
     if (!trimmed) return;
     
-    // Validation checks: Length between 2 and 40, must contain at least one vowel or recognizable word structure, no excessive repeating garbage letters
     if (trimmed.length < 2 || trimmed.length > 40) {
       return toast.error("Skill name must be between 2 and 40 characters.");
     }
@@ -307,9 +299,6 @@ const completion = useMemo(() => {
     }
   }
 
-  // =======================================================
-  // 🚀 REAL DATABASE SUBMISSION TO LIVE BACKEND
-  // =======================================================
   async function finish() {
     if (!isNameValid) return toast.error("Please enter a valid Full Name (letters only).");
     if (!isEmailValid) return toast.error("Please enter a valid professional email address.");
@@ -363,8 +352,6 @@ const completion = useMemo(() => {
       willingToRelocate: Boolean(data.willingToRelocate)
     };
 
-    console.log("🚀 SENDING PAYLOAD TO DB:", payload);
-
     try {
       const res = await fetch("https://bcc-backend-0cny.onrender.com/api/auth/candidate/register", {
         method: "POST", 
@@ -373,7 +360,6 @@ const completion = useMemo(() => {
       });
       
       const json = await res.json();
-      console.log("📥 RESPONSE FROM DB:", json);
 
       if (res.ok && json.success) {
         setSession({ id: json.uniqueId, name: payload.fullName, email: payload.email, role: "candidate" });
@@ -383,7 +369,6 @@ const completion = useMemo(() => {
         toast.error(json.message || "Registration failed.");
       }
     } catch (err) {
-      console.error("Database connection failed:", err);
       toast.error("Could not reach backend server. Please check your connection.");
     } finally {
       setIsSubmitting(false);
@@ -415,7 +400,7 @@ const completion = useMemo(() => {
           </div>
 
           <div className="mt-6 min-h-[350px]">
-            {/* ================= STEP 1: BASIC INFO ================= */}
+            {/* STEP 1: BASIC INFO */}
             {STEPS[step].key === "basic" && (
               <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div className="md:col-span-2">
@@ -439,7 +424,6 @@ const completion = useMemo(() => {
                   )}
                 </div>
 
-                {/* Phone Number with Country Code Dropdown */}
                 <div>
                   <Label>Phone <span className="text-red-500">*</span></Label>
                   <div className="flex gap-2 mt-1">
@@ -466,7 +450,6 @@ const completion = useMemo(() => {
                   </div>
                 </div>
 
-                {/* DOB with 15+ Age Limit */}
                 <div>
                   <Label>Date of Birth (15+ Years) <span className="text-red-500">*</span></Label>
                   <Input 
@@ -478,7 +461,6 @@ const completion = useMemo(() => {
                   />
                 </div>
 
-                {/* GENDER (Left Side) & SOCIAL CATEGORY (Right Side) as requested */}
                 <div>
                   <Label>Gender <span className="text-red-500">*</span></Label>
                   <Select value={data.gender || ""} onValueChange={(v) => set("gender", v)}>
@@ -547,7 +529,7 @@ const completion = useMemo(() => {
               </div>
             )}
 
-            {/* ================= STEP 3: EDUCATION (Exact Table Hierarchy) ================= */}
+            {/* STEP 3: EDUCATION */}
             {STEPS[step].key === "education" && (() => {
               const q = data.qualification || "";
               const isSchool = ["Below 10th / SSLC", "10th Std / SSLC"].includes(q);
@@ -634,7 +616,6 @@ const completion = useMemo(() => {
                     </>
                   )}
 
-                  {/* Percentage vs CGPA Restriction Selector */}
                   <div>
                     <Label>Mark Scoring Mode</Label>
                     <Select value={scoreType} onValueChange={(v: any) => setScoreType(v)}>
@@ -672,7 +653,7 @@ const completion = useMemo(() => {
               );
             })()}
 
-            {/* STEP 4: SKILLS (With Strict Validation against Gibberish) */}
+            {/* STEP 4: SKILLS */}
             {STEPS[step].key === "skills" && (() => {
               const query = skillSearch.trim().toLowerCase();
               const filtered = query ? NSQF_SKILLS.filter((s) => s.toLowerCase().includes(query)) : NSQF_SKILLS;
@@ -748,7 +729,6 @@ const completion = useMemo(() => {
                   </label>
                 </div>
 
-                {/* Additional Certifications */}
                 <div className="mt-6 border-t pt-4">
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="font-bold text-navy text-sm">Additional Certifications</h4>
@@ -798,7 +778,7 @@ const completion = useMemo(() => {
               </div>
             )}
 
-            {/* STEP 7: PREFERENCES (With Naukri-Style Common Roles) */}
+            {/* STEP 7: PREFERENCES */}
             {STEPS[step].key === "preferences" && (
               <div className="grid md:grid-cols-2 gap-4 animate-in fade-in">
                 <div className="md:col-span-2">
@@ -830,7 +810,6 @@ const completion = useMemo(() => {
                     </Button>
                   </div>
                   
-                  {/* Quick select common roles like Naukri */}
                   <div className="mt-2">
                     <span className="text-xs text-muted-foreground block mb-1.5">Common professional roles (click to add):</span>
                     <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-50 border rounded-lg">
