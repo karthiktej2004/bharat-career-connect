@@ -14,6 +14,44 @@ export const Route = createFileRoute("/employer/event-queue")({
   component: EmployerEventQueue,
 });
 
+// =========================================================
+// 5-MINUTE COUNTDOWN TIMER COMPONENT (PHASE 4)
+// =========================================================
+function CountdownTimer({ expiresAt, onExpire }: { expiresAt: string; onExpire: () => void }) {
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+
+  useEffect(() => {
+    if (!expiresAt) return;
+    
+    const calculateTime = () => {
+      const diff = new Date(expiresAt).getTime() - new Date().getTime();
+      const seconds = Math.floor(diff / 1000);
+      if (seconds <= 0) {
+        setTimeLeft(0);
+        onExpire();
+      } else {
+        setTimeLeft(seconds);
+      }
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm animate-pulse">
+      <Clock className="h-4 w-4" />
+      <span>
+        {timeLeft > 0 ? `${minutes}:${seconds < 10 ? '0' : ''}${seconds}` : "Timer Expired!"}
+      </span>
+    </div>
+  );
+}
+
 function EmployerEventQueue() {
   const user = typeof window !== "undefined" ? getSession() : null;
   const [queueList, setQueueList] = useState<any[]>([]);
@@ -65,12 +103,12 @@ function EmployerEventQueue() {
   }, [selectedJobId]);
 
   const handleCallNext = async () => {
-    if (!selectedJobId) { toast.error("Please select a job first."); return; }
+    if (!selectedJobId) { toast.error("Please select a job position first."); return; }
     try {
       const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/queue/call-next`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: activeEventId, jobId: selectedJobId, employerId: user?.id })
+        body: JSON.stringify({ eventId: Number(activeEventId), jobId: Number(selectedJobId), employerId: user?.id })
       });
       const json = await res.json();
       if (json.success) {
@@ -177,10 +215,8 @@ function EmployerEventQueue() {
                       {q.status.toUpperCase()}
                     </Badge>
 
-                    {isCalled && (
-                      <div className="flex items-center gap-1 text-xs font-mono text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded">
-                        <Clock className="h-3.5 w-3.5" /> 5-Min Active Timer
-                      </div>
+                    {isCalled && q.timerExpiresAt && (
+                      <CountdownTimer expiresAt={q.timerExpiresAt} onExpire={() => handleUpdateStatus(q.id, 'missed')} />
                     )}
 
                     <div className="flex items-center gap-1">
