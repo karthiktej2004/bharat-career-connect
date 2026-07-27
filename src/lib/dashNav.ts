@@ -75,4 +75,5 @@ export const adminNav: NavItem[] = [
   { to: "/admin/data", label: "Data Controls", icon: Database },
   { to: "/admin/settings", label: "Security & Compliance", icon: Settings },
   { to: "/admin/crowd-monitor", label: "Live Crowd Monitor", icon: Users },
+  { to: "/admin/history", label: "Event History", icon: History },
 ];
