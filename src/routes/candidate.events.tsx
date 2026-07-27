@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar, MapPin, QrCode, Briefcase, Loader2, CheckCircle2, FileText, Check, Unlock, Clock, ScanLine, Smartphone } from "lucide-react";
+import { Calendar, MapPin, Briefcase, Loader2, CheckCircle2, FileText, Check, Unlock, Clock, ScanLine, Smartphone, Ticket } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -19,112 +19,77 @@ export const Route = createFileRoute("/candidate/events")({
 });
 
 // =========================================================
-// 1. INLINED APPLY JOB DIALOG (FOR JOBS AT THE EVENT)
+// 1. INLINED LIVE QUEUE JOIN DIALOG (PHASE 3)
 // =========================================================
-function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
-  const [step, setStep] = useState(1);
-  const [profile, setProfile] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+function JoinQueueDialog({ job, eventId, onClose }: { job: any; eventId: number; onClose: () => void }) {
+  const [isJoining, setIsJoining] = useState(false);
+  const [ticket, setTicket] = useState<any>(null);
 
-  useEffect(() => {
-    if (!job) return; 
-    async function fetchRealProfile() {
-      setIsLoading(true);
-      const session = getSession();
-      if (!session || !session.id) { toast.error("Please log in."); onClose(); return; }
-      try {
-        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/profile/${session.id}`);
-        const json = await res.json();
-        if (json.success) setProfile(json.data);
-      } catch (err) {}
-      setIsLoading(false);
-    }
-    fetchRealProfile();
-    setStep(1); 
-  }, [job]);
-
-  const submitApplication = async () => {
-    setIsSubmitting(true);
+  const handleJoinQueue = async () => {
+    setIsJoining(true);
     const session = getSession();
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/applications/apply", {
+      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/events/queue/join", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId: job.id, candidateId: session?.id, employerId: job.employer_id || 1 }),
+        body: JSON.stringify({ 
+          eventId, 
+          jobId: job.id, 
+          employerId: job.employer_id, 
+          candidateId: session?.id 
+        }),
       });
       const json = await res.json();
-      if (json.success) { toast.success("Job Application submitted successfully!"); onClose(); } 
-      else { toast.error(json.message); }
-    } catch (err) { toast.error("Server connection failed."); }
-    finally { setIsSubmitting(false); }
+      if (json.success) {
+        setTicket(json);
+        toast.success(`Queue Joined! Token #${json.tokenNumber}`);
+      } else {
+        toast.error(json.message);
+      }
+    } catch (err) {
+      toast.error("Server connection failed.");
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   if (!job) return null;
 
   return (
     <Dialog open={!!job} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl bg-white p-0 overflow-hidden">
-        <div className="px-6 py-4 border-b border-border bg-slate-50/50">
-          <DialogTitle className="text-xl font-display font-bold text-navy flex items-center gap-2">
-            <Briefcase className="h-5 w-5 text-saffron" /> Apply for {job.title}
+      <DialogContent className="sm:max-w-md bg-white">
+        <DialogHeader>
+          <DialogTitle className="font-display font-bold text-navy flex items-center gap-2">
+            <Ticket className="h-5 w-5 text-saffron" /> Live Interview Queue
           </DialogTitle>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground mt-2">
-            <span className="flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" /> {job.company_name}</span>
-            <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {job.location}</span>
-            {job.stall_no && <span className="flex items-center gap-1 text-saffron font-bold">{job.stall_no}</span>}
-          </div>
-        </div>
+          <DialogDescription>
+            Join the physical queue for {job.title} at {job.company_name}.
+          </DialogDescription>
+        </DialogHeader>
 
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16 text-navy"><Loader2 className="h-8 w-8 animate-spin mb-4 text-saffron" /><p>Loading profile details...</p></div>
-        ) : (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-8 relative">
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-slate-100 -z-10"></div>
-              {[1, 2, 3, 4].map((s) => (
-                <div key={s} className="flex items-center bg-white px-2">
-                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors ${step === s ? "border-saffron bg-saffron text-white" : step > s ? "border-india-green bg-india-green text-white" : "border-slate-200 bg-white text-slate-400"}`}>
-                    {step > s ? <Check className="h-4 w-4" /> : s}
-                  </div>
-                </div>
-              ))}
+        {ticket ? (
+          <div className="py-6 text-center space-y-4 animate-in fade-in">
+            <div className="mx-auto size-24 rounded-2xl bg-saffron/10 border-2 border-saffron flex flex-col items-center justify-center text-navy shadow-inner">
+              <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground">Token</span>
+              <span className="text-4xl font-black text-saffron">#{ticket.tokenNumber}</span>
             </div>
-
-            {step === 1 && (
-              <div className="space-y-4 animate-in fade-in">
-                <h3 className="text-lg font-bold text-navy">Contact information</h3>
-                <div className="grid md:grid-cols-2 gap-4 mt-4">
-                  <div><Label>Full name</Label><Input disabled value={profile?.fullName || ""} className="mt-1 bg-slate-50 text-navy font-medium" /></div>
-                  <div><Label>Email address</Label><Input disabled value={profile?.email || ""} className="mt-1 bg-slate-50 text-navy font-medium" /></div>
-                </div>
-              </div>
-            )}
-            {step === 2 && (
-              <div className="space-y-4 animate-in fade-in">
-                <h3 className="text-lg font-bold text-navy">Resume / CV</h3>
-                <div className="border border-border p-4 rounded-xl bg-slate-50 flex items-start gap-4 mt-4">
-                  <div className="p-3 bg-white rounded-lg border shadow-sm text-saffron"><FileText className="h-6 w-6" /></div>
-                  <div><p className="font-bold text-navy">{profile?.resumeFileName || "Profile_Resume.pdf"}</p></div>
-                </div>
-              </div>
-            )}
-            {step === 3 && (
-              <div className="space-y-4 animate-in fade-in">
-                <h3 className="text-lg font-bold text-navy">Walk-in Screening</h3>
-                <div className="bg-india-green/5 border border-india-green/20 p-4 rounded-xl mt-4">
-                  <div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-india-green" /><span className="text-sm font-medium text-navy">Verified physically present. Employer will receive application instantly.</span></div>
-                </div>
-              </div>
-            )}
-            {step === 4 && (
-              <div className="space-y-4 animate-in fade-in text-center py-6">
-                <h3 className="text-2xl font-display font-bold text-navy">Ready to apply!</h3>
-                <p className="text-muted-foreground">Submit your application now and proceed to {job.stall_no}.</p>
-              </div>
-            )}
-            <div className="flex items-center justify-between mt-8 pt-4 border-t border-border">
-              {step > 1 ? <Button variant="outline" onClick={() => setStep(step - 1)}>Back</Button> : <Button variant="outline" onClick={onClose}>Cancel</Button>}
-              {step < 4 ? <Button className="bg-saffron text-navy hover:bg-saffron/90 font-bold px-8" onClick={() => setStep(step + 1)}>Continue</Button> : <Button className="bg-india-green text-white font-bold px-8" disabled={isSubmitting} onClick={submitApplication}>{isSubmitting ? "Submitting..." : "Submit Application"}</Button>}
+            <div>
+              <p className="font-bold text-navy text-lg">You are in line!</p>
+              <p className="text-xs text-muted-foreground mt-1">Please keep your phone ready. The employer will call your token number shortly.</p>
+            </div>
+            <Button className="w-full bg-navy text-white font-bold" onClick={onClose}>Done</Button>
+          </div>
+        ) : (
+          <div className="space-y-4 py-2">
+            <div className="p-4 bg-slate-50 border rounded-xl space-y-2">
+              <p className="font-bold text-navy">{job.title}</p>
+              <p className="text-xs text-muted-foreground">{job.company_name} · {job.location}</p>
+            </div>
+            <p className="text-xs text-muted-foreground italic">Note: Ensure you have completed venue check-in via QR scan before joining the queue.</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button className="bg-saffron text-navy hover:bg-saffron/90 font-bold" disabled={isJoining} onClick={handleJoinQueue}>
+                {isJoining ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null} Join Interview Queue
+              </Button>
             </div>
           </div>
         )}
@@ -235,7 +200,7 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
               <div className="space-y-4 animate-in fade-in text-center py-8">
                 <div className="mx-auto size-16 rounded-full bg-india-green/10 flex items-center justify-center mb-4"><CheckCircle2 className="h-10 w-10 text-india-green" /></div>
                 <h3 className="text-2xl font-display font-bold text-navy">Successfully Registered!</h3>
-                <p className="text-muted-foreground mt-2">At the venue gate, scan the Admin's QR code on your phone to mark your attendance and unlock live jobs.</p>
+                <p className="text-muted-foreground mt-2">At the venue gate, scan the Admin's QR code on your phone to mark your attendance and unlock live queues.</p>
               </div>
             )}
 
@@ -365,7 +330,7 @@ function Events() {
   const [viewingEvent, setViewingEvent] = useState<any | null>(null);
   const [eventJobs, setEventJobs] = useState<any[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
-  const [applyingJob, setApplyingJob] = useState<any | null>(null);
+  const [joiningQueueJob, setJoiningQueueJob] = useState<any | null>(null);
   const [applyingEvent, setApplyingEvent] = useState<any | null>(null);
 
   const fetchEvents = async () => {
@@ -393,7 +358,7 @@ function Events() {
 
   return (
     <DashShell role="candidate" nav={candidateNav}>
-      <PageHeader title="My Events" description="Browse Udyoga Melas, check participating companies, and explore exclusive event roles." />
+      <PageHeader title="My Events" description="Browse Udyoga Melas, check participating companies, and join live interview queues." />
       
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-saffron mb-2" /><p className="text-navy font-medium">Loading events...</p></div>
@@ -403,7 +368,7 @@ function Events() {
         <div className="grid lg:grid-cols-2 gap-6">
           {events.map((e) => {
             const isRegistered = !!e.entry_pass_id;
-            const isAttended = e.attendance_status === 'Attended';
+            const isAttended = e.attendance_status === 'Attended' || e.attendance_status === 'Present';
             const isHold = e.status === 'Hold';
 
             const eventTitle = e.title || e.name || e.event_name || "Untitled Event";
@@ -434,7 +399,7 @@ function Events() {
                           <CheckCircle2 className="h-5 w-5 text-india-green" />
                         </div>
                         <p className="text-sm font-bold text-navy mb-1">Attendance Verified</p>
-                        <p className="text-xs text-muted-foreground">You have successfully checked in to this physical event.</p>
+                        <p className="text-xs text-muted-foreground">Venue unlocked! You can now join live interview queues.</p>
                       </div>
                     ) : (
                       <div className="mt-4 rounded-xl border border-saffron/40 bg-saffron/5 p-4 text-center">
@@ -455,7 +420,6 @@ function Events() {
                   )}
                 </div>
 
-                {/* FEATURE 14: Public Job Visibility — "View Jobs" is always open and visible to all candidates */}
                 <div className="mt-6">
                   <Button onClick={() => handleViewJobs(e)} className="w-full bg-navy text-white hover:bg-navy/90 shadow-sm">
                     <Unlock className="h-4 w-4 mr-2" /> View Jobs & Companies at this Event
@@ -471,7 +435,7 @@ function Events() {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5 text-saffron" /> Jobs at {viewingEvent?.title || viewingEvent?.name}</DialogTitle>
-            <DialogDescription>Browse participating companies and their open roles for this event.</DialogDescription>
+            <DialogDescription>Browse participating companies and join live interview queues.</DialogDescription>
           </DialogHeader>
           {isLoadingJobs ? (
             <div className="py-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-saffron" /></div>
@@ -479,29 +443,41 @@ function Events() {
             <div className="py-10 text-center text-sm text-muted-foreground"><Briefcase className="h-10 w-10 mx-auto mb-3 opacity-40" />No jobs posted for this event yet.</div>
           ) : (
             <div className="space-y-3 mt-2">
-              {eventJobs.map((j) => (
-                <Card key={j.id} className="p-4 border-border/60 bg-slate-50">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-display font-bold text-navy">{j.title}</h4>
-                        <Badge variant="outline" className="bg-white">{j.job_type}</Badge>
-                        {j.stall_no && <Badge className="bg-saffron/15 text-saffron font-bold">{j.stall_no}</Badge>}
+              {eventJobs.map((j) => {
+                const isAttended = viewingEvent?.attendance_status === 'Attended' || viewingEvent?.attendance_status === 'Present';
+
+                return (
+                  <Card key={j.id} className="p-4 border-border/60 bg-slate-50">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-display font-bold text-navy">{j.title}</h4>
+                          <Badge variant="outline" className="bg-white">{j.job_type}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1 font-medium">{j.company_name} · {j.location}</p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">{(j.skills_required || []).map((s: string) => <span key={s} className="text-[11px] bg-white border px-2 py-0.5 rounded text-navy">{s}</span>)}</div>
+                        <p className="text-xs text-muted-foreground mt-2">{j.qualification_required} · {j.experience_required} · {j.salary_range}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1 font-medium">{j.company_name} · {j.location}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">{(j.skills_required || []).map((s: string) => <span key={s} className="text-[11px] bg-white border px-2 py-0.5 rounded text-navy">{s}</span>)}</div>
-                      <p className="text-xs text-muted-foreground mt-2">{j.qualification_required} · {j.experience_required} · {j.salary_range}</p>
+
+                      {isAttended ? (
+                        <Button size="sm" onClick={() => setJoiningQueueJob(j)} className="bg-saffron text-navy hover:bg-saffron/90 font-bold shrink-0">
+                          <Ticket className="h-4 w-4 mr-1" /> Join Interview Queue
+                        </Button>
+                      ) : (
+                        <Button size="sm" disabled className="bg-slate-200 text-slate-500 shrink-0">
+                          Scan QR to Unlock Queue
+                        </Button>
+                      )}
                     </div>
-                    <Button size="sm" onClick={() => setApplyingJob(j)} className="bg-navy text-white hover:bg-navy/90 shrink-0">Apply</Button>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <LiveApplyDialog job={applyingJob} onClose={() => setApplyingJob(null)} />
+      <JoinQueueDialog job={joiningQueueJob} eventId={viewingEvent?.id} onClose={() => setJoiningQueueJob(null)} />
       <EventApplyDialog event={applyingEvent} onClose={() => setApplyingEvent(null)} onSuccess={fetchEvents} />
     </DashShell>
   );
