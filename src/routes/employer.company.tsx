@@ -79,6 +79,7 @@ export function CompanyBody() {
           ...prev,
           companyName: foundUser.name || foundUser.companyName || "Your Company",
           email: foundUser.email || prev.email,
+          photoUrl: foundUser.photoUrl || foundUser.logo || prev.photoUrl,
         }));
       }
     } catch (e) {
@@ -129,12 +130,11 @@ export function CompanyBody() {
     return () => { isMounted = false; };
   }, [employerId]);
 
-  // Handle Photo Upload with Strict File Type Validation (.jpg, .png only)
+  // Handle Photo Upload with Global State Synchronization
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate extension/type to prevent non-image uploads (e.g., .py, .mp4)
     if (!["image/jpeg", "image/png", "image/jpg"].includes(file.type)) {
       toast.error("Invalid file format! Only JPEG and PNG image files are allowed.");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -162,13 +162,31 @@ export function CompanyBody() {
         const json = await res.json();
         if (json.success || res.ok) {
           setProfile((p) => ({ ...p, photoUrl: base64String }));
-          toast.success("Profile photo updated successfully!");
+          
+          // Sync with Local Storage Session so other pages pick up the logo automatically
+          const keys = ["bcc_user", "user", "employer", "bcc_employer"];
+          keys.forEach((key) => {
+            const item = localStorage.getItem(key);
+            if (item) {
+              try {
+                const parsed = JSON.parse(item);
+                if (parsed.data) parsed.data.photoUrl = base64String;
+                else if (parsed.user) parsed.user.photoUrl = base64String;
+                else parsed.photoUrl = base64String;
+                localStorage.setItem(key, JSON.stringify(parsed));
+              } catch (e) {}
+            }
+          });
+
+          // Dispatch event to update UI components across the app instantly
+          window.dispatchEvent(new Event("storage"));
+
+          toast.success("Profile photo updated and synced globally!");
         } else {
           toast.error(json.message || "Failed to save profile photo on server.");
         }
       } catch (err) {
         console.error("Upload photo error:", err);
-        // Fallback UI update if backend endpoint routing is missing on older deployments
         setProfile((p) => ({ ...p, photoUrl: base64String }));
         toast.success("Profile photo updated successfully!");
       } finally {
