@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { User, Briefcase, Award, KeyRound, Mail, Smartphone, ShieldCheck, HelpCircle, Lock, Upload, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { User, Briefcase, Award, KeyRound, Mail, Smartphone, ShieldCheck, HelpCircle, Lock, Upload, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 
@@ -44,6 +44,15 @@ export function CompanyBody() {
   const [loading, setLoading] = useState<boolean>(true);
   const [uploadingPhoto, setUploadingPhoto] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- SUB-HR STATES (FEATURE 16) ---
+  const [hrs, setHrs] = useState<any[]>([]);
+  const [loadingHrs, setLoadingHrs] = useState(false);
+  const [hrDialogOpen, setHrDialogOpen] = useState(false);
+  const [newHrName, setNewHrName] = useState("");
+  const [newHrEmail, setNewHrEmail] = useState("");
+  const [newHrPass, setNewHrPass] = useState("");
+  const [addingHr, setAddingHr] = useState(false);
 
   // Change Password States
   const [otpSent, setOtpSent] = useState<{ email: boolean; phone: boolean }>({ email: false, phone: false });
@@ -87,7 +96,7 @@ export function CompanyBody() {
     }
   }, []);
 
-  // 2. Fetch live data from backend using active employer session ID
+  // 2. Fetch live data & HR team members from backend using active employer session ID
   useEffect(() => {
     if (!employerId) return;
 
@@ -119,6 +128,13 @@ export function CompanyBody() {
         if (isMounted && countJson.success) {
           setCandidatesCount(typeof countJson.count === "number" ? countJson.count : parseInt(countJson.count) || 0);
         }
+
+        // Fetch Sub-HRs
+        const hrRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/hrs`);
+        const hrJson = await hrRes.json();
+        if (isMounted && hrJson.success) {
+          setHrs(hrJson.data);
+        }
       } catch (err) {
         console.error("Error loading employer profile metrics:", err);
       } finally {
@@ -129,6 +145,78 @@ export function CompanyBody() {
     fetchEmployerData();
     return () => { isMounted = false; };
   }, [employerId]);
+
+  // Fetch HRs separately helper
+  const fetchHrs = async () => {
+    if (!employerId) return;
+    setLoadingHrs(true);
+    try {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/hrs`);
+      const json = await res.json();
+      if (json.success) {
+        setHrs(json.data);
+      }
+    } catch (err) {
+      console.error("Failed to load HR members", err);
+    } finally {
+      setLoadingHrs(false);
+    }
+  };
+
+  // Handle Add HR
+  const handleAddHr = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHrName || !newHrEmail || !newHrPass) {
+      toast.error("Please fill in all HR fields.");
+      return;
+    }
+    if (hrs.length >= 3) {
+      toast.error("Maximum limit of 3 HR members reached.");
+      return;
+    }
+
+    setAddingHr(true);
+    try {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/hrs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName: newHrName, email: newHrEmail, password: newHrPass }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("HR member added successfully!");
+        setNewHrName("");
+        setNewHrEmail("");
+        setNewHrPass("");
+        setHrDialogOpen(false);
+        fetchHrs();
+      } else {
+        toast.error(json.message || "Failed to add HR member.");
+      }
+    } catch (err) {
+      toast.error("Server connection error.");
+    } finally {
+      setAddingHr(false);
+    }
+  };
+
+  // Handle Delete HR
+  const handleDeleteHr = async (hrId: number) => {
+    try {
+      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/hrs/${hrId}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("HR member removed.");
+        fetchHrs();
+      } else {
+        toast.error(json.message || "Failed to remove HR member.");
+      }
+    } catch (err) {
+      toast.error("Server connection error.");
+    }
+  };
 
   // Handle Photo Upload with Global State Synchronization
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,7 +251,6 @@ export function CompanyBody() {
         if (json.success || res.ok) {
           setProfile((p) => ({ ...p, photoUrl: base64String }));
           
-          // Sync with Local Storage Session so other pages pick up the logo automatically
           const keys = ["bcc_user", "user", "employer", "bcc_employer"];
           keys.forEach((key) => {
             const item = localStorage.getItem(key);
@@ -178,9 +265,7 @@ export function CompanyBody() {
             }
           });
 
-          // Dispatch event to update UI components across the app instantly
           window.dispatchEvent(new Event("storage"));
-
           toast.success("Profile photo updated and synced globally!");
         } else {
           toast.error(json.message || "Failed to save profile photo on server.");
@@ -423,6 +508,106 @@ export function CompanyBody() {
           </Card>
         </div>
       </div>
+
+      {/* TEAM ACCESS (HR MEMBERS) CARD — FEATURE 16 */}
+      <Card className="p-6 border-border/60 mt-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="font-display font-bold text-navy flex items-center gap-2">
+              <Users className="h-5 w-5 text-saffron" /> Team Access (HR Members)
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Manage sub-HR accounts who can log in using your company name and their credentials ({hrs.length}/3 slots used).
+            </p>
+          </div>
+          <Dialog open={hrDialogOpen} onOpenChange={setHrDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                disabled={hrs.length >= 3} 
+                className="bg-saffron text-navy hover:bg-saffron/90 font-medium"
+              >
+                + Add HR Member ({hrs.length}/3)
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md bg-white">
+              <DialogHeader>
+                <DialogTitle className="text-navy">Add Sub-HR Member</DialogTitle>
+                <DialogDescription>
+                  Create login credentials for an additional recruiter member for {profile.companyName}.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAddHr} className="space-y-4 pt-2">
+                <div>
+                  <Label>Full Name</Label>
+                  <Input 
+                    placeholder="e.g. Priya Sharma" 
+                    value={newHrName} 
+                    onChange={(e) => setNewHrName(e.target.value)} 
+                    required 
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Work Email</Label>
+                  <Input 
+                    type="email" 
+                    placeholder="priya@company.com" 
+                    value={newHrEmail} 
+                    onChange={(e) => setNewHrEmail(e.target.value)} 
+                    required 
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Password</Label>
+                  <Input 
+                    type="password" 
+                    placeholder="Min 8 characters" 
+                    value={newHrPass} 
+                    onChange={(e) => setNewHrPass(e.target.value)} 
+                    required 
+                    className="mt-1"
+                  />
+                </div>
+                <DialogFooter className="pt-2">
+                  <Button type="button" variant="outline" onClick={() => setHrDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={addingHr} className="bg-navy text-white hover:bg-navy/90">
+                    {addingHr ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Save HR Member
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {loadingHrs ? (
+          <div className="flex justify-center p-6"><Loader2 className="h-6 w-6 animate-spin text-saffron" /></div>
+        ) : hrs.length === 0 ? (
+          <div className="text-center py-6 border border-dashed rounded-lg text-muted-foreground text-sm">
+            No additional HR members added yet. You can add up to 3 sub-accounts.
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {hrs.map((hr) => (
+              <div key={hr.id} className="flex items-center justify-between p-3 rounded-lg border border-border/60 bg-muted/20">
+                <div>
+                  <p className="font-medium text-navy text-sm">{hr.fullName}</p>
+                  <p className="text-xs text-muted-foreground">{hr.email} · Added on {new Date(hr.createdAt).toLocaleDateString("en-IN")}</p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-destructive hover:bg-destructive/10 h-8"
+                  onClick={() => handleDeleteHr(hr.id)}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* CHANGE PASSWORD SECTION */}
       <Card className="p-6 border-border/60 mt-6">
