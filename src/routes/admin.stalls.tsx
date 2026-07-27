@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,10 +40,10 @@ export function AddBlockModal({ eventId, onClose, onSuccess }: { eventId: number
   };
 
   return (
-    <form onSubmit={handleCreateBlock} className="space-y-4 p-4 bg-white rounded-xl shadow-lg border border-border">
+    <form onSubmit={handleCreateBlock} className="space-y-4 p-6 bg-white rounded-xl shadow-lg border border-border">
       <div>
         <h3 className="font-bold text-navy text-lg">Add Block</h3>
-        <p className="text-xs text-muted-foreground">Pick the type of container. You can add rooms and stalls inside after creating it.</p>
+        <p className="text-xs text-muted-foreground mt-1">Pick the type of container. You can add rooms and stalls inside after creating it.</p>
       </div>
 
       <div className="space-y-3">
@@ -70,7 +69,6 @@ export function AddBlockModal({ eventId, onClose, onSuccess }: { eventId: number
             className="w-full border border-border rounded-lg px-3 py-2 text-sm text-navy"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            required
           />
         </div>
 
@@ -82,16 +80,19 @@ export function AddBlockModal({ eventId, onClose, onSuccess }: { eventId: number
             className="w-full border border-border rounded-lg px-3 py-2 text-sm text-navy uppercase"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            required
           />
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-2 pt-3">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting} className="bg-saffron text-navy hover:bg-saffron/90 font-bold">
+        <Button 
+          type="submit" 
+          disabled={isSubmitting || !name.trim() || !code.trim()} 
+          className="bg-saffron text-navy hover:bg-saffron/90 font-bold"
+        >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
           Create
         </Button>
