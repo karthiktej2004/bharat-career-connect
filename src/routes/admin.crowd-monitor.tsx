@@ -103,7 +103,7 @@ function AdminCrowdMonitor() {
                 <div className="space-y-2 text-sm text-slate-600">
                   <div className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg">
                     <span>Waiting in Queue:</span>
-                    <span className="font-bold text-navy text-base">{waiting} students</span>
+                    <span className="font-bold text-navy text-base">{waiting} candidates</span>
                   </div>
                   <div className="flex justify-between items-center px-3 py-1">
                     <span>Currently Called:</span>
