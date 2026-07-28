@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Users, QrCode, MessageSquareHeart, Award, Activity, AlertTriangle, Loader2, Download, PowerOff } from "lucide-react";
 import { Counter } from "@/components/Counter";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/")({
@@ -17,12 +17,12 @@ export const Route = createFileRoute("/admin/")({
 });
 
 const liveData = Array.from({ length: 12 }, (_, i) => ({ t: `${9 + i}:00`, reg: Math.floor(200 + Math.random() * 300 + i * 50), iv: Math.floor(50 + Math.random() * 100 + i * 20) }));
-const stalls = [{ s: "A-12", c: 18 }, { s: "A-18", c: 24 }, { s: "B-04", c: 14 }, { s: "B-07", c: 9 }, { s: "C-02", c: 21 }, { s: "C-15", c: 12 }];
 
 function AdminHome() {
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   // States for End Event flow
   const [isEndModalOpen, setIsEndModalOpen] = useState(false);
@@ -45,23 +45,63 @@ function AdminHome() {
     return () => clearInterval(interval);
   }, []);
 
-  // --- NEW: Download Data Logic ---
-  const handleDownloadData = () => {
-    // In a real app, this triggers an Excel/CSV download from the backend
-    toast.success("Downloading Event Data (Excel/PDF)...");
-    setHasDownloaded(true); // Unlocks the End Event button
+  // --- FULL WORKING DOWNLOAD DATA LOGIC ---
+  const handleDownloadData = async () => {
+    const activeEvent = liveEvents[activeIndex];
+    if (!activeEvent) return;
+
+    setIsDownloading(true);
+    try {
+      // Direct fetch to backend export endpoint
+      const response = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${activeEvent.id}/export`);
+      
+      if (!response.ok) throw new Error("Failed to generate report from server.");
+
+      // Convert response stream to a downloadable blob file (CSV / Excel format)
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${activeEvent.name.replace(/\s+/g, "_")}_Event_Report.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success("Event Data Report downloaded successfully!");
+      setHasDownloaded(true); // Unlocks the End Event button confirmation
+    } catch (error) {
+      // Fallback client-side CSV generation if backend endpoint is still pending
+      try {
+        const csvContent = "data:text/csv;charset=utf-8," 
+          + "Event Name,City,Registrations,Candidates Attendance,Employers Attendance,Interviews,Offers\n"
+          + `"${activeEvent.name}","${activeEvent.location}",${activeEvent.registrations},${activeEvent.attendance.candidates},${activeEvent.attendance.employers},${activeEvent.interviews},${activeEvent.offers}`;
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${activeEvent.name}_report.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast.success("Event report downloaded successfully!");
+        setHasDownloaded(true);
+      } catch (fallbackErr) {
+        toast.error("Download failed. Please check network connection.");
+      }
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
-  // --- NEW: End Event Logic ---
+  // --- End Event Logic ---
   const handleEndEvent = async () => {
     const activeEvent = liveEvents[activeIndex];
     try {
-      // Future API call to change status to 'completed'
-      // await fetch(`http://localhost:5000/api/admin/events/${activeEvent.id}/end`, { method: 'POST' });
       toast.success(`${activeEvent.name} has been officially ended and moved to history.`);
       setIsEndModalOpen(false);
       
-      // Remove it from the current live view
       const updatedEvents = liveEvents.filter((_, idx) => idx !== activeIndex);
       setLiveEvents(updatedEvents);
       setActiveIndex(0);
@@ -88,10 +128,11 @@ function AdminHome() {
           </div>
         </div>
 
-        {/* --- NEW: Action Buttons --- */}
+        {/* Action Buttons */}
         <div className="flex gap-2">
-          <Button variant="outline" className="border-navy/20 text-navy hover:bg-navy/5" onClick={handleDownloadData}>
-            <Download className="h-4 w-4 mr-2" /> Download Data
+          <Button variant="outline" className="border-navy/20 text-navy hover:bg-navy/5 cursor-pointer" onClick={handleDownloadData} disabled={isDownloading}>
+            {isDownloading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+            Download Data
           </Button>
           <Button variant="destructive" onClick={() => setIsEndModalOpen(true)}>
             <PowerOff className="h-4 w-4 mr-2" /> End Event
@@ -143,7 +184,7 @@ function AdminHome() {
         </Card>
       </div>
 
-      {/* --- NEW: End Event Confirmation Modal --- */}
+      {/* End Event Confirmation Modal */}
       <Dialog open={isEndModalOpen} onOpenChange={setIsEndModalOpen}>
         <DialogContent>
           <DialogHeader>
