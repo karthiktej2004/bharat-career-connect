@@ -51,7 +51,7 @@ function seedPerms(actions: Action[], modules: readonly Module[] = MODULES): Rec
 }
 
 const SEED_ROLES: RoleDef[] = [
-  { role: "Admin", users: 2, perms: seedPerms(["View", "Edit", "Approve", "Export", "Delete"]) },
+  { role: "Admin", users: 1, perms: seedPerms(["View", "Edit", "Approve", "Export", "Delete"]) }, // Master CEO Only
   { role: "Manager", users: 8, perms: seedPerms(["View", "Edit", "Approve", "Export"]) },
   { role: "Event Coordinator", users: 24, perms: {
     ...seedPerms(["View"]),
@@ -63,7 +63,7 @@ const SEED_ROLES: RoleDef[] = [
   { role: "Viewer", users: 12, perms: seedPerms(["View"]) },
 ];
 
-const STORE_KEY = "bcc_roles_v2";
+const STORE_KEY = "bcc_roles_v3";
 function loadRoles(): RoleDef[] {
   if (typeof window === "undefined") return SEED_ROLES;
   try {
@@ -80,10 +80,9 @@ function saveRoles(list: RoleDef[]) {
 interface Member { id: string; name: string; email: string; role: RoleName; }
 
 const activity = [
-  { user: "S. Reddy", action: "Granted 'Workflow Automation' to Infosys", time: "2 min ago" },
-  { user: "P. Nair", action: "Elevated 'Karan Singh' → Event Coordinator", time: "12 min ago" },
+  { user: "CEO Admin", action: "Granted 'Workflow Automation' to Infosys", time: "2 min ago" },
+  { user: "CEO Admin", action: "Assigned granular HR permissions for Bosch", time: "15 min ago" },
   { user: "K. Singh", action: "Updated stall allocation A-12", time: "28 min ago" },
-  { user: "M. Khan", action: "Marked Bosch subscription as paid this month", time: "1 hr ago" },
 ];
 
 function Roles() {
@@ -91,14 +90,12 @@ function Roles() {
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedRole, setSelectedRole] = useState<RoleName>("Admin");
   
-  // Input states for adding new team members with password support
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<RoleName>("Manager");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch team members directly from PostgreSQL via backend API
   const fetchTeamMembers = async () => {
     try {
       const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/team");
@@ -108,7 +105,6 @@ function Roles() {
       }
     } catch (err) {
       console.error("Failed to fetch team members from backend", err);
-      toast.error("Could not load team members from database.");
     }
   };
 
@@ -135,10 +131,13 @@ function Roles() {
     toast.success(`Permissions saved for ${selectedRole}`);
   }
 
-  // CONNECTED TO BACKEND: Add Team Member securely
   async function addMember() {
     if (!newName.trim() || !newEmail.trim() || !newPassword.trim()) {
       toast.error("Please fill in Full Name, Work Email, and Password.");
+      return;
+    }
+    if (newRole === "Admin") {
+      toast.error("The Master Admin role is exclusively restricted to the BCC CEO.");
       return;
     }
 
@@ -158,11 +157,11 @@ function Roles() {
 
       const json = await res.json();
       if (res.ok && json.success) {
-        toast.success(`${newName} added successfully to the database!`);
+        toast.success(`${newName} added successfully as ${newRole}!`);
         setNewName(""); 
         setNewEmail(""); 
         setNewPassword("");
-        fetchTeamMembers(); // Refresh list from PostgreSQL
+        fetchTeamMembers();
       } else {
         toast.error(json.message || "Failed to add team member.");
       }
@@ -174,18 +173,27 @@ function Roles() {
   }
 
   function changeRole(id: string, role: RoleName) {
+    if (role === "Admin") {
+      toast.error("Cannot assign Master CEO role to team members.");
+      return;
+    }
     setMembers((prev) => prev.map((m) => m.id === id ? { ...m, role } : m));
     toast.success("Role updated locally");
   }
 
-  function removeMember(id: string) {
-    setMembers((prev) => prev.filter((x) => x.id !== id));
-    toast.success("Member removed");
+  async function removeMember(id: string) {
+    try {
+      await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/team/${id}`, { method: "DELETE" });
+      setMembers((prev) => prev.filter((x) => x.id !== id));
+      toast.success("Team member removed successfully");
+    } catch {
+      toast.error("Failed to remove member");
+    }
   }
 
   return (
     <DashShell role="admin" nav={adminNav}>
-      <PageHeader title="Roles, Permissions & Access" description="Manage what each admin role can do inside the Admin panel — and control team membership." action={
+      <PageHeader title="Roles, Permissions & Access" description="Master Admin is restricted solely to the BCC CEO. Manage operational team members and permissions below." action={
         <Button className="bg-navy text-white hover:bg-navy/90 font-bold" onClick={savePermissions}><Save className="h-4 w-4 mr-1" />Save changes</Button>
       } />
 
@@ -193,8 +201,8 @@ function Roles() {
         <div className="flex items-start gap-3">
           <div className="size-10 rounded-lg bg-saffron/20 flex items-center justify-center shrink-0"><KeyRound className="h-5 w-5 text-navy" /></div>
           <div>
-            <p className="font-display font-bold text-navy">Grant premium modules to a company</p>
-            <p className="text-sm text-muted-foreground">This page controls internal admin permissions. To grant Company Admins access to modules based on their subscription, use Module Access.</p>
+            <p className="font-display font-bold text-navy">Company Module Access & Multi-HR Permissions</p>
+            <p className="text-sm text-muted-foreground">The CEO can control which pages and features each company can access, and manage individual permissions for multi-HR company teams.</p>
           </div>
         </div>
         <Button asChild className="bg-navy text-white hover:bg-navy/90 shrink-0 font-bold">
@@ -206,7 +214,7 @@ function Roles() {
         <Card className="border-border/60 overflow-hidden bg-white">
           <div className="p-4 border-b border-border flex items-center gap-2">
             <Shield className="h-4 w-4 text-navy" />
-            <h2 className="font-display font-bold text-navy text-sm">Roles</h2>
+            <h2 className="font-display font-bold text-navy text-sm">Roles Hierarchy</h2>
           </div>
           <div className="divide-y">
             {roles.map((r) => {
@@ -216,8 +224,8 @@ function Roles() {
                 <button key={r.role} onClick={() => setSelectedRole(r.role)}
                   className={`w-full text-left px-4 py-3 transition ${active ? "bg-navy text-white" : "hover:bg-muted"}`}>
                   <div className="flex items-center justify-between">
-                    <p className={`font-medium text-sm ${active ? "text-white" : "text-navy"}`}>{r.role}</p>
-                    <Badge className={`text-[10px] ${active ? "bg-white/20 text-white" : "bg-muted text-navy"}`}>{r.users} users</Badge>
+                    <p className={`font-medium text-sm ${active ? "text-white" : "text-navy"}`}>{r.role} {r.role === "Admin" && "(Master CEO)"}</p>
+                    <Badge className={`text-[10px] ${active ? "bg-white/20 text-white" : "bg-muted text-navy"}`}>{r.role === "Admin" ? "1 user" : `${r.users} users`}</Badge>
                   </div>
                   <p className={`text-xs mt-0.5 ${active ? "text-white/70" : "text-muted-foreground"}`}>{permCount} permissions across {MODULES.length} modules</p>
                 </button>
@@ -259,7 +267,7 @@ function Roles() {
             </Table>
           </div>
           {selectedRole === "Admin" && (
-            <p className="p-3 text-xs text-muted-foreground border-t">Admin permissions are always full and cannot be reduced here.</p>
+            <p className="p-3 text-xs text-muted-foreground border-t">Master Admin (CEO) permissions are absolute and cannot be edited.</p>
           )}
         </Card>
       </div>
@@ -269,14 +277,17 @@ function Roles() {
           <UserPlus className="h-5 w-5 text-saffron" />
           <h2 className="font-display font-bold text-navy">Team members & role assignments</h2>
         </div>
+        <p className="text-xs text-muted-foreground mb-4">Note: The Master Admin role is exclusive to the Bharat Career Connect CEO.</p>
 
         <div className="grid md:grid-cols-5 gap-2 mb-5">
           <Input placeholder="Full name" value={newName} onChange={(e) => setNewName(e.target.value)} />
           <Input placeholder="Work email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
           <Input type="password" placeholder="Temporary password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           <Select value={newRole} onValueChange={setNewRole}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{roles.map((r) => <SelectItem key={r.role} value={r.role}>{r.role}</SelectItem>)}</SelectContent>
+            <SelectTrigger><SelectValue placeholder="Select Role" /></SelectTrigger>
+            <SelectContent>
+              {roles.filter(r => r.role !== "Admin").map((r) => <SelectItem key={r.role} value={r.role}>{r.role}</SelectItem>)}
+            </SelectContent>
           </Select>
           <Button className="bg-saffron text-navy hover:bg-saffron/90 font-bold" onClick={addMember} disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
@@ -289,7 +300,7 @@ function Roles() {
             <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
             <TableBody>
               {members.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">No team members found in database.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">No operational team members found in database.</TableCell></TableRow>
               ) : (
                 members.map((m) => (
                   <TableRow key={m.id}>
@@ -298,7 +309,7 @@ function Roles() {
                     <TableCell>
                       <Select value={m.role} onValueChange={(v) => changeRole(m.id, v)}>
                         <SelectTrigger className="h-8 w-[180px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>{roles.map((r) => <SelectItem key={r.role} value={r.role}>{r.role}</SelectItem>)}</SelectContent>
+                        <SelectContent>{roles.filter(r => r.role !== "Admin").map((r) => <SelectItem key={r.role} value={r.role}>{r.role}</SelectItem>)}</SelectContent>
                       </Select>
                     </TableCell>
                     <TableCell className="text-right">
@@ -311,19 +322,6 @@ function Roles() {
               )}
             </TableBody>
           </Table>
-        </div>
-      </Card>
-
-      <Card className="p-6 border-border/60 mt-6 bg-white">
-        <div className="flex items-center gap-2 mb-4"><Activity className="h-5 w-5 text-saffron" /><h2 className="font-display font-bold text-navy">Recent access activity</h2></div>
-        <div className="grid md:grid-cols-2 gap-3">
-          {activity.map((a, i) => (
-            <div key={i} className="text-sm border-l-2 border-saffron pl-3">
-              <p className="font-medium text-navy">{a.user}</p>
-              <p className="text-xs text-muted-foreground">{a.action}</p>
-              <p className="text-xs text-muted-foreground/80 mt-0.5">{a.time}</p>
-            </div>
-          ))}
         </div>
       </Card>
     </DashShell>
