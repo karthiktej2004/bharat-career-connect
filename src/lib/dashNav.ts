@@ -64,7 +64,6 @@ export const adminNav: NavItem[] = [
   { to: "/admin/candidates", label: "Candidate Management", icon: UserCog },
   { to: "/admin/employers", label: "Employer Management", icon: BuildingIcon },
   { to: "/admin/jobs", label: "Job Approvals", icon: Briefcase },
-  { to: "/admin/company-requests", label: "Company Requests", icon: Inbox },
   { to: "/admin/interviews", label: "Interview Control", icon: ClipboardList },
   { to: "/admin/qr", label: "QR & Entry", icon: QrCode },
   { to: "/admin/notifications", label: "Notifications", icon: Megaphone },
