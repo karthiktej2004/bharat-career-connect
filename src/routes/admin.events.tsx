@@ -28,7 +28,7 @@ function Events() {
   // Edit, Refund, Delete & Jobs State
   const [editingEvent, setEditingEvent] = useState<any | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<any | null>(null);
-  const [jobsEvent, setJobsEvent] = useState<any | null>(null); // NEW: State for viewing event jobs
+  const [jobsEvent, setJobsEvent] = useState<any | null>(null);
   const [hasDownloadedRefunds, setHasDownloadedRefunds] = useState(false);
 
   const fetchEvents = async () => {
@@ -124,7 +124,13 @@ function Events() {
                     <span className="text-muted-foreground">/{e.employer_capacity}</span>
                   </TableCell>
                   <TableCell>
-                    <Badge className={e.status === "live" ? "bg-india-green text-white" : e.status === "upcoming" ? "bg-saffron text-navy" : e.status === "hold" ? "bg-amber-500 text-white" : "bg-muted"}>
+                    <Badge className={
+                      e.status === "live" ? "bg-india-green text-white" : 
+                      e.status === "upcoming" ? "bg-saffron text-navy" : 
+                      e.status === "hold" ? "bg-amber-500 text-white" : 
+                      e.status === "completed" ? "bg-slate-700 text-white font-semibold" : 
+                      "bg-muted text-foreground"
+                    }>
                       {e.status.toUpperCase()}
                     </Badge>
                   </TableCell>
@@ -134,8 +140,6 @@ function Events() {
                         <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        
-                        {/* NEW: View Jobs Option */}
                         <DropdownMenuItem onClick={() => setJobsEvent(e)}>
                           <Briefcase className="h-4 w-4 mr-2 text-blue-600"/> View Jobs
                         </DropdownMenuItem>
@@ -172,7 +176,6 @@ function Events() {
         <EditEventDialog event={editingEvent} onClose={() => setEditingEvent(null)} refreshEvents={fetchEvents} />
       )}
 
-      {/* NEW: View Jobs Modal */}
       {jobsEvent && (
         <EventJobsDialog event={jobsEvent} onClose={() => setJobsEvent(null)} />
       )}
@@ -211,7 +214,7 @@ function Events() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                            NEW: EVENT JOBS DIALOG                          */
+/*                            EVENT JOBS DIALOG                               */
 /* -------------------------------------------------------------------------- */
 function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }) {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -226,7 +229,6 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
     try {
       const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${event.id}/jobs`);
       const json = await res.json();
-      // Adjusting to map to your state structure
       if (json.success) setJobs(json.data || json.jobs);
     } catch (error) {
       toast.error("Failed to fetch jobs");
@@ -235,8 +237,7 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
     }
   };
 
- const toggleJobStatus = async (jobId: number, currentStatus: string) => {
-    // Determine the next status based on the current one
+  const toggleJobStatus = async (jobId: number, currentStatus: string) => {
     const nextStatus = currentStatus === 'approved' ? 'inactive' : 'approved';
     const confirmMessage = nextStatus === 'inactive' 
       ? "Are you sure you want to deactivate this job posting?" 
@@ -245,7 +246,6 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
     if (!confirm(confirmMessage)) return;
 
     try {
-      // FIXED: Targeting the exact /status endpoint with a PUT request
       const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${jobId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -256,7 +256,6 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
       
       if (json.success) {
         toast.success(`Job successfully marked as ${nextStatus}`);
-        // Update local state to reflect the change immediately
         setJobs(jobs.map(j => j.id === jobId ? { ...j, status: nextStatus, approvalStatus: nextStatus } : j));
       } else {
         toast.error(json.message || json.error || "Failed to update job status");
@@ -297,7 +296,6 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
                 <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">No jobs posted for this event yet.</TableCell></TableRow>
               ) : (
                 jobs.map(job => {
-                  // Fallback for status field depending on your DB column name (status vs approvalStatus)
                   const currentStatus = job.status || job.approvalStatus || 'approved';
                   const isApproved = currentStatus === 'approved';
 
