@@ -174,7 +174,7 @@ export function JobsBody() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
-                        {(approval === "inactive" || approval === "closed" || approval === "deactivated") && (
+                        {approval !== "approved" && (
                           <Button size="sm" variant="outline" className="text-india-green border-india-green/40 hover:bg-india-green/10" onClick={() => handleReactivate(j)}>
                             <RefreshCw className="h-3.5 w-3.5 mr-1" />Reactivate
                           </Button>
@@ -241,7 +241,6 @@ function PostJobDialog({ open, onOpenChange, editJob, user, onSuccess }: { open:
         .catch((err) => console.error("Error fetching events:", err));
     }
 
-    // Auto-select event if passed via URL parameter (?eventId=)
     const params = new URLSearchParams(window.location.search);
     const urlEventId = params.get("eventId");
 
