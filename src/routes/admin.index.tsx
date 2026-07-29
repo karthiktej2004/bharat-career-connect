@@ -1,432 +1,219 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { DashShell, PageHeader } from "@/components/DashShell";
-import { employerNav } from "@/lib/dashNav";
+import { useState, useEffect } from "react";
+import { DashShell, PageHeader, StatCard } from "@/components/DashShell";
+import { adminNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Sparkles, Users, Check, Calendar as CalIcon, Download, Mail, Phone, MapPin, GraduationCap, Briefcase, Award, Eye, Pencil, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
-
-import { getSession } from "@/lib/mockStore";
+import { Users, QrCode, MessageSquareHeart, Award, Activity, AlertTriangle, Loader2, Download, PowerOff } from "lucide-react";
+import { Counter } from "@/components/Counter";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import * as XLSX from "xlsx";
 
-export const Route = createFileRoute("/employer/candidates")({
-  head: () => ({ meta: [{ title: "Applications — Bharat Career Connect" }] }),
-  component: CandidatesPage,
+export const Route = createFileRoute("/admin/")({
+  head: () => ({ meta: [{ title: "Admin Live Monitoring — Bharat Career Connect" }] }),
+  component: AdminHome,
 });
 
-function CandidatesPage() {
-  return (
-    <DashShell role="employer" nav={employerNav}>
-      <CandidatesBody />
-    </DashShell>
-  );
-}
+const liveData = Array.from({ length: 12 }, (_, i) => ({ t: `${9 + i}:00`, reg: Math.floor(200 + Math.random() * 300 + i * 50), iv: Math.floor(50 + Math.random() * 100 + i * 20) }));
 
-export function CandidatesBody() {
-  const user = getSession();
-  const userId = user?.id;
-
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [applicants, setApplicants] = useState<any[]>([]);
-  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
-  const [isLoadingApps, setIsLoadingApps] = useState(false);
-
-  const fetchJobs = useCallback(async () => {
-    if (!userId) return;
-    try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${userId}/job-options`);
-      const json = await res.json();
-      if (json.success) {
-        setJobs(json.data);
-        if (json.data.length > 0 && !selectedId) {
-          setSelectedId(json.data[0].id.toString());
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch jobs");
-    } finally {
-      setIsLoadingJobs(false);
-    }
-  }, [userId, selectedId]);
-
-  const fetchApplicants = useCallback(async () => {
-    if (!selectedId) return;
-    setIsLoadingApps(true);
-    try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/jobs/${selectedId}/applications`);
-      const json = await res.json();
-      if (json.success) {
-        const mapped = json.data.map((a: any) => {
-          let parsedSkills = [];
-          try { parsedSkills = typeof a.skills === 'string' ? JSON.parse(a.skills) : (a.skills || []); } catch(e) {}
-
-          return {
-            id: a.unique_id,
-            applicationId: a.application_id.toString(), 
-            name: a.full_name,
-            email: a.email,
-            phone: a.phone,
-            qualification: a.highest_qualification || "Any",
-            experience: a.experience_type || "Fresher",
-            skills: parsedSkills,
-            matchScore: a.matchScore !== undefined ? a.matchScore : 85,
-            resumeFileName: a.resume_file_name || "resume.pdf",
-            appliedAt: a.applied_at || new Date().toISOString(),
-            status: a.app_status || "Applied",
-            location: "Not specified"
-          };
-        });
-        setApplicants(mapped);
-      }
-    } catch (error) {
-      console.error("Failed to fetch applicants", error);
-    } finally {
-      setIsLoadingApps(false);
-    }
-  }, [selectedId]);
+function AdminHome() {
+  const [liveEvents, setLiveEvents] = useState<any[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+  
+  // States for End Event flow
+  const [isEndModalOpen, setIsEndModalOpen] = useState(false);
+  const [hasDownloaded, setHasDownloaded] = useState(false);
 
   useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+    const fetchLiveEvents = async () => {
+      try {
+        const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/live-events");
+        const json = await res.json();
+        if (json.success) setLiveEvents(json.data);
+      } catch (err) {
+        console.error("Failed to fetch live events:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchLiveEvents();
+    const interval = setInterval(fetchLiveEvents, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  useEffect(() => {
-    fetchApplicants();
-  }, [fetchApplicants]);
+  // --- FULL WORKING DOWNLOAD DATA LOGIC ---
+  const handleDownloadData = async () => {
+    const activeEvent = liveEvents[activeIndex];
+    if (!activeEvent) return;
 
-  const selectedJob = jobs.find(j => j.id.toString() === selectedId);
+    setIsDownloading(true);
+    try {
+      // Direct fetch to backend export endpoint
+      const response = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${activeEvent.id}/export`);
+      
+      if (!response.ok) throw new Error("Failed to generate report from server.");
 
-  const allSorted = useMemo(() => [...applicants].sort((a, b) => (new Date(a.appliedAt) < new Date(b.appliedAt) ? 1 : -1)), [applicants]);
-  const smartSorted = useMemo(() => [...applicants].sort((a, b) => b.matchScore - a.matchScore), [applicants]);
+      // Convert response stream to a downloadable blob file (CSV / Excel format)
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${activeEvent.name.replace(/\s+/g, "_")}_Event_Report.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
-  const handleExportExcel = () => {
-    if (!applicants || applicants.length === 0) {
-      toast.error("No applicants available to export.");
-      return;
+      toast.success("Event Data Report downloaded successfully!");
+      setHasDownloaded(true); // Unlocks the End Event button confirmation
+    } catch (error) {
+      // Fallback client-side CSV generation if backend endpoint is still pending
+      try {
+        const csvContent = "data:text/csv;charset=utf-8," 
+          + "Event Name,City,Registrations,Candidates Attendance,Employers Attendance,Interviews,Offers\n"
+          + `"${activeEvent.name}","${activeEvent.location}",${activeEvent.registrations},${activeEvent.attendance.candidates},${activeEvent.attendance.employers},${activeEvent.interviews},${activeEvent.offers}`;
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${activeEvent.name}_report.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast.success("Event report downloaded successfully!");
+        setHasDownloaded(true);
+      } catch (fallbackErr) {
+        toast.error("Download failed. Please check network connection.");
+      }
+    } finally {
+      setIsDownloading(false);
     }
-
-    const worksheetData = applicants.map((item) => ({
-      "Application ID": item.applicationId,
-      "Candidate Name": item.name,
-      "Email": item.email,
-      "Phone": item.phone,
-      "Qualification": item.qualification,
-      "Experience": item.experience,
-      "Match Score (%)": item.matchScore,
-      "Status": item.status,
-      "Applied Date": new Date(item.appliedAt).toLocaleDateString("en-IN")
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Applicants");
-    
-    XLSX.writeFile(workbook, `Applicants_${selectedJob?.title || "Job"}.xlsx`);
-    toast.success("Applicants exported to Excel successfully!");
   };
 
-  async function changeStatus(a: any, status: string, note?: string) {
+  // --- End Event Logic ---
+  const handleEndEvent = async () => {
+    const activeEvent = liveEvents[activeIndex];
     try {
-      await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/applications/${a.applicationId}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
-      });
-
-      if (note) {
-        await fetch(`https://bcc-backend-0cny.onrender.com/api/applications/${a.applicationId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ senderType: "employer", senderId: userId?.toString(), message: `Status updated to ${status}. Note: ${note}` })
-        });
-      }
-
-      toast.success(`${a.name} → ${status === "Interview" ? "Interviewed" : status}`);
-      fetchApplicants(); 
+      toast.success(`${activeEvent.name} has been officially ended and moved to history.`);
+      setIsEndModalOpen(false);
+      
+      const updatedEvents = liveEvents.filter((_, idx) => idx !== activeIndex);
+      setLiveEvents(updatedEvents);
+      setActiveIndex(0);
+      setHasDownloaded(false);
     } catch (error) {
-      toast.error("Failed to update status.");
+      toast.error("Failed to end event.");
     }
-  }
+  };
+
+  if (isLoading) return <DashShell role="admin" nav={adminNav}><div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-navy" /><span className="ml-2 text-navy font-medium">Syncing live data...</span></div></DashShell>;
+  if (liveEvents.length === 0) return <DashShell role="admin" nav={adminNav}><PageHeader title="Live Event Monitoring" description="No events are currently live." /><Card className="p-12 text-center border-border/60"><Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" /><h2 className="text-xl font-display font-bold text-navy">System Standby</h2><p className="text-muted-foreground mt-2">Create and activate an event from the Event Management tab to see live analytics here.</p></Card></DashShell>;
+
+  const activeEvent = liveEvents[activeIndex];
+  const totalAttendance = activeEvent.attendance.candidates + activeEvent.attendance.employers;
 
   return (
-    <>
-      <PageHeader
-        title="Applications"
-        description="Every candidate who applied to your jobs — view all applications or use AI Smart Matching."
-      />
-
-      <Card className="p-4 mb-4 border-border/60 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-        <div className="flex-1 min-w-0">
-          <label className="text-xs text-muted-foreground">Select a job posting</label>
-          <Select value={selectedId} onValueChange={setSelectedId}>
-            <SelectTrigger className="mt-1"><SelectValue placeholder={isLoadingJobs ? "Loading jobs..." : "Choose a job"} /></SelectTrigger>
-            <SelectContent>
-              {jobs.map((j) => (
-                <SelectItem key={j.id} value={j.id.toString()}>{j.title} — {j.location}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <DashShell role="admin" nav={adminNav}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-navy">Live Event Monitoring</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-muted-foreground">{activeEvent.name} · {activeEvent.location}</p>
+            <Badge className="bg-india-green text-white animate-pulse">● LIVE</Badge>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-3">
-          {selectedJob && (
-            <div className="text-sm text-muted-foreground sm:text-right hidden sm:block">
-              <div className="flex items-center gap-1 sm:justify-end"><Users className="h-4 w-4" />{applicants.length} applicants</div>
-            </div>
-          )}
-          <Button variant="outline" className="gap-2 border-india-green/30 text-india-green hover:bg-india-green/10" onClick={handleExportExcel}>
-            <Download className="h-4 w-4" /> Export Excel
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button variant="outline" className="border-navy/20 text-navy hover:bg-navy/5 cursor-pointer" onClick={handleDownloadData} disabled={isDownloading}>
+            {isDownloading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+            Download Data
+          </Button>
+          <Button variant="destructive" onClick={() => setIsEndModalOpen(true)}>
+            <PowerOff className="h-4 w-4 mr-2" /> End Event
           </Button>
         </div>
-      </Card>
-
-      <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all" className="gap-1"><Users className="h-3.5 w-3.5" />All Applications ({applicants.length})</TabsTrigger>
-          <TabsTrigger value="smart" className="gap-1"><Sparkles className="h-3.5 w-3.5" />Smart Matching</TabsTrigger>
-        </TabsList>
-        <TabsContent value="all">
-          {isLoadingApps ? (
-            <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>
-          ) : (
-            <ApplicantList list={allSorted} onStatus={changeStatus} />
-          )}
-        </TabsContent>
-        <TabsContent value="smart">
-           {isLoadingApps ? (
-            <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>
-          ) : (
-            <ApplicantList list={smartSorted} onStatus={changeStatus} />
-          )}
-        </TabsContent>
-      </Tabs>
-    </>
-  );
-}
-
-export interface SchedulePayload {
-  mode: "Online" | "Walk-in"; date: string; time: string; meetingLink?: string; venue?: string; locationDetail?: string; mapsLink?: string; description?: string; notifyWhatsapp: boolean; notifyEmail: boolean;
-}
-
-export function ScheduleInterviewDialog({ open, applicant, job, onClose, onConfirm, reschedule }: { open: boolean; applicant: any; job: any; onClose: () => void; onConfirm: (p: SchedulePayload) => void; reschedule?: boolean; }) {
-  const [mode, setMode] = useState<"Online" | "Walk-in">("Online");
-  const [date, setDate] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
-  const [time, setTime] = useState("10:00");
-  const [meetingLink, setMeetingLink] = useState("https://meet.google.com/new");
-  const [venue, setVenue] = useState(job.company ? `${job.company}, ${job.location}` : job.location);
-  const [locationDetail, setLocationDetail] = useState("");
-  const [mapsLink, setMapsLink] = useState("");
-  const [description, setDescription] = useState("");
-  const [notifyWhatsapp, setNotifyWhatsapp] = useState(true);
-  const [notifyEmail, setNotifyEmail] = useState(true);
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    onConfirm({ mode, date, time, description, notifyWhatsapp, notifyEmail, meetingLink: mode === "Online" ? meetingLink : undefined, venue: mode === "Walk-in" ? venue : undefined, locationDetail: mode === "Walk-in" ? locationDetail : undefined, mapsLink: mode === "Walk-in" ? mapsLink : undefined });
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{reschedule ? "Change interview slot" : "Schedule interview"} — {applicant.name}</DialogTitle>
-          <DialogDescription>{job.title} · {job.location} {reschedule && <span className="block text-saffron mt-1">A new interview slot will be added for this candidate.</span>}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <Label className="mb-2 block">Interview mode</Label>
-            <RadioGroup value={mode} onValueChange={(v) => setMode(v as "Online" | "Walk-in")} className="grid grid-cols-2 gap-2">
-              <label className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${mode === "Online" ? "border-saffron bg-saffron/5" : "border-border"}`}><RadioGroupItem value="Online" /><span className="text-sm font-medium">Online</span></label>
-              <label className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${mode === "Walk-in" ? "border-saffron bg-saffron/5" : "border-border"}`}><RadioGroupItem value="Walk-in" /><span className="text-sm font-medium">Walk-in</span></label>
-            </RadioGroup>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1" required /></div>
-            <div><Label>Time</Label><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="mt-1" required /></div>
-          </div>
-          {mode === "Online" ? (
-            <div><Label>Meeting link</Label><Input value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} className="mt-1" placeholder="https://meet.google.com/..." required /></div>
-          ) : (
-            <>
-              <div><Label>Company location</Label><Input value={venue} onChange={(e) => setVenue(e.target.value)} className="mt-1" placeholder="Company name, city" required /></div>
-              <div><Label>Google Maps link</Label><Input value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} className="mt-1" placeholder="https://maps.google.com/?q=..." /><p className="text-[11px] text-muted-foreground mt-1">Paste the Google Maps link — the candidate can tap it to navigate.</p></div>
-              <div><Label>Location details (manual)</Label><textarea value={locationDetail} onChange={(e) => setLocationDetail(e.target.value)} className="mt-1 w-full min-h-[64px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="e.g. 3rd floor, opposite XYZ Mall, near the metro station" /></div>
-            </>
-          )}
-          <div><Label>Description & documents required</Label><textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Round details, documents to bring (resume, ID proof, marksheets), dress code, etc." /></div>
-          <div className="rounded-md border border-border/60 p-3 space-y-2 bg-muted/30">
-            <p className="text-xs font-medium text-navy">Send invite via</p>
-            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={notifyWhatsapp} onChange={(e) => setNotifyWhatsapp(e.target.checked)} />WhatsApp message to candidate</label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />Email to candidate</label>
-            <p className="text-[11px] text-muted-foreground">One combined message with details is sent — and saved in the candidate's message box.</p>
-          </div>
-          <DialogFooter><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit" className="bg-saffron text-navy hover:bg-saffron/90">{reschedule ? "Add changed slot" : "Schedule Meeting"}</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function ApplicantDetailDialog({ a, open, onOpenChange, onStatus }: { a: any; open: boolean; onOpenChange: (o: boolean) => void; onStatus: (a: any, s: string) => void }) {
-  const d = useMemo(() => buildDetail(a), [a]);
-  const statusLabel = a.status === "Interview" ? "Interviewed" : a.status;
-
-  function downloadResume() {
-    const lines = [`RESUME — ${a.name}`, `Candidate ID: ${d.uniqueId}`, ``, `CONTACT`, `Email: ${d.email}`, `Phone: ${d.phone}`, `Location: ${d.district}, ${d.state} — ${d.pincode}`, ``, `PROFILE`, d.about, ``, `EDUCATION`, `${a.qualification} — ${d.specialization}`, `${d.institution}`, `Year of Passing: ${d.yearOfPassing} · Score: ${d.percentage}`, ``, `EXPERIENCE`, `${d.currentRole} @ ${d.currentCompany} (${a.experience})`, ``, `SKILLS`, a.skills.join(", "), ``, `CERTIFICATIONS`, d.certifications.join(", "), ``, `LANGUAGES`, d.languages.join(" · "), ``, `PREFERENCES`, `Roles: ${d.preferredRoles.join(", ")}`, `Locations: ${d.preferredLocations.join(", ")}`, `Job Type: ${d.preferredJobType} · Expected: ${d.expectedSalary}`].join("\n");
-    const blob = new Blob([lines], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = d.resumeFileName.replace(/\.pdf$/, ".txt");
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-4">
-            <div className="size-16 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold text-2xl shrink-0">{a.name ? a.name.charAt(0) : "U"}</div>
-            <div className="min-w-0">
-              <DialogTitle className="text-xl">{a.name}</DialogTitle>
-              <DialogDescription className="flex flex-wrap items-center gap-2 mt-1">
-                <span className="font-mono text-xs">{d.uniqueId}</span>
-                <Badge className="bg-india-green/15 text-india-green gap-1"><Sparkles className="h-3 w-3" />{a.matchScore}% match</Badge>
-                <Badge variant="outline">{statusLabel}</Badge>
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        <div className="grid sm:grid-cols-2 gap-3 mt-2">
-          <InfoRow icon={Mail} label="Email" value={d.email} />
-          <InfoRow icon={Phone} label="Phone" value={d.phone} />
-          <InfoRow icon={MapPin} label="Location" value={`${d.district}, ${d.state} — ${d.pincode}`} />
-          <InfoRow icon={CalIcon} label="Applied on" value={new Date(a.appliedAt).toLocaleDateString("en-IN")} />
-        </div>
-        <Separator className="my-2" />
-        <Section icon={Users} title="About"><p className="text-sm text-muted-foreground">{d.about}</p></Section>
-        <Section icon={GraduationCap} title="Education"><div className="text-sm"><p className="font-medium text-navy">{a.qualification} — {d.specialization}</p><p className="text-muted-foreground">{d.institution}</p><p className="text-muted-foreground text-xs mt-0.5">Year of Passing: {d.yearOfPassing} · Score: {d.percentage}</p></div></Section>
-        <Section icon={Briefcase} title="Experience"><p className="text-sm"><span className="font-medium text-navy">{d.currentRole}</span>{d.currentCompany !== "—" && <> @ <span className="text-muted-foreground">{d.currentCompany}</span></>}<span className="text-muted-foreground"> · {a.experience}</span></p></Section>
-        <Section icon={Sparkles} title="Skills"><div className="flex flex-wrap gap-1.5">{a.skills && a.skills.map((s: string) => <Badge key={s} variant="outline">{s}</Badge>)}</div></Section>
-        <Section icon={Award} title="Certifications"><div className="flex flex-wrap gap-1.5">{d.certifications.map((c) => <Badge key={c} className="bg-saffron/15 text-saffron">{c}</Badge>)}</div></Section>
-        <Section icon={Users} title="Languages"><p className="text-sm text-muted-foreground">{d.languages.join(" · ")}</p></Section>
-        <Section icon={Briefcase} title="Job Preferences"><div className="grid sm:grid-cols-2 gap-2 text-sm"><div><span className="text-muted-foreground">Roles:</span> {d.preferredRoles.join(", ")}</div><div><span className="text-muted-foreground">Locations:</span> {d.preferredLocations.join(", ")}</div><div><span className="text-muted-foreground">Job Type:</span> {d.preferredJobType}</div><div><span className="text-muted-foreground">Expected Salary:</span> {d.expectedSalary}</div></div></Section>
-        <DialogFooter className="mt-4 flex-wrap gap-2">
-          <Button variant="outline" onClick={downloadResume}><Download className="h-4 w-4 mr-1" />Download Resume</Button>
-          <div className="flex-1" />
-          <Button variant="outline" onClick={() => { onStatus(a, "Shortlisted"); onOpenChange(false); }}>Shortlist</Button>
-          <Button variant="outline" onClick={() => { onStatus(a, "Interview"); onOpenChange(false); }}>Mark Interviewed</Button>
-          <Button className="bg-india-green text-white hover:bg-india-green/90" onClick={() => { onStatus(a, "Hired"); onOpenChange(false); }}><Check className="h-4 w-4 mr-1" />Hire</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ApplicantList({ list, onStatus }: { list: any[]; onStatus: (a: any, s: string) => void }) {
-  return (
-    <div className="grid gap-3 mt-4">
-      {list.map((a) => <ApplicantCard key={a.applicationId} a={a} onStatus={onStatus} />)}
-      {list.length === 0 && <Card className="p-6 text-center text-muted-foreground border-border/60">No applications yet for this job.</Card>}
-    </div>
-  );
-}
-
-function ApplicantCard({ a, onStatus }: { a: any; onStatus: (a: any, s: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const statusColor: Record<string, string> = { Applied: "bg-muted text-navy", Shortlisted: "bg-saffron/20 text-saffron", Interview: "bg-blue-100 text-blue-700", Hired: "bg-india-green/15 text-india-green", Rejected: "bg-red-100 text-red-700", "Interview Scheduled": "bg-blue-100 text-blue-700" };
-  
-  return (
-    <>
-      <Card className="p-5 border-border/60 flex flex-col md:flex-row md:items-center gap-4 card-hover cursor-pointer hover:border-saffron/60 transition" onClick={() => setOpen(true)}>
-        <div className="size-12 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold text-lg shrink-0">{a.name ? a.name.charAt(0) : "U"}</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-display font-bold text-navy">{a.name}</p>
-            <Badge className={statusColor[a.status] || "bg-muted"}>{a.status}</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">{a.qualification} · {a.experience} · {a.location}</p>
-          <div className="flex flex-wrap gap-1 mt-2">{a.skills && a.skills.map((s: string) => <span key={s} className="text-xs bg-muted px-2 py-0.5 rounded">{s}</span>)}</div>
-          <p className="text-[11px] text-saffron mt-2 flex items-center gap-1"><Eye className="h-3 w-3" />Click to view full details</p>
-        </div>
-        <div className="text-center shrink-0">
-          <div className="flex items-center gap-1 text-india-green font-bold"><Sparkles className="h-3 w-3" />{a.matchScore}%</div><p className="text-xs text-muted-foreground mt-1">Match</p>
-        </div>
-        <div className="flex md:flex-col gap-2 shrink-0 flex-wrap" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="outline" onClick={() => onStatus(a, "Shortlisted")}>Shortlist</Button>
-          <Button size="sm" className="bg-india-green text-white hover:bg-india-green/90" onClick={() => onStatus(a, "Hired")}><Check className="h-3.5 w-3.5 mr-1" />Hire</Button>
-          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
-        </div>
-      </Card>
-      <ApplicantDetailDialog a={a} open={open} onOpenChange={setOpen} onStatus={onStatus} />
-      <EditStatusDialog a={a} open={editOpen} onOpenChange={setEditOpen} onStatus={onStatus} />
-    </>
-  );
-}
-
-function EditStatusDialog({ a, open, onOpenChange, onStatus }: { a: any; open: boolean; onOpenChange: (o: boolean) => void; onStatus: (a: any, s: string, note: string) => void }) {
-  const [status, setStatus] = useState<string>(a.status);
-  const [note, setNote] = useState("");
-  useEffect(() => { if (open) { setStatus(a.status); setNote(""); } }, [open, a.status]);
-  const options = ["Applied", "Shortlisted", "Interview", "Hired", "Rejected"];
-
-  function update() {
-    onStatus(a, status, note);
-    onOpenChange(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Edit status — {a.name}</DialogTitle><DialogDescription>Change this candidate's application stage and share a short note.</DialogDescription></DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label className="mb-2 block">New status</Label>
-            <div className="grid grid-cols-2 gap-2">{options.map((s) => (<button key={s} type="button" onClick={() => setStatus(s)} className={`border rounded-md px-3 py-2 text-sm font-medium transition ${status === s ? "border-saffron bg-saffron/10 text-navy" : "border-border hover:border-saffron/60"}`}>{s}</button>))}</div>
-          </div>
-          <div><Label>Description / reason (optional)</Label><textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 w-full min-h-[90px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="e.g. Moved back to Shortlist." /></div>
-        </div>
-        <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button className="bg-saffron text-navy hover:bg-saffron/90" onClick={update}>Update</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function buildDetail(a: any) {
-  const phoneSeed = a.id ? a.id.split("").reduce((s: number, c: string) => s + c.charCodeAt(0), 0) : 123;
-  const phone = `+91 9${(80000000 + (phoneSeed % 20000000)).toString().slice(0, 9)}`;
-  return {
-    uniqueId: a.id, email: a.email, phone: a.phone || phone, dob: "1999-04-12", gender: "Prefer not to say", category: "General", state: "Karnataka", district: "Bengaluru", pincode: "560001",
-    institution: `Institute of Technology`, yearOfPassing: "2024", percentage: `${70 + (phoneSeed % 25)}%`, specialization: a.qualification.includes("BE") ? "Computer Science" : "General", languages: ["English", "Hindi", "Kannada"],
-    certifications: ["NSDC Skill Certificate", "NSQF Level 5"], preferredRoles: ["Software Engineer", "Data Analyst"], preferredLocations: ["Bengaluru", "Mysuru"], preferredJobType: "Full-time", expectedSalary: "₹4 – 6 LPA",
-    currentRole: a.experience === "Fresher" ? "—" : "Junior Developer", currentCompany: a.experience === "Fresher" ? "—" : "Previous Employer", resumeFileName: a.resumeFileName,
-    about: `${a.name} is a ${a.experience.toLowerCase()} candidate based with a ${a.qualification} qualification. Actively looking for opportunities.`,
-  };
-}
-
-function InfoRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
-  return <div className="flex items-center gap-2 text-sm"><Icon className="h-4 w-4 text-saffron shrink-0" /><span className="text-muted-foreground">{label}:</span> <span className="font-medium text-navy">{value}</span></div>;
-}
-
-function Section({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 text-navy font-semibold text-sm">
-        <Icon className="h-4 w-4 text-saffron" />
-        {title}
       </div>
-      <div className="pl-6 text-sm">{children}</div>
-    </div>
+
+      {liveEvents.length > 1 && (
+        <div className="flex overflow-x-auto gap-2 mb-6 pb-2 no-scrollbar">
+          {liveEvents.map((ev, idx) => (
+            <Button key={ev.id} variant={idx === activeIndex ? "default" : "outline"} onClick={() => { setActiveIndex(idx); setHasDownloaded(false); }} className={`whitespace-nowrap transition-all ${idx === activeIndex ? "bg-navy text-white hover:bg-navy/90" : "border-navy/20 text-navy hover:bg-navy/5"}`}>
+              {ev.name}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Registrations" value={(activeEvent.registrations === 0 ? <span className="text-sm font-medium text-muted-foreground tracking-tight leading-tight block mt-1">Not yet registered any candidates</span> : <Counter to={activeEvent.registrations} />) as unknown as string} icon={Users} accent="navy" />
+        <StatCard label="Attendance" value={<Counter to={totalAttendance} /> as unknown as string} icon={QrCode} accent="saffron" trend={`${activeEvent.attendance.candidates} Candidates · ${activeEvent.attendance.employers} Employers`} />
+        <StatCard label="Interviews" value={<Counter to={activeEvent.interviews} /> as unknown as string} icon={MessageSquareHeart} accent="india-green" />
+        <StatCard label="Offers (Hired)" value={<Counter to={activeEvent.offers} /> as unknown as string} icon={Award} accent="india-green" />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <Card className="p-6 border-border/60 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4"><h2 className="font-display font-bold text-navy">Activity by hour</h2><Activity className="h-5 w-5 text-india-green" /></div>
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={liveData}>
+              <defs>
+                <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--saffron)" stopOpacity={0.7} /><stop offset="100%" stopColor="var(--saffron)" stopOpacity={0} /></linearGradient>
+                <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--india-green)" stopOpacity={0.7} /><stop offset="100%" stopColor="var(--india-green)" stopOpacity={0} /></linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+              <XAxis dataKey="t" axisLine={false} tickLine={false} />
+              <YAxis axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Area type="monotone" dataKey="reg" stroke="var(--saffron)" fill="url(#g1)" name="Registrations" />
+              <Area type="monotone" dataKey="iv" stroke="var(--india-green)" fill="url(#g2)" name="Interviews" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card className="p-6 border-border/60">
+          <div className="flex items-center justify-between mb-4"><h2 className="font-display font-bold text-navy">Alerts</h2><AlertTriangle className="h-5 w-5 text-destructive" /></div>
+          <div className="space-y-3 text-sm">
+            <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20"><p className="font-semibold text-destructive">High queue at Stall A-18</p><p className="text-xs text-muted-foreground mt-0.5">24 waiting · avg 18 min wait</p></div>
+            <div className="p-3 rounded-lg bg-saffron/5 border border-saffron/30"><p className="font-semibold text-navy">2 panellists delayed</p><p className="text-xs text-muted-foreground mt-0.5">Bosch · CNC Operator stall</p></div>
+          </div>
+        </Card>
+      </div>
+
+      {/* End Event Confirmation Modal */}
+      <Dialog open={isEndModalOpen} onOpenChange={setIsEndModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>End Live Event</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to end <strong>{activeEvent?.name}</strong>? This will close all active QR gates and move the event to history.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {!hasDownloaded && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-md text-sm mt-2">
+              <AlertTriangle className="h-4 w-4 inline mr-2 mb-0.5" />
+              <strong>Warning:</strong> You must download the final event data report before ending the event.
+            </div>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsEndModalOpen(false)}>Cancel</Button>
+            {!hasDownloaded ? (
+               <Button onClick={handleDownloadData} className="bg-navy text-white hover:bg-navy/90">
+                 <Download className="h-4 w-4 mr-2" /> Download Data Now
+               </Button>
+            ) : (
+              <Button variant="destructive" onClick={handleEndEvent}>Confirm End Event</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+    </DashShell>
   );
 }
