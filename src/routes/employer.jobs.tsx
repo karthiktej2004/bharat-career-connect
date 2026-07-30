@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { Briefcase, MapPin, Edit, Trash2, XCircle, RefreshCcw, Plus, Clock, Users } from 'lucide-react'
+import { DashShell } from '@/components/DashShell'
+import { employerNav } from '@/lib/dashNav'
 
 export const Route = createFileRoute('/employer/jobs')({
   component: EmployerJobsPage,
