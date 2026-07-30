@@ -28,11 +28,11 @@ function Employers() {
   const [employers, setEmployers] = useState<Employer[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch real data from express backend
+  // Fetch real data from express backend using the AWS production server URL
   const fetchEmployers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/employers");
+      const response = await fetch("http://15.207.249.155:5000/api/admin/employers");
       const json = await response.json();
       if (json.success) {
         setEmployers(json.data);
@@ -59,7 +59,7 @@ function Employers() {
     );
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/employers/${dbId}/status`, {
+      const response = await fetch(`http://15.207.249.155:5000/api/admin/employers/${dbId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
