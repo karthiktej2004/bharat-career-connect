@@ -31,7 +31,7 @@ export function SavedJobsPage() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com";
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "${import.meta.env.VITE_API_BASE_URL}";
 
   const fetchSavedJobs = async () => {
     // Prevent SSR execution if window is not defined
