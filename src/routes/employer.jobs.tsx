@@ -142,14 +142,14 @@ function EmployerJobsPage() {
     return a.status === 'open' ? -1 : 1;
   });
 
-  return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-navy">Job Postings</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your regular job listings and applicants.</p>
-        </div>
-
+return (
+    <DashShell role="employer" nav={employerNav}>
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-display font-bold text-navy">Job Postings</h1>
+            <p className="text-sm text-muted-foreground mt-1">Manage your regular job listings and applicants.</p>
+          </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-saffron text-navy hover:bg-saffron/90 font-medium">
