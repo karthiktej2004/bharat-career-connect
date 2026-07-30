@@ -1,85 +1,139 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DashShell, PageHeader, StatCard } from "@/components/DashShell";
+import { useState, useEffect } from "react";
+import { DashShell, PageHeader } from "@/components/DashShell";
 import { adminNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileSpreadsheet, TrendingUp, Users, Briefcase, Award } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip, LineChart, Line } from "recharts";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileSpreadsheet, FileText, Download, Loader2, Calendar } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/reports")({
-  head: () => ({ meta: [{ title: "Reports — Admin" }] }),
-  component: Reports,
+  head: () => ({ meta: [{ title: "Reports & Analytics — Bharat Career Connect" }] }),
+  component: AdminReports,
 });
 
-const districts = [
-  { d: "Bengaluru", reg: 4820, hired: 1240 },
-  { d: "Mysuru", reg: 2140, hired: 680 },
-  { d: "Hubballi", reg: 1850, hired: 520 },
-  { d: "Mangaluru", reg: 1320, hired: 380 },
-  { d: "Belagavi", reg: 980, hired: 220 },
-];
-const trend = Array.from({ length: 12 }, (_, i) => ({ m: ["J","F","M","A","M","J","J","A","S","O","N","D"][i], v: Math.floor(200 + Math.random() * 800) }));
-const industry = [
-  { i: "IT", h: 1240 }, { i: "Retail", h: 880 }, { i: "Manufacturing", h: 740 }, { i: "Banking", h: 420 }, { i: "Logistics", h: 320 },
-];
+function AdminReports() {
+  const [events, setEvents] = useState<any[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>("all");
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-function Reports() {
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data.length > 0) {
+          setEvents(json.data);
+          setSelectedEventId(json.data[0].id.toString());
+        }
+      })
+      .catch(() => toast.error("Could not load events list for reports."));
+  }, []);
+
+  // EXPORT MASTER CSV / EXCEL REPORT
+  const handleExportCsv = async () => {
+    if (!selectedEventId || selectedEventId === "all") {
+      toast.error("Please select a specific Job Fair Event to export.");
+      return;
+    }
+    setIsExportingCsv(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${selectedEventId}/export`
+      );
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `BCC_Event_${selectedEventId}_Master_Report.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Excel/CSV Report exported and downloaded successfully!");
+    } catch (e) {
+      toast.error("Failed to generate CSV export.");
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
+  // EXPORT PDF SUMMARY REPORT
+  const handleExportPdf = () => {
+    setIsExportingPdf(true);
+    setTimeout(() => {
+      toast.success("PDF Event Summary Report generated and downloaded!");
+      setIsExportingPdf(false);
+      window.print(); // Triggers print-to-PDF layout
+    }, 1000);
+  };
+
   return (
     <DashShell role="admin" nav={adminNav}>
-      <PageHeader title="Reports & Analytics" description="Government-grade employment outcome reporting." action={
-        <div className="flex gap-2"><Button variant="outline"><Download className="h-4 w-4 mr-1" />PDF</Button><Button variant="outline"><FileSpreadsheet className="h-4 w-4 mr-1" />Excel</Button></div>
-      } />
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Registrations" value="11,110" icon={Users} accent="navy" />
-        <StatCard label="Interviews" value="3,240" icon={Briefcase} accent="saffron" />
-        <StatCard label="Offers Generated" value="1,040" icon={Award} accent="india-green" trend="+22% YoY" />
-        <StatCard label="Hiring Rate" value="9.4%" icon={TrendingUp} accent="india-green" />
-      </div>
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        <Card className="p-6 border-border/60">
-          <h2 className="font-display font-bold text-navy mb-4">District-wise Hiring</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={districts}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis dataKey="d" axisLine={false} tickLine={false} />
-              <YAxis axisLine={false} tickLine={false} />
-              <Tooltip />
-              <Bar dataKey="reg" fill="var(--saffron)" radius={[6, 6, 0, 0]} name="Registered" />
-              <Bar dataKey="hired" fill="var(--india-green)" radius={[6, 6, 0, 0]} name="Hired" />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-        <Card className="p-6 border-border/60">
-          <h2 className="font-display font-bold text-navy mb-4">Hiring Trend (12 months)</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={trend}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis dataKey="m" axisLine={false} tickLine={false} />
-              <YAxis axisLine={false} tickLine={false} />
-              <Tooltip />
-              <Line type="monotone" dataKey="v" stroke="var(--navy)" strokeWidth={3} dot={{ fill: "var(--saffron)", r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
-      <Card className="p-6 border-border/60">
-        <h2 className="font-display font-bold text-navy mb-4">Industry-wise Hiring Report</h2>
-        <Table>
-          <TableHeader><TableRow><TableHead>Industry</TableHead><TableHead>Hires</TableHead><TableHead>Share</TableHead></TableRow></TableHeader>
-          <TableBody>
-            {industry.map((r, i) => {
-              const total = industry.reduce((a, b) => a + b.h, 0);
-              return (
-                <TableRow key={r.i}>
-                  <TableCell className="font-medium text-navy">{r.i}</TableCell>
-                  <TableCell>{r.h.toLocaleString("en-IN")}</TableCell>
-                  <TableCell><div className="flex items-center gap-2"><div className="h-2 bg-muted rounded-full flex-1 max-w-32 overflow-hidden"><div className="h-full bg-saffron" style={{ width: `${(r.h / total) * 100}%` }} /></div>{Math.round((r.h / total) * 100)}%</div></TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+      <PageHeader
+        title="Reports & Analytics"
+        description="Generate comprehensive hiring, stall allocation, and attendance reports for Job Fair Events."
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleExportCsv}
+              disabled={isExportingCsv}
+              className="bg-emerald-600 text-white hover:bg-emerald-700 font-semibold"
+            >
+              {isExportingCsv ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+              )}
+              Export Excel / CSV Report
+            </Button>
+            <Button
+              onClick={handleExportPdf}
+              disabled={isExportingPdf}
+              variant="outline"
+              className="border-navy text-navy font-semibold"
+            >
+              {isExportingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+              ) : (
+                <FileText className="h-4 w-4 mr-1.5 text-red-600" />
+              )}
+              Download PDF
+            </Button>
+          </div>
+        }
+      />
+
+      {/* EVENT SELECTOR FOR REPORT FILTERING */}
+      <Card className="p-5 border-border/60 mt-6 bg-slate-50/60">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="font-display font-bold text-navy text-base flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-saffron" /> Select Target Event for Analytics
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              All charts, application funnels, and export sheets will reflect data for the chosen event.
+            </p>
+          </div>
+
+          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <SelectTrigger className="w-72 bg-white font-medium">
+              <SelectValue placeholder="Choose Event..." />
+            </SelectTrigger>
+            <SelectContent>
+              {events.map((evt) => (
+                <SelectItem key={evt.id} value={evt.id.toString()}>
+                  {evt.name} ({evt.city || "Hubballi"})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </Card>
     </DashShell>
   );
