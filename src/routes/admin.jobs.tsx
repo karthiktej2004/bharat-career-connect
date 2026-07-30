@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { DashShell, PageHeader } from "@/components/DashShell";
 import { adminNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
@@ -30,11 +30,11 @@ function AdminJobs() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // 1. Fetch live job postings from backend API
+  // 1. Fetch live job postings from backend API using AWS production server URL
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/jobs");
+      const res = await fetch("http://15.207.249.155:5000/api/admin/jobs");
       const result = await res.json();
       if (result.success) {
         setJobs(result.data);
@@ -61,8 +61,7 @@ function AdminJobs() {
   // 2. Call backend PUT API to approve or reject a job
   async function act(j: Job, status: "approved" | "rejected") {
     try {
-      // FIX: Changed from /review to /status to match the backend
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/jobs/${j.id}/status`, {
+      const res = await fetch(`http://15.207.249.155:5000/api/admin/jobs/${j.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
