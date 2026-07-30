@@ -29,7 +29,7 @@ function JoinQueueDialog({ job, eventId, onClose }: { job: any; eventId: number;
     setIsJoining(true);
     const session = getSession();
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/events/queue/join", {
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/events/queue/join", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           eventId, 
@@ -114,7 +114,7 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
       const session = getSession();
       if (session && session.id) {
         try {
-          const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/profile/${session.id}`);
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/${session.id}`);
           const json = await res.json();
           if (json.success) setProfile(json.data);
         } catch (err) {}
@@ -129,7 +129,7 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
     setIsSubmitting(true);
     const session = getSession();
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/events/apply", {
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/events/apply", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId: event.id, candidateId: session?.id })
       });
@@ -241,7 +241,7 @@ function VenueScanDialog({ event, passId, onSuccess, trigger }: { event: any, pa
     setIsVerifying(true);
     const session = getSession();
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/events/attendance/mark", {
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/events/attendance/mark", {
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
         body: JSON.stringify({ 
@@ -349,7 +349,7 @@ function Events() {
   const fetchEvents = async () => {
     if (!user || !user.id) return;
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${user.id}/events`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${user.id}/events`);
       const json = await res.json();
       if (json.success) setEvents(json.data);
     } catch (err) {} 
@@ -362,7 +362,7 @@ function Events() {
     setViewingEvent(e);
     setIsLoadingJobs(true);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/events/${e.id}/jobs`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/events/${e.id}/jobs`);
       const json = await res.json();
       if (json.success) setEventJobs(json.data);
     } catch (err) {} 
