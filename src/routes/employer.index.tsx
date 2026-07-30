@@ -54,7 +54,7 @@ function EmployerHome() {
 
       // Fetch Live Data from Backend API using employer ID or email
       const activeId = foundUser.id ? foundUser.id.toString() : foundUser.email;
-      fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${activeId}/dashboard`)
+      fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${activeId}/dashboard`)
         .then((res) => res.json())
         .then((json) => {
           if (json.success) {
