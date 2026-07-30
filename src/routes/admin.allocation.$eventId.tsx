@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Building2, Warehouse, LandPlot, Boxes, ChevronRight, Plus, Trash2, ArrowLeft,
-  Store, Layers, LayoutGrid, CheckCircle2, XCircle, Sparkles, MapPinned, Pencil, Loader2
+  Store, Layers, LayoutGrid, CheckCircle2, XCircle, Sparkles, MapPinned, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -409,7 +409,7 @@ function AddStallsDialog({ open, onOpenChange, block, sectionId, eventId, onChan
     
     setIsSubmitting(true);
     try {
-      // FE FIX: Fire parallel requests to simulate bulk generation since backend expects single 'code'
+      // Loop array and send requests reliably
       const promises = Array.from({ length: count }).map((_, i) => {
         const stallCode = `${prefix.trim()}-${(i + 1).toString().padStart(2, '0')}`;
         return fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/stalls`, {
@@ -577,18 +577,16 @@ function AssignStallDialog({ app, eventId, onClose, allStalls, blocks, onChange 
   if (!app) return null;
   const isPending = app.status === "pending";
   
-  // FE FIX: Ensure we have the Employer ID from the application
   const targetEmployerId = app.employer_id || app.employerId;
 
   async function pick(stallId: string) {
     if (!targetEmployerId) {
-      toast.error("Database mismatch: Backend must return 'e.id as employer_id' in stall-applications route.");
+      toast.error("Database mismatch: Refresh your backend server.");
       return;
     }
 
     setIsAssigning(true);
     try {
-      // Unified backend endpoint that handles both stall assigning and application approving!
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}/allocate`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employerId: targetEmployerId, eventId })
@@ -614,7 +612,7 @@ function AssignStallDialog({ app, eventId, onClose, allStalls, blocks, onChange 
       try {
         await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${current.stall.id}/allocate`, {
           method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ employerId: null, eventId }) // Pass null to release it
+          body: JSON.stringify({ employerId: null, eventId }) // Releasing the stall
         });
         toast.success(`Released stall from ${app.employerName}`);
         onClose(); onChange();
