@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Building2, Warehouse, LandPlot, Boxes, ChevronRight, Plus, Trash2, ArrowLeft,
-  Store, Layers, LayoutGrid, CheckCircle2, XCircle, Sparkles, MapPinned, Pencil, Hash, Loader2
+  Store, Layers, LayoutGrid, CheckCircle2, XCircle, Sparkles, MapPinned, Pencil, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,9 +37,9 @@ function AllocationPage() {
   const { eventId } = Route.useParams();
   const search = Route.useSearch();
   const [tab, setTab] = useState<"builder" | "company">(search.tab ?? "builder");
+  
   useEffect(() => { if (search.tab) setTab(search.tab); }, [search.tab]);
 
-  // Real data state
   const [event, setEvent] = useState<any | null>(null);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [openBlock, setOpenBlock] = useState<string | null>(null);
@@ -73,9 +73,7 @@ function AllocationPage() {
     }
   };
 
-  useEffect(() => {
-    refresh();
-  }, [eventId]);
+  useEffect(() => { refresh(); }, [eventId]);
 
   if (isLoading) {
     return <DashShell role="admin" nav={adminNav}><div className="flex h-[40vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-navy" /></div></DashShell>;
@@ -119,12 +117,7 @@ function AllocationPage() {
 
         <TabsContent value="builder" className="mt-5">
           {activeBlock ? (
-            <BlockInterior
-              block={activeBlock}
-              eventId={eventId}
-              onBack={() => setOpenBlock(null)}
-              onChange={refresh}
-            />
+            <BlockInterior block={activeBlock} eventId={eventId} onBack={() => setOpenBlock(null)} onChange={refresh} />
           ) : (
             <BuilderTop blocks={blocks} eventId={eventId} onOpen={setOpenBlock} onChange={refresh} />
           )}
@@ -138,7 +131,6 @@ function AllocationPage() {
   );
 }
 
-/* ------------------------- Builder — top level ------------------------- */
 function BuilderTop({ blocks, eventId, onOpen, onChange }: { blocks: any[]; eventId: string; onOpen: (id: string) => void; onChange: () => void }) {
   const [addOpen, setAddOpen] = useState(false);
   return (
@@ -146,7 +138,7 @@ function BuilderTop({ blocks, eventId, onOpen, onChange }: { blocks: any[]; even
       <div className="flex items-center justify-between mb-3">
         <div>
           <h2 className="font-display font-bold text-navy text-lg">Venue structure</h2>
-          <p className="text-xs text-muted-foreground">Create the big containers first — buildings, halls, grounds or blocks. Click one to add rooms and stalls inside.</p>
+          <p className="text-xs text-muted-foreground">Create the big containers first — buildings, halls, grounds or blocks.</p>
         </div>
         <Button className="bg-saffron text-navy hover:bg-saffron/90 font-bold" onClick={() => setAddOpen(true)}>
           <Plus className="h-4 w-4 mr-1" /> Add Block / Hall
@@ -167,7 +159,6 @@ function BuilderTop({ blocks, eventId, onOpen, onChange }: { blocks: any[]; even
           {blocks.map((b) => <BigBlockCard key={b.id} block={b} onOpen={() => onOpen(b.id)} />)}
         </div>
       )}
-
       <AddBlockDialog open={addOpen} onOpenChange={setAddOpen} eventId={eventId} onChange={onChange} />
     </div>
   );
@@ -178,10 +169,7 @@ function BigBlockCard({ block, onOpen }: { block: any; onOpen: () => void }) {
   const Icon = meta.icon;
   const stallCount = block.stalls.length + block.sections.reduce((n: number, s: any) => n + s.stalls.length, 0);
   return (
-    <button
-      onClick={onOpen}
-      className={`group relative text-left rounded-2xl border-2 ${meta.border} bg-gradient-to-br ${meta.color} p-5 h-52 flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-xl hover:ring-4 ${meta.ring}`}
-    >
+    <button onClick={onOpen} className={`group relative text-left rounded-2xl border-2 ${meta.border} bg-gradient-to-br ${meta.color} p-5 h-52 flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-xl hover:ring-4 ${meta.ring}`}>
       <div className="flex items-start justify-between">
         <div className="size-12 rounded-xl bg-white/80 backdrop-blur flex items-center justify-center shadow-sm">
           <Icon className="h-6 w-6 text-navy" />
@@ -224,11 +212,7 @@ function AddBlockDialog({ open, onOpenChange, eventId, onChange }: { open: boole
       } else {
         toast.error(json.message || "Failed to save block to database");
       }
-    } catch (err) { 
-      toast.error("Server connection failed"); 
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch (err) { toast.error("Server connection failed"); } finally { setIsSubmitting(false); }
   }
 
   return (
@@ -244,10 +228,9 @@ function AddBlockDialog({ open, onOpenChange, eventId, onChange }: { open: boole
             <div className="grid grid-cols-4 gap-2 mt-2">
               {(Object.keys(KIND_META)).map((k) => {
                 const M = KIND_META[k].icon;
-                const active = kind === k;
                 return (
                   <button type="button" key={k} onClick={() => setKind(k)}
-                    className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition ${active ? "border-navy bg-navy/5" : "border-border hover:border-navy/30"}`}>
+                    className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition ${kind === k ? "border-navy bg-navy/5" : "border-border hover:border-navy/30"}`}>
                     <M className="h-5 w-5 text-navy" />
                     <span className="text-[11px] font-semibold text-navy">{k}</span>
                   </button>
@@ -256,20 +239,13 @@ function AddBlockDialog({ open, onOpenChange, eventId, onChange }: { open: boole
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Name *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="IT Hall" className="mt-1" required />
-            </div>
-            <div>
-              <Label>Code *</Label>
-              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Block-A" className="mt-1 font-mono uppercase" required />
-            </div>
+            <div><Label>Name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="IT Hall" className="mt-1" required /></div>
+            <div><Label>Code *</Label><Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Block-A" className="mt-1 font-mono uppercase" required /></div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting || !name.trim() || !code.trim()} className="bg-saffron text-navy hover:bg-saffron/90 font-bold">
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Create
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Create
             </Button>
           </DialogFooter>
         </form>
@@ -278,24 +254,11 @@ function AddBlockDialog({ open, onOpenChange, eventId, onChange }: { open: boole
   );
 }
 
-/* ------------------------- Builder — inside a block ------------------------- */
 function BlockInterior({ block, eventId, onBack, onChange }: { block: any; eventId: string; onBack: () => void; onChange: () => void }) {
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [addStallsOpen, setAddStallsOpen] = useState<{ open: boolean; sectionId: string | null }>({ open: false, sectionId: null });
-  const [editBlockOpen, setEditBlockOpen] = useState(false);
   const meta = KIND_META[block.kind] || KIND_META['Hall'];
   const Icon = meta.icon;
-
-  async function handleDeleteBlock() {
-    if (!confirm(`Delete "${block.name}"? This removes all its stalls.`)) return;
-    try {
-      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/blocks/${block.id}`, { method: 'DELETE' });
-      toast.success("Block deleted");
-      onChange(); onBack();
-    } catch (e) {
-      toast.error("Failed to delete block");
-    }
-  }
 
   async function handleDeleteStall(stallId: string) {
     if (!confirm("Delete this stall?")) return;
@@ -303,9 +266,7 @@ function BlockInterior({ block, eventId, onBack, onChange }: { block: any; event
       await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}`, { method: 'DELETE' });
       toast.success("Stall deleted");
       onChange();
-    } catch (e) {
-      toast.error("Failed to delete stall");
-    }
+    } catch (e) { toast.error("Failed to delete stall"); }
   }
 
   return (
@@ -320,17 +281,11 @@ function BlockInterior({ block, eventId, onBack, onChange }: { block: any; event
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{block.kind} · <span className="font-mono">{block.code}</span></p>
             <h2 className="font-display font-bold text-navy text-lg truncate">{block.name}</h2>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => setEditBlockOpen(true)} className="text-navy">
-            <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
-          </Button>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button size="sm" variant="outline" onClick={() => setAddSectionOpen(true)}><Layers className="h-4 w-4 mr-1" /> Add room / sub-hall</Button>
+          <Button size="sm" variant="outline" onClick={() => setAddSectionOpen(true)}><Layers className="h-4 w-4 mr-1" /> Add room</Button>
           <Button size="sm" className="bg-navy text-white hover:bg-navy/90 font-bold" onClick={() => setAddStallsOpen({ open: true, sectionId: null })}>
             <Plus className="h-4 w-4 mr-1" /> Add stalls here
-          </Button>
-          <Button size="sm" variant="outline" className="text-red-600 border-red-200" onClick={handleDeleteBlock}>
-            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -361,16 +316,13 @@ function BlockInterior({ block, eventId, onBack, onChange }: { block: any; event
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">{s.code}</p>
                   <h4 className="font-display font-bold text-navy truncate">{s.name}</h4>
-                  <p className="text-xs text-muted-foreground">{s.stalls.length} stalls</p>
                 </div>
-                <div className="flex gap-1 flex-wrap justify-end">
-                  <Button size="sm" variant="outline" onClick={() => setAddStallsOpen({ open: true, sectionId: s.id })}>
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Stalls
-                  </Button>
-                </div>
+                <Button size="sm" variant="outline" onClick={() => setAddStallsOpen({ open: true, sectionId: s.id })}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Stalls
+                </Button>
               </div>
               {s.stalls.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">No stalls yet in this room.</p>
+                <p className="text-xs text-muted-foreground italic">No stalls yet.</p>
               ) : (
                 <StallGrid stalls={s.stalls} compact onDelete={handleDeleteStall} />
               )}
@@ -380,14 +332,7 @@ function BlockInterior({ block, eventId, onBack, onChange }: { block: any; event
       )}
 
       <AddSectionDialog open={addSectionOpen} onOpenChange={setAddSectionOpen} block={block} eventId={eventId} onChange={onChange} />
-      <AddStallsDialog
-        open={addStallsOpen.open}
-        onOpenChange={(o) => setAddStallsOpen({ open: o, sectionId: o ? addStallsOpen.sectionId : null })}
-        block={block}
-        sectionId={addStallsOpen.sectionId}
-        eventId={eventId}
-        onChange={onChange}
-      />
+      <AddStallsDialog open={addStallsOpen.open} onOpenChange={(o) => setAddStallsOpen({ open: o, sectionId: o ? addStallsOpen.sectionId : null })} block={block} sectionId={addStallsOpen.sectionId} eventId={eventId} onChange={onChange} />
     </div>
   );
 }
@@ -396,23 +341,14 @@ function StallGrid({ stalls, compact, onDelete }: { stalls: any[]; compact?: boo
   return (
     <div className={`grid gap-2 ${compact ? "grid-cols-4" : "grid-cols-5 md:grid-cols-8"}`}>
       {stalls.map((s) => (
-        <div
-          key={s.id}
-          className={`group relative aspect-square rounded-lg border-2 flex flex-col items-center justify-center text-center p-1 ${
-            s.allocatedToAppId ? "border-india-green bg-india-green/10" : "border-dashed border-border bg-muted/30"
-          }`}
-          title={s.allocatedName ?? "Empty"}
-        >
+        <div key={s.id} className={`group relative aspect-square rounded-lg border-2 flex flex-col items-center justify-center text-center p-1 ${s.allocatedToAppId ? "border-india-green bg-india-green/10" : "border-dashed border-border bg-muted/30"}`} title={s.allocatedName ?? "Empty"}>
           <span className="font-mono text-[10px] font-bold text-navy leading-tight">{s.code}</span>
           {s.allocatedName ? (
             <span className="text-[9px] text-india-green line-clamp-2 leading-tight mt-0.5">{s.allocatedName}</span>
           ) : (
             <span className="text-[9px] text-muted-foreground">Empty</span>
           )}
-          <button
-            onClick={() => onDelete(s.id)}
-            className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition text-[10px] flex items-center justify-center"
-          >×</button>
+          <button onClick={() => onDelete(s.id)} className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition text-[10px] flex items-center justify-center">×</button>
         </div>
       ))}
     </div>
@@ -426,7 +362,7 @@ function AddSectionDialog({ open, onOpenChange, block, eventId, onChange }: { op
   
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !code.trim()) return toast.error("Name and code are required");
+    if (!name.trim() || !code.trim()) return toast.error("Required fields missing");
     
     setIsSubmitting(true);
     try {
@@ -436,34 +372,24 @@ function AddSectionDialog({ open, onOpenChange, block, eventId, onChange }: { op
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        toast.success(`Room "${name}" added successfully!`);
+        toast.success(`Room added successfully!`);
         setName(""); setCode(""); onOpenChange(false); onChange();
-      } else {
-        toast.error(json.message || "Failed to add room");
-      }
-    } catch (err) {
-      toast.error("Server connection failed");
-    } finally {
-      setIsSubmitting(false);
-    }
+      } else toast.error(json.message || "Failed to add room");
+    } catch (err) { toast.error("Server connection failed"); } finally { setIsSubmitting(false); }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm bg-white">
         <DialogHeader>
-          <DialogTitle>Add room / sub-hall in {block.name}</DialogTitle>
-          <DialogDescription>Optional intermediate layer between the block and its stalls.</DialogDescription>
+          <DialogTitle>Add room in {block.name}</DialogTitle>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          <div><Label>Name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Interview Room 1" className="mt-1" required /></div>
-          <div><Label>Code *</Label><Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Room-01" className="mt-1 font-mono uppercase" required /></div>
+          <div><Label>Name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
+          <div><Label>Code *</Label><Input value={code} onChange={(e) => setCode(e.target.value)} required /></div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting || !name.trim() || !code.trim()} className="bg-saffron text-navy hover:bg-saffron/90 font-bold">
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Add
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting} className="bg-saffron text-navy font-bold">Add</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -483,17 +409,18 @@ function AddStallsDialog({ open, onOpenChange, block, sectionId, eventId, onChan
     
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/stalls`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blockId: block.id, roomId: sectionId, count, prefix: prefix.trim() || "Stall" })
+      // FE FIX: Fire parallel requests to simulate bulk generation since backend expects single 'code'
+      const promises = Array.from({ length: count }).map((_, i) => {
+        const stallCode = `${prefix.trim()}-${(i + 1).toString().padStart(2, '0')}`;
+        return fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/stalls`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blockId: block.id, roomId: sectionId, code: stallCode })
+        });
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
-        toast.success(`${count} stalls added to ${target}!`);
-        onOpenChange(false); onChange();
-      } else {
-        toast.error(json.message || "Failed to add stalls");
-      }
+
+      await Promise.all(promises);
+      toast.success(`${count} stalls added to ${target}!`);
+      onOpenChange(false); onChange();
     } catch (err) {
       toast.error("Server connection failed");
     } finally {
@@ -506,22 +433,15 @@ function AddStallsDialog({ open, onOpenChange, block, sectionId, eventId, onChan
       <DialogContent className="max-w-sm bg-white">
         <DialogHeader>
           <DialogTitle>Add stalls to {target}</DialogTitle>
-          <DialogDescription>Stalls will be auto-numbered like {prefix}-01, {prefix}-02…</DialogDescription>
+          <DialogDescription>Auto-generates e.g. {prefix}-01, {prefix}-02…</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          <div>
-            <Label>How many stalls?</Label>
-            <Input type="number" min={1} max={200} value={count} onChange={(e) => setCount(Number(e.target.value))} className="mt-1" required />
-          </div>
-          <div>
-            <Label>Code prefix</Label>
-            <Input value={prefix} onChange={(e) => setPrefix(e.target.value)} placeholder="Stall" className="mt-1 font-mono" required />
-          </div>
+          <div><Label>How many stalls?</Label><Input type="number" min={1} max={200} value={count} onChange={(e) => setCount(Number(e.target.value))} required /></div>
+          <div><Label>Code prefix</Label><Input value={prefix} onChange={(e) => setPrefix(e.target.value)} required /></div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting || count < 1} className="bg-navy text-white hover:bg-navy/90 font-bold">
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Create {count} stalls
+            <Button type="submit" disabled={isSubmitting} className="bg-navy text-white font-bold">
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Create {count} stalls
             </Button>
           </DialogFooter>
         </form>
@@ -539,10 +459,7 @@ function CompanyAllocation({ eventId, blocks, autoOpenAppId, onChange }: { event
     try {
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stall-applications`);
       const json = await res.json();
-      if (json.success) {
-        // Filter applications specific to this event
-        setApps(json.data.filter((a: any) => a.eventId == eventId));
-      }
+      if (json.success) setApps(json.data.filter((a: any) => a.eventId == eventId));
     } catch (e) { console.error(e); }
   };
 
@@ -577,7 +494,7 @@ function CompanyAllocation({ eventId, blocks, autoOpenAppId, onChange }: { event
   const approved = apps.filter((a) => a.status === "approved" || a.status === "live");
 
   const renderRow = (a: any) => {
-    const currentStall = allStalls.find((x) => x.stall.allocatedToAppId == a.employer_id);
+    const currentStall = allStalls.find((x) => x.stall.allocatedToAppId == (a.employer_id || a.employerId));
     const isPending = a.status === "pending";
     return (
       <div key={a.id} className={`p-3 rounded-lg border flex items-start justify-between gap-2 bg-white ${isPending ? "border-saffron/50 bg-saffron/5" : "border-border"}`}>
@@ -642,6 +559,7 @@ function CompanyAllocation({ eventId, blocks, autoOpenAppId, onChange }: { event
 
       <AssignStallDialog
         app={assigning}
+        eventId={eventId}
         onClose={() => setAssigning(null)}
         allStalls={allStalls}
         blocks={blocks}
@@ -651,57 +569,61 @@ function CompanyAllocation({ eventId, blocks, autoOpenAppId, onChange }: { event
   );
 }
 
-function AssignStallDialog({ app, onClose, allStalls, blocks, onChange }: {
-  app: any | null;
-  onClose: () => void;
-  allStalls: { stall: any; blockName: string; blockCode: string; sectionName?: string; sectionCode?: string }[];
-  blocks: any[];
-  onChange: () => void;
+function AssignStallDialog({ app, eventId, onClose, allStalls, blocks, onChange }: {
+  app: any | null; eventId: string; onClose: () => void;
+  allStalls: any[]; blocks: any[]; onChange: () => void;
 }) {
   const [isAssigning, setIsAssigning] = useState(false);
   if (!app) return null;
   const isPending = app.status === "pending";
+  
+  // FE FIX: Ensure we have the Employer ID from the application
+  const targetEmployerId = app.employer_id || app.employerId;
 
   async function pick(stallId: string) {
+    if (!targetEmployerId) {
+      toast.error("Database mismatch: Backend must return 'e.id as employer_id' in stall-applications route.");
+      return;
+    }
+
     setIsAssigning(true);
     try {
-      // 1. Approve stall application if pending
-      if (isPending) {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stall-applications/${app.id}/status`, {
-          method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "approved" })
-        });
-      }
-
-      // 2. Allocate stall to employer
-      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}/allocate`, {
+      // Unified backend endpoint that handles both stall assigning and application approving!
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}/allocate`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employerId: app.employer_id || app.employerId })
+        body: JSON.stringify({ employerId: targetEmployerId, eventId })
       });
-
-      toast.success(isPending ? `${app.employerName} approved & stall allocated!` : `Stall reassigned successfully!`);
-      onClose(); onChange();
+      const json = await res.json();
+      if (json.success) {
+        toast.success(isPending ? `${app.employerName} approved & stall allocated!` : `Stall reassigned successfully!`);
+        onClose(); onChange();
+      } else {
+        toast.error(json.message || "Failed to allocate stall");
+      }
     } catch (e) {
-      toast.error("Failed to allocate stall");
+      toast.error("Failed to connect to server");
     } finally {
       setIsAssigning(false);
     }
   }
 
   async function release() {
-    const current = allStalls.find((x) => x.stall.allocatedToAppId == app.employer_id);
+    const current = allStalls.find((x) => x.stall.allocatedToAppId == targetEmployerId);
     if (current) {
+      setIsAssigning(true);
       try {
         await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${current.stall.id}/allocate`, {
           method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ employerId: null })
+          body: JSON.stringify({ employerId: null, eventId }) // Pass null to release it
         });
         toast.success(`Released stall from ${app.employerName}`);
+        onClose(); onChange();
       } catch (e) {
         toast.error("Failed to release stall");
+      } finally {
+        setIsAssigning(false);
       }
     }
-    onClose(); onChange();
   }
 
   return (
@@ -719,12 +641,10 @@ function AssignStallDialog({ app, onClose, allStalls, blocks, onChange }: {
         <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs grid sm:grid-cols-2 gap-y-1">
           <div><span className="font-semibold text-navy">Company:</span> {app.employerName}</div>
           <div><span className="font-semibold text-navy">Email:</span> {app.contactEmail}</div>
-          <div className="sm:col-span-2"><span className="font-semibold text-navy">Roles:</span> {app.rolesToHire}</div>
-          <div><span className="font-semibold text-navy">Vacancies:</span> {app.vacanciesCount}</div>
         </div>
 
         {allStalls.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-6 text-center">No stalls created yet. Build the venue in the Venue Builder tab first.</p>
+          <p className="text-xs text-muted-foreground py-6 text-center">No stalls created yet. Build the venue first.</p>
         ) : (
           <div className="space-y-3">
             {blocks.map((b) => {
@@ -732,11 +652,11 @@ function AssignStallDialog({ app, onClose, allStalls, blocks, onChange }: {
               if (rows.length === 0) return null;
               return (
                 <div key={b.id}>
-                  <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">{b.kind} · <span className="font-mono">{b.code}</span> · {b.name}</p>
+                  <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">{b.kind} · <span className="font-mono">{b.code}</span></p>
                   <div className="grid sm:grid-cols-4 gap-2">
                     {rows.map(({ stall, blockCode, sectionCode }) => {
-                      const taken = !!stall.allocatedToAppId && stall.allocatedToAppId != app.employer_id;
-                      const mine = stall.allocatedToAppId == app.employer_id;
+                      const taken = !!stall.allocatedToAppId && stall.allocatedToAppId != targetEmployerId;
+                      const mine = stall.allocatedToAppId == targetEmployerId;
                       return (
                         <button
                           key={stall.id}
