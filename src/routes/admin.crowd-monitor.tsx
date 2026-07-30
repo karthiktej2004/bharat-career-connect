@@ -18,7 +18,7 @@ function AdminCrowdMonitor() {
 
   const fetchCrowdStats = async () => {
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${activeEventId}/crowd-monitoring`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${activeEventId}/crowd-monitoring`);
       const json = await res.json();
       if (json.success) {
         setCrowdData(json.data);
