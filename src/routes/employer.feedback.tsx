@@ -121,7 +121,7 @@ export function EmployerFeedbackBody() {
       // In a real app, upload the videoBlob to an S3 bucket here first.
       const mockUploadedVideoUrl = recordedUrl ? "https://storage.bharatcareerconnect.com/videos/emp_vid.mp4" : null;
 
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/employer/feedback", {
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/employer/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
