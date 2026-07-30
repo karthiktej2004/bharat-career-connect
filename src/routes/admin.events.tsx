@@ -33,7 +33,7 @@ function Events() {
 
   const fetchEvents = async () => {
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events");
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/events");
       const json = await res.json();
       if (json.success) setEvents(json.data);
     } catch (error) {
@@ -49,7 +49,7 @@ function Events() {
 
   const handleHoldEvent = async (id: number) => {
     try {
-      await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${id}/hold`, { method: "PUT" });
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${id}/hold`, { method: "PUT" });
       toast.warning("Event placed on Hold. Portal registration is now closed.");
       fetchEvents();
     } catch (error) {
@@ -60,7 +60,7 @@ function Events() {
   const handleMakeLive = async (id: number) => {
     if (!confirm("Are you sure you want to make this event live? It will become visible to candidates.")) return;
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${id}/live`, { method: "PUT" });
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${id}/live`, { method: "PUT" });
       const json = await res.json();
       if (json.success) {
         toast.success("Event is now live!");
@@ -76,7 +76,7 @@ function Events() {
   const executeDelete = async () => {
     if (!deleteEvent) return;
     try {
-      await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${deleteEvent.id}`, { method: "DELETE" });
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${deleteEvent.id}`, { method: "DELETE" });
       toast.success(`${deleteEvent.name} has been deleted. Employers notified of 24-hour refund.`);
       setDeleteEvent(null);
       setHasDownloadedRefunds(false);
@@ -227,7 +227,7 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
   const fetchJobs = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${event.id}/jobs`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${event.id}/jobs`);
       const json = await res.json();
       if (json.success) setJobs(json.data || json.jobs);
     } catch (error) {
@@ -246,7 +246,7 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
     if (!confirm(confirmMessage)) return;
 
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${jobId}/status`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/jobs/${jobId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
@@ -364,7 +364,7 @@ function EditEventDialog({ event, onClose, refreshEvents }: { event: any; onClos
     setIsSubmitting(true);
     
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${event.id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${event.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -474,7 +474,7 @@ function CreateEventDialog({ open, onOpenChange, refreshEvents }: { open: boolea
     
     setIsSubmitting(true);
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events", {
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(f)
