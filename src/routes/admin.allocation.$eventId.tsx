@@ -48,7 +48,7 @@ function AllocationPage() {
 
   const refresh = async () => {
     try {
-      const eventRes = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/events");
+      const eventRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`);
       const eventJson = await eventRes.json();
       if (eventJson.success) {
         const currentEvent = eventJson.data.find((e: any) => e.id == eventId);
