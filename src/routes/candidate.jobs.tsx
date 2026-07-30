@@ -19,7 +19,7 @@ export const Route = createFileRoute("/candidate/jobs")({
 });
 
 const LOCATIONS = ["Bengaluru", "Hyderabad", "Chennai", "Mumbai", "Delhi", "Kolkata", "Vizag", "Kochi", "Pune"];
-const JOB_TYPES = ["Trainee", "Intern", "Apprentice", "Full-Time", "Part-Time", "Contractor", "Freelancer", "Volunteer", "Consultant", "Vendor"];
+const JOB_TYPES = ["Trainee", "Intern", "Apprentice", "Full-Time", "Part-Time", "Contractor", "Freelancer", "Volunteer", "Consultant", "Vendor", "Contracter"];
 const SHIFTS = ["Day Shift", "Night shift", "Remote", "Hybrid", "On-Site", "Rotational"];
 
 // =========================================================
@@ -270,7 +270,7 @@ function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => 
         
         {/* Header Action Bar */}
         <div className="px-6 py-3 border-b flex justify-between items-center bg-slate-50 sticky top-0 z-10 shadow-sm">
-          <Badge className="bg-saffron text-navy hover:bg-saffron">{job.type || "Full-time"}</Badge>
+          <Badge className="bg-saffron text-navy hover:bg-saffron">{job.type || job.job_type || "Full-time"}</Badge>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
             <Button 
@@ -445,26 +445,31 @@ function Jobs() {
     );
   };
 
+  // Robust filtering adapting exactly to DB field names and varied formats
   const filtered = useMemo(() => jobs.filter((j) => {
+    // 1. Location filter
     if (locationFilter !== "all") {
       const loc = (j.location || "").toLowerCase();
       if (!loc.includes(locationFilter.toLowerCase())) return false;
     }
     
+    // 2. Job Type filter
     if (typeFilter !== "all") {
       const jt = (j.type || j.job_type || "").toLowerCase().replace(/[- ]/g, "");
       const filterFormatted = typeFilter.toLowerCase().replace(/[- ]/g, "");
       if (jt !== filterFormatted) return false;
     }
     
+    // 3. Shift filter
     if (shiftFilter !== "all") {
       const shift = (j.preferredShift || j.preferred_shift || j.shift || "").toLowerCase().replace(/[- ]/g, "");
       const filterFormatted = shiftFilter.toLowerCase().replace(/[- ]/g, "");
       if (shift !== filterFormatted) return false;
     }
     
+    // 4. Search Query
     if (q) {
-      const searchString = `${j.title || ""} ${j.company || ""} ${(j.skills || []).join(" ")}`.toLowerCase();
+      const searchString = `${j.title || ""} ${j.company || ""} ${j.company_name || ""} ${(j.skills || []).join(" ")}`.toLowerCase();
       if (!searchString.includes(q.toLowerCase())) return false;
     }
     
@@ -534,8 +539,8 @@ function Jobs() {
                   <div className="relative h-32 w-full md:h-auto md:w-40 shrink-0 bg-slate-100">
                     <img src={getJobImage(j) || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=300&h=300"} alt={j.title} className="h-full w-full object-cover" loading="lazy" />
                     <div className="absolute bottom-2 left-2 h-9 w-9 rounded-md bg-white border border-white/70 flex items-center justify-center overflow-hidden shadow">
-                      {getCompanyLogo(j.company) ? (
-                        <img src={getCompanyLogo(j.company)} alt={`${j.company} logo`} className="h-full w-full object-contain p-0.5" loading="lazy" onError={(e) => { (e.currentTarget.style.display = "none"); }} />
+                      {getCompanyLogo(j.company || j.company_name) ? (
+                        <img src={getCompanyLogo(j.company || j.company_name)} alt={`${j.company || j.company_name} logo`} className="h-full w-full object-contain p-0.5" loading="lazy" onError={(e) => { (e.currentTarget.style.display = "none"); }} />
                       ) : (
                         <Briefcase className="h-5 w-5 text-muted-foreground" />
                       )}
@@ -546,10 +551,10 @@ function Jobs() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-display font-bold text-navy text-lg group-hover:text-saffron transition-colors">{j.title}</h3>
-                        <Badge variant="outline" className="bg-slate-50">{j.type}</Badge>
+                        <Badge variant="outline" className="bg-slate-50">{j.type || j.job_type}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3">
-                        <span className="flex items-center"><Briefcase className="h-4 w-4 mr-1" />{j.company}</span>
+                        <span className="flex items-center"><Briefcase className="h-4 w-4 mr-1" />{j.company || j.company_name}</span>
                         <span className="flex items-center"><MapPin className="h-4 w-4 mr-1" />{j.location}</span>
                       </p>
 
