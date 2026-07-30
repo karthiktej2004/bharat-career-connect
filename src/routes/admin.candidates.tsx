@@ -34,7 +34,7 @@ function Candidates() {
   const fetchCandidates = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/candidates");
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/candidates");
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data.length > 0) {
@@ -62,7 +62,7 @@ function Candidates() {
 
     // 2. Production API Call
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/candidates/${candidateId}/status`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/candidates/${candidateId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
