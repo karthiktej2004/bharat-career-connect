@@ -182,35 +182,19 @@ function SignupPage() {
     return !isNaN(yop) && yop >= 1970 && yop <= currentYear + 6;
   }, [data.yearOfPassing]);
 
-  // Robust Regex: Checks for min 8 length, at least one lowercase, one uppercase, one digit, and one special character.
+  // Robust live password validation
   const isPasswordValid = useMemo(() => {
     if (!password || password.length < 8) return false;
-    if (/^\d+$/.test(password)) return false;
-    if (/^[a-zA-Z]+$/.test(password)) return false;
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/;
-    return passwordRegex.test(password) && password === confirmPassword;
+    if (!/[A-Z]/.test(password)) return false;
+    if (!/[a-z]/.test(password)) return false;
+    if (!/\d/.test(password)) return false;
+    if (!/[@$!%*?&._-]/.test(password)) return false;
+    return password === confirmPassword;
   }, [password, confirmPassword]);
 
   const validatePassword = () => {
-    if (!password || password.length < 8) {
-      toast.error("Password must be at least 8 characters long.");
-      return false;
-    }
-    if (/^\d+$/.test(password)) {
-      toast.error("Password cannot consist of numbers only.");
-      return false;
-    }
-    if (/^[a-zA-Z]+$/.test(password)) {
-      toast.error("Password cannot consist of letters only.");
-      return false;
-    }
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/;
-    if (!passwordRegex.test(password)) {
-      toast.error("Password must include 1 uppercase, 1 lowercase, 1 number & 1 special character.");
-      return false;
-    }
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
+    if (!isPasswordValid) {
+      toast.error("Please meet all password requirements and ensure they match.");
       return false;
     }
     return true;
@@ -591,27 +575,73 @@ function SignupPage() {
             )}
             
             {/* STEP 3: PASSWORD */}
-             {STEPS[step].key === "password" && data.otpVerified && (
-               <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500 max-w-2xl mx-auto">
-                 <div className="md:col-span-2">
-                    <h3 className="font-display text-lg font-bold text-navy mb-4">Set Your Password</h3>
-                 </div>
-                 <div className="md:col-span-2">
+            {STEPS[step].key === "password" && data.otpVerified && (
+              <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500 max-w-2xl mx-auto">
+                <div className="md:col-span-2">
+                  <h3 className="font-display text-lg font-bold text-navy mb-1">Set Your Password</h3>
+                  <p className="text-xs text-muted-foreground">Create a strong password to secure your candidate account.</p>
+                </div>
+                
+                <div className="md:col-span-2">
                   <Label>Create Password <span className="text-red-500">*</span></Label>
                   <div className="relative mt-1">
-                    <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters" className="pr-10" />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground hover:text-navy">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+                    <Input 
+                      type={showPassword ? "text" : "password"} 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                      placeholder="Min 8 characters (e.g. BccPass@123)" 
+                      className="pr-10" 
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground hover:text-navy">
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character.</p>
+                  
+                  {/* Dynamic checklist validation */}
+                  <div className="mt-3 space-y-1.5 text-xs">
+                    <p className={`flex items-center gap-1.5 ${password.length >= 8 ? 'text-india-green font-medium' : 'text-muted-foreground'}`}>
+                      {password.length >= 8 ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 text-red-500" />} 
+                      At least 8 characters
+                    </p>
+                    <p className={`flex items-center gap-1.5 ${/[A-Z]/.test(password) ? 'text-india-green font-medium' : 'text-muted-foreground'}`}>
+                      {/[A-Z]/.test(password) ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 text-red-500" />} 
+                      At least 1 uppercase letter
+                    </p>
+                    <p className={`flex items-center gap-1.5 ${/[a-z]/.test(password) ? 'text-india-green font-medium' : 'text-muted-foreground'}`}>
+                      {/[a-z]/.test(password) ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 text-red-500" />} 
+                      At least 1 lowercase letter
+                    </p>
+                    <p className={`flex items-center gap-1.5 ${/\d/.test(password) ? 'text-india-green font-medium' : 'text-muted-foreground'}`}>
+                      {/\d/.test(password) ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 text-red-500" />} 
+                      At least 1 number
+                    </p>
+                    <p className={`flex items-center gap-1.5 ${/[@$!%*?&._-]/.test(password) ? 'text-india-green font-medium' : 'text-muted-foreground'}`}>
+                      {/[@$!%*?&._-]/.test(password) ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 text-red-500" />} 
+                      At least 1 special character (@$!%*?&._-)
+                    </p>
+                  </div>
                 </div>
-                 <div className="md:col-span-2">
+                
+                <div className="md:col-span-2 mt-2">
                   <Label>Confirm Password <span className="text-red-500">*</span></Label>
                   <div className="relative mt-1">
-                    <Input type={showPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" className="pr-10" />
+                    <Input 
+                      type={showPassword ? "text" : "password"} 
+                      value={confirmPassword} 
+                      onChange={(e) => setConfirmPassword(e.target.value)} 
+                      placeholder="Re-enter password" 
+                      className="pr-10" 
+                    />
                   </div>
+                  {confirmPassword.length > 0 && password !== confirmPassword && (
+                    <p className="text-xs text-red-500 mt-2 flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5" /> Passwords do not match</p>
+                  )}
+                  {confirmPassword.length > 0 && password === confirmPassword && isPasswordValid && (
+                    <p className="text-xs text-india-green mt-2 font-medium flex items-center gap-1.5"><Check className="h-3.5 w-3.5" /> Passwords match and meet all security rules</p>
+                  )}
                 </div>
-               </div>
-             )}
+              </div>
+            )}
 
             {/* STEP 4: EDUCATION */}
             {STEPS[step].key === "education" && (() => {
