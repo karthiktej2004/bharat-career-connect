@@ -41,7 +41,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
       }
 
       try {
-        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/profile/${session.id}`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/${session.id}`);
         const json = await res.json();
 
         if (json.success) {
@@ -66,7 +66,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
     const session = getSession();
 
     try {
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/applications/apply", {
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/applications/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -234,7 +234,7 @@ function Jobs() {
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com";
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "${import.meta.env.VITE_API_BASE_URL}";
 
   // FETCH JOBS SAFELY FROM POSTGRESQL BACKEND
   useEffect(() => {
