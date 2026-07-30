@@ -182,12 +182,12 @@ function SignupPage() {
     return !isNaN(yop) && yop >= 1970 && yop <= currentYear + 6;
   }, [data.yearOfPassing]);
 
-  // Strict password rule enforcement check
+  // Robust Regex: Checks for min 8 length, at least one lowercase, one uppercase, one digit, and one special character.
   const isPasswordValid = useMemo(() => {
     if (!password || password.length < 8) return false;
     if (/^\d+$/.test(password)) return false;
     if (/^[a-zA-Z]+$/.test(password)) return false;
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/;
     return passwordRegex.test(password) && password === confirmPassword;
   }, [password, confirmPassword]);
 
@@ -204,7 +204,7 @@ function SignupPage() {
       toast.error("Password cannot consist of letters only.");
       return false;
     }
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/;
     if (!passwordRegex.test(password)) {
       toast.error("Password must include 1 uppercase, 1 lowercase, 1 number & 1 special character.");
       return false;
@@ -249,7 +249,7 @@ function SignupPage() {
       case "verify": 
         return !!data.otpVerified;
       case "password":
-        return isPasswordValid; // Strictly uses our validation logic!
+        return isPasswordValid;
       case "education": 
         return !!(data.qualification && data.yearOfPassing && isYopValid);
       case "skills": 
