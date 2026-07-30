@@ -121,7 +121,7 @@ export function CompanyBody() {
     const fetchEmployerData = async () => {
       setLoading(true);
       try {
-        const profileRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/profile/${employerId}`);
+        const profileRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/profile/${employerId}`);
         const profileJson = await profileRes.json();
 
         if (isMounted && profileJson.success && profileJson.data) {
@@ -139,7 +139,7 @@ export function CompanyBody() {
           });
         }
 
-        const countRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/candidates-reviewed-count`);
+        const countRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${employerId}/candidates-reviewed-count`);
         const countJson = await countRes.json();
 
         if (isMounted && countJson.success) {
@@ -147,7 +147,7 @@ export function CompanyBody() {
         }
 
         // Fetch Sub-HRs
-        const hrRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/hrs`);
+        const hrRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${employerId}/hrs`);
         const hrJson = await hrRes.json();
         if (isMounted && hrJson.success) {
           setHrs(hrJson.data);
@@ -168,7 +168,7 @@ export function CompanyBody() {
     if (!employerId) return;
     setLoadingHrs(true);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/hrs`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${employerId}/hrs`);
       const json = await res.json();
       if (json.success) {
         setHrs(json.data);
@@ -194,7 +194,7 @@ export function CompanyBody() {
 
     setAddingHr(true);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${employerId}/hrs`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${employerId}/hrs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullName: newHrName, email: newHrEmail, password: newHrPass }),
@@ -220,7 +220,7 @@ export function CompanyBody() {
   // Handle Delete HR (Feature 16)
   const handleDeleteHr = async (hrId: number) => {
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/hrs/${hrId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/hrs/${hrId}`, {
         method: "DELETE",
       });
       const json = await res.json();
@@ -258,7 +258,7 @@ export function CompanyBody() {
       setUploadingPhoto(true);
 
       try {
-        const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/profile/${employerId}/photo`, {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/profile/${employerId}/photo`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ photoUrl: base64String }),
