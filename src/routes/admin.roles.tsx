@@ -98,7 +98,7 @@ function Roles() {
 
   const fetchTeamMembers = async () => {
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/team");
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/team`);
       const json = await res.json();
       if (json.success && json.data) {
         setMembers(json.data);
@@ -143,7 +143,7 @@ function Roles() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/team", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/team`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
