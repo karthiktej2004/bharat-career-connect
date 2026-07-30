@@ -30,7 +30,7 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newResume, setNewResume] = useState<File | null>(null); // For replacing resume
+  const [newResume, setNewResume] = useState<File | null>(null);
 
   useEffect(() => {
     if (!job) return;
@@ -79,7 +79,8 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
           jobId: job.id,
           candidateId: session?.id,
           employerId: job.employer_id || 1,
-          resumeReplaced: !!newResume, // Flag if a new resume was uploaded
+          resumeReplaced: !!newResume, 
+          newResumeName: newResume ? newResume.name : undefined
         }),
       });
 
@@ -90,7 +91,7 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
         onSuccess(job.id);
         onClose();
       } else {
-        toast.error(json.message || "Failed to apply.");
+        toast.error(json.message || "Failed to apply. You may have already applied.");
       }
     } catch (err) {
       console.error("Apply error:", err);
@@ -255,12 +256,12 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
 }
 
 // =========================================================
-// 2. JOB DETAILS DIALOG (LinkedIn/Internshala style)
+// 2. JOB DETAILS DIALOG
 // =========================================================
 function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => void; onApply: () => void }) {
   if (!job) return null;
 
-  const isApplied = job.hasApplied || job.status?.toLowerCase() === "applied";
+  const isApplied = job.hasApplied || job.status?.toLowerCase() === "applied" || job.application_status?.toLowerCase() === "applied";
 
   return (
     <Dialog open={!!job} onOpenChange={(open) => !open && onClose()}>
@@ -268,35 +269,39 @@ function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => 
         <DialogTitle className="sr-only">Job Details for {job.title}</DialogTitle>
         
         {/* Header Action Bar */}
-        <div className="px-6 py-3 border-b flex justify-between items-center bg-slate-50 sticky top-0 z-10">
+        <div className="px-6 py-3 border-b flex justify-between items-center bg-slate-50 sticky top-0 z-10 shadow-sm">
           <Badge className="bg-saffron text-navy hover:bg-saffron">{job.type || "Full-time"}</Badge>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
             <Button 
               size="sm"
               disabled={isApplied} 
-              className={isApplied ? "bg-slate-100 text-slate-500" : "bg-navy text-white hover:bg-navy/90"}
-              onClick={onApply}
+              className={isApplied ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-navy text-white hover:bg-navy/90"}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isApplied) {
+                  onApply();
+                }
+              }}
             >
-              {isApplied ? "Applied" : "Apply Now"}
+              {isApplied ? "Already Applied" : "Apply Now"}
             </Button>
           </div>
         </div>
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 md:p-10 relative">
-          
-          <div className="flex gap-6 items-start">
-            <div className="h-20 w-20 shrink-0 border rounded-lg overflow-hidden bg-white shadow-sm flex items-center justify-center">
+          <div className="flex gap-6 items-start flex-col md:flex-row">
+            <div className="h-24 w-24 shrink-0 border rounded-lg overflow-hidden bg-white shadow-sm flex items-center justify-center">
               {getCompanyLogo(job.company) ? (
-                <img src={getCompanyLogo(job.company)} alt={job.company} className="h-full w-full object-contain p-1" />
+                <img src={getCompanyLogo(job.company)} alt={job.company} className="h-full w-full object-contain p-2" />
               ) : (
                 <Building2 className="h-10 w-10 text-slate-300" />
               )}
             </div>
             <div>
               <h1 className="text-3xl font-display font-bold text-navy">{job.title}</h1>
-              <p className="text-lg text-muted-foreground font-medium mt-1">{job.company}</p>
+              <p className="text-lg text-muted-foreground font-medium mt-1">{job.company} {job.recruiter ? `· Recruiter: ${job.recruiter}` : ""}</p>
               <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-600">
                 <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-saffron" /> {job.location}</span>
                 <span className="flex items-center gap-1.5"><Briefcase className="h-4 w-4 text-saffron" /> {job.experience || "Fresher"}</span>
@@ -309,31 +314,47 @@ function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => 
           <div className="mt-10 grid gap-8">
             <section>
               <h2 className="text-xl font-bold text-navy mb-4 border-b pb-2 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-saffron" /> Required Skills
+                <Sparkles className="h-5 w-5 text-saffron" /> Requirements & Skills
               </h2>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mb-4">
                 {(job.skills || []).map((s: string) => (
                   <Badge key={s} variant="outline" className="bg-slate-50 px-3 py-1 text-sm border-slate-200 text-slate-700">{s}</Badge>
                 ))}
                 {(!job.skills || job.skills.length === 0) && <span className="text-muted-foreground text-sm">Not specifically listed</span>}
               </div>
+              {job.qualification && (
+                <p className="text-slate-700 text-sm"><strong className="text-navy">Education:</strong> {job.qualification}</p>
+              )}
             </section>
 
             <section>
               <h2 className="text-xl font-bold text-navy mb-4 border-b pb-2 flex items-center gap-2">
-                <ListChecks className="h-5 w-5 text-saffron" /> Job Description & Responsibilities
+                <ListChecks className="h-5 w-5 text-saffron" /> Job Description, Responsibilities & Benefits
               </h2>
               <div className="prose prose-sm max-w-none text-slate-700">
-                {job.description ? (
-                  <div className="whitespace-pre-wrap">{job.description}</div>
-                ) : (
-                  <p>Detailed job description and responsibilities have not been provided by the employer for this role yet. Please apply or contact the employer for more information.</p>
-                )}
-                {job.responsibilities && (
-                  <div className="mt-4">
-                    <h3 className="font-bold text-navy text-base">Key Responsibilities</h3>
-                    <div className="whitespace-pre-wrap mt-2">{job.responsibilities}</div>
+                {job.description && (
+                  <div className="mb-6">
+                    <h3 className="font-bold text-navy text-base mb-2">About the Role</h3>
+                    <div className="whitespace-pre-wrap">{job.description}</div>
                   </div>
+                )}
+                
+                {job.responsibilities && (
+                  <div className="mb-6">
+                    <h3 className="font-bold text-navy text-base mb-2">Key Responsibilities</h3>
+                    <div className="whitespace-pre-wrap">{job.responsibilities}</div>
+                  </div>
+                )}
+
+                {job.benefits && (
+                  <div className="mb-6">
+                    <h3 className="font-bold text-navy text-base mb-2">Benefits & Perks</h3>
+                    <div className="whitespace-pre-wrap">{job.benefits}</div>
+                  </div>
+                )}
+
+                {!job.description && !job.responsibilities && !job.benefits && (
+                  <p className="italic text-muted-foreground">Detailed job description, responsibilities, and benefits have not been provided by the employer for this role yet. Please apply or contact the employer for more information.</p>
                 )}
               </div>
             </section>
@@ -361,7 +382,6 @@ function Jobs() {
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
 
-  // FETCH JOBS SAFELY FROM POSTGRESQL BACKEND
   useEffect(() => {
     async function fetchMatchedJobs() {
       setIsLoading(true);
@@ -388,7 +408,6 @@ function Jobs() {
     fetchMatchedJobs();
   }, []);
 
-  // Toggle Save Job Handler
   const handleToggleSave = async (jobId: number) => {
     const session = getSession();
     if (!session?.id) {
@@ -420,26 +439,34 @@ function Jobs() {
     }
   };
 
-  // Update local state when application is successful so the button changes to "Applied"
   const handleApplySuccess = (jobId: number) => {
     setJobs((prev) => 
-      prev.map(j => j.id === jobId ? { ...j, hasApplied: true, status: 'Applied' } : j)
+      prev.map(j => j.id === jobId ? { ...j, hasApplied: true, status: 'Applied', application_status: 'Applied' } : j)
     );
-    // If the viewing modal is open, we update its state implicitly via the jobs mapping, 
-    // but to be safe, close the viewing modal or let it re-render if it depends on the array.
   };
 
   const filtered = useMemo(() => jobs.filter((j) => {
-    // 1. Location filter
-    if (locationFilter !== "all" && j.location !== locationFilter) return false;
-    // 2. Job Type filter
-    if (typeFilter !== "all" && j.type !== typeFilter && j.job_type !== typeFilter) return false;
-    // 3. Shift filter
-    if (shiftFilter !== "all" && j.preferredShift !== shiftFilter) return false;
+    if (locationFilter !== "all") {
+      const loc = (j.location || "").toLowerCase();
+      if (!loc.includes(locationFilter.toLowerCase())) return false;
+    }
     
-    // 4. Search text
-    const searchString = `${j.title || ""} ${j.company || ""} ${(j.skills || []).join(" ")}`.toLowerCase();
-    if (q && !searchString.includes(q.toLowerCase())) return false;
+    if (typeFilter !== "all") {
+      const jt = (j.type || j.job_type || "").toLowerCase().replace(/[- ]/g, "");
+      const filterFormatted = typeFilter.toLowerCase().replace(/[- ]/g, "");
+      if (jt !== filterFormatted) return false;
+    }
+    
+    if (shiftFilter !== "all") {
+      const shift = (j.preferredShift || j.preferred_shift || j.shift || "").toLowerCase().replace(/[- ]/g, "");
+      const filterFormatted = shiftFilter.toLowerCase().replace(/[- ]/g, "");
+      if (shift !== filterFormatted) return false;
+    }
+    
+    if (q) {
+      const searchString = `${j.title || ""} ${j.company || ""} ${(j.skills || []).join(" ")}`.toLowerCase();
+      if (!searchString.includes(q.toLowerCase())) return false;
+    }
     
     return true;
   }), [q, locationFilter, typeFilter, shiftFilter, jobs]);
@@ -495,7 +522,7 @@ function Jobs() {
       ) : (
         <div className="grid gap-4">
           {filtered.map((j) => {
-            const isApplied = j.hasApplied || j.status?.toLowerCase() === "applied";
+            const isApplied = j.hasApplied || j.status?.toLowerCase() === "applied" || j.application_status?.toLowerCase() === "applied";
 
             return (
               <Card 
@@ -537,7 +564,6 @@ function Jobs() {
 
                     <div className="text-right shrink-0 flex flex-col items-end">
                       <div className="flex items-center gap-2 mb-2">
-                        {/* Feature 5: Bookmark / Save Job Button */}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -561,11 +587,14 @@ function Jobs() {
 
                       <Button 
                         size="sm" 
-                        className={`mt-1 w-full ${isApplied ? "bg-slate-100 text-slate-500 hover:bg-slate-100" : "bg-navy text-white hover:bg-navy/90"}`} 
+                        className={`mt-1 w-full ${isApplied ? "bg-slate-100 text-slate-500 hover:bg-slate-100 cursor-not-allowed" : "bg-navy text-white hover:bg-navy/90"}`} 
                         disabled={isApplied}
-                        onClick={(e) => { e.stopPropagation(); setApplying(j); }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          if (!isApplied) setApplying(j); 
+                        }}
                       >
-                        {isApplied ? "Applied" : "Apply"}
+                        {isApplied ? "Already Applied" : "Apply"}
                       </Button>
                     </div>
                   </div>
