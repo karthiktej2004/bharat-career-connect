@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Briefcase, MapPin, Search, Sparkles, Loader2, CheckCircle2, FileText, Check, Bookmark, Building2, Clock, Banknote, ListChecks } from "lucide-react";
+import { Briefcase, MapPin, Search, Sparkles, Loader2, CheckCircle2, FileText, Check, Bookmark, Building2, Clock, Banknote, ListChecks, XCircle } from "lucide-react";
 import { getCompanyLogo, getJobImage, getSession } from "@/lib/mockStore";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/candidate/jobs")({
 });
 
 const LOCATIONS = ["Bengaluru", "Hyderabad", "Chennai", "Mumbai", "Delhi", "Kolkata", "Vizag", "Kochi", "Pune"];
-const JOB_TYPES = ["Trainee", "Intern", "Apprentice", "Full-Time", "Part-Time", "Contractor", "Freelancer", "Volunteer", "Consultant", "Vendor", "Contracter"];
+const JOB_TYPES = ["Trainee", "Intern", "Apprentice", "Full-Time", "Part-Time", "Contractor", "Freelancer", "Volunteer", "Consultant", "Vendor"];
 const SHIFTS = ["Day Shift", "Night shift", "Remote", "Hybrid", "On-Site", "Rotational"];
 
 // =========================================================
@@ -91,7 +91,10 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
         onSuccess(job.id);
         onClose();
       } else {
-        toast.error(json.message || "Failed to apply. You may have already applied.");
+        // If they already applied on backend but UI didn't know, sync the UI state
+        toast.error(json.message || "You have already applied for this job.");
+        onSuccess(job.id); 
+        onClose();
       }
     } catch (err) {
       console.error("Apply error:", err);
@@ -111,9 +114,9 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
             <Briefcase className="h-5 w-5 text-saffron" /> Apply for {job.title}
           </DialogTitle>
           <div className="flex items-center gap-3 text-sm text-muted-foreground mt-2">
-            <span className="flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" /> {job.company}</span>
+            <span className="flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" /> {job.company || job.company_name}</span>
             <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {job.location}</span>
-            <span className="bg-white border px-2 py-0.5 rounded-full text-xs text-navy font-medium">{job.type}</span>
+            <span className="bg-white border px-2 py-0.5 rounded-full text-xs text-navy font-medium">{job.type || job.job_type || "Full-Time"}</span>
           </div>
         </div>
 
@@ -270,7 +273,7 @@ function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => 
         
         {/* Header Action Bar */}
         <div className="px-6 py-3 border-b flex justify-between items-center bg-slate-50 sticky top-0 z-10 shadow-sm">
-          <Badge className="bg-saffron text-navy hover:bg-saffron">{job.type || job.job_type || "Full-time"}</Badge>
+          <Badge className="bg-saffron text-navy hover:bg-saffron">{job.type || job.job_type || "Full-Time"}</Badge>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
             <Button 
@@ -293,20 +296,20 @@ function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => 
         <div className="flex-1 overflow-y-auto p-6 md:p-10 relative">
           <div className="flex gap-6 items-start flex-col md:flex-row">
             <div className="h-24 w-24 shrink-0 border rounded-lg overflow-hidden bg-white shadow-sm flex items-center justify-center">
-              {getCompanyLogo(job.company) ? (
-                <img src={getCompanyLogo(job.company)} alt={job.company} className="h-full w-full object-contain p-2" />
+              {getCompanyLogo(job.company || job.company_name) ? (
+                <img src={getCompanyLogo(job.company || job.company_name)} alt={job.company || job.company_name} className="h-full w-full object-contain p-2" />
               ) : (
                 <Building2 className="h-10 w-10 text-slate-300" />
               )}
             </div>
             <div>
               <h1 className="text-3xl font-display font-bold text-navy">{job.title}</h1>
-              <p className="text-lg text-muted-foreground font-medium mt-1">{job.company} {job.recruiter ? `· Recruiter: ${job.recruiter}` : ""}</p>
+              <p className="text-lg text-muted-foreground font-medium mt-1">{job.company || job.company_name} {job.recruiter ? `· Recruiter: ${job.recruiter}` : ""}</p>
               <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-600">
                 <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-saffron" /> {job.location}</span>
                 <span className="flex items-center gap-1.5"><Briefcase className="h-4 w-4 text-saffron" /> {job.experience || "Fresher"}</span>
                 <span className="flex items-center gap-1.5"><Banknote className="h-4 w-4 text-saffron" /> {job.salary || "Not specified"}</span>
-                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-saffron" /> {job.preferredShift || "Day Shift"}</span>
+                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-saffron" /> {job.preferredShift || job.preferred_shift || job.shift || "Day Shift"}</span>
               </div>
             </div>
           </div>
@@ -439,13 +442,26 @@ function Jobs() {
     }
   };
 
+  // Sync state across list and modal perfectly
   const handleApplySuccess = (jobId: number) => {
     setJobs((prev) => 
       prev.map(j => j.id === jobId ? { ...j, hasApplied: true, status: 'Applied', application_status: 'Applied' } : j)
     );
+    
+    // If the details dialog is open and it's the same job, update its local state too
+    if (viewingJob && viewingJob.id === jobId) {
+      setViewingJob(prev => ({ ...prev, hasApplied: true, status: 'Applied', application_status: 'Applied' }));
+    }
   };
 
-  // Robust filtering adapting exactly to DB field names and varied formats
+  const resetFilters = () => {
+    setQ("");
+    setLocationFilter("all");
+    setTypeFilter("all");
+    setShiftFilter("all");
+  };
+
+  // Tolerant filtering logic ensuring old database entries don't break the filters
   const filtered = useMemo(() => jobs.filter((j) => {
     // 1. Location filter
     if (locationFilter !== "all") {
@@ -453,21 +469,21 @@ function Jobs() {
       if (!loc.includes(locationFilter.toLowerCase())) return false;
     }
     
-    // 2. Job Type filter
+    // 2. Job Type filter (Fallback to "Full-Time" if undefined)
     if (typeFilter !== "all") {
-      const jt = (j.type || j.job_type || "").toLowerCase().replace(/[- ]/g, "");
+      const jt = (j.type || j.job_type || j.employmentType || "Full-Time").toLowerCase().replace(/[- ]/g, "");
       const filterFormatted = typeFilter.toLowerCase().replace(/[- ]/g, "");
-      if (jt !== filterFormatted) return false;
+      if (!jt.includes(filterFormatted) && !filterFormatted.includes(jt)) return false;
     }
     
-    // 3. Shift filter
+    // 3. Shift filter (Fallback to "Day Shift" if undefined)
     if (shiftFilter !== "all") {
-      const shift = (j.preferredShift || j.preferred_shift || j.shift || "").toLowerCase().replace(/[- ]/g, "");
+      const shift = (j.preferredShift || j.preferred_shift || j.shift || "Day Shift").toLowerCase().replace(/[- ]/g, "");
       const filterFormatted = shiftFilter.toLowerCase().replace(/[- ]/g, "");
-      if (shift !== filterFormatted) return false;
+      if (!shift.includes(filterFormatted) && !filterFormatted.includes(shift)) return false;
     }
     
-    // 4. Search Query
+    // 4. Search Query filter
     if (q) {
       const searchString = `${j.title || ""} ${j.company || ""} ${j.company_name || ""} ${(j.skills || []).join(" ")}`.toLowerCase();
       if (!searchString.includes(q.toLowerCase())) return false;
@@ -481,7 +497,7 @@ function Jobs() {
       <PageHeader title="Browse Jobs" description="AI-matched roles based on your profile, skills and location." />
 
       <Card className="p-4 mb-6 border-border/60 bg-white">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
           <div className="relative md:col-span-4 lg:col-span-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input className="pl-9" placeholder="Search by title, company..." value={q} onChange={(e) => setQ(e.target.value)} />
@@ -510,6 +526,15 @@ function Jobs() {
               {SHIFTS.map(shift => <SelectItem key={shift} value={shift}>{shift}</SelectItem>)}
             </SelectContent>
           </Select>
+
+          {/* Quick Clear Filter Button if any filter is active */}
+          {(q !== "" || locationFilter !== "all" || typeFilter !== "all" || shiftFilter !== "all") && (
+            <div className="md:col-span-4 flex justify-end">
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-navy h-8 px-2 flex items-center gap-1.5">
+                <XCircle className="h-4 w-4" /> Clear Filters
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -522,7 +547,7 @@ function Jobs() {
         <div className="text-center py-20 text-muted-foreground">
           <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-20" />
           <p className="text-lg font-medium text-navy">No matching jobs found</p>
-          <p className="text-sm">Try adjusting your search filters.</p>
+          <p className="text-sm mt-1">Try adjusting your search filters or <button onClick={resetFilters} className="text-saffron hover:underline font-medium">clearing them</button>.</p>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -551,7 +576,7 @@ function Jobs() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-display font-bold text-navy text-lg group-hover:text-saffron transition-colors">{j.title}</h3>
-                        <Badge variant="outline" className="bg-slate-50">{j.type || j.job_type}</Badge>
+                        <Badge variant="outline" className="bg-slate-50">{j.type || j.job_type || "Full-Time"}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3">
                         <span className="flex items-center"><Briefcase className="h-4 w-4 mr-1" />{j.company || j.company_name}</span>
@@ -618,7 +643,6 @@ function Jobs() {
         onClose={() => setViewingJob(null)} 
         onApply={() => {
           setApplying(viewingJob);
-          setViewingJob(null);
         }} 
       />
     </DashShell>
