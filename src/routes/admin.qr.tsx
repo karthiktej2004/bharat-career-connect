@@ -27,8 +27,8 @@ function QR() {
     const fetchQRData = async () => {
       try {
         const [eventsRes, attendanceRes] = await Promise.all([
-          fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/events"),
-          fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/attendance-history")
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`),
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/attendance-history`)
         ]);
 
         const eventsJson = await eventsRes.json();
