@@ -54,10 +54,10 @@ function CandidateHome() {
       try {
         // Fetch profile using the dedicated profile route to get all fields for completion calculation
         const [pRes, jRes, aRes, eRes] = await Promise.all([
-          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/profile/${session.id}`),
-          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/jobs`),
-          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/applications`),
-          fetch(`https://bcc-backend-0cny.onrender.com/api/candidate/${session.id}/events`)
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/${session.id}`),
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${session.id}/jobs`),
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${session.id}/applications`),
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${session.id}/events`)
         ]);
 
         const [pJson, jJson, aJson, eJson] = await Promise.all([
