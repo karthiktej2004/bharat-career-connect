@@ -214,7 +214,19 @@ function EventJobDialog({ event, open, onOpenChange, editJob }: {
           <DialogDescription>Visible only inside this event for candidates walking in on {new Date(event.date).toLocaleDateString("en-IN")}. Stall {stallNo || "—"}.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid sm:grid-cols-2 gap-4">
-          <div className="sm:col-span-2"><Label>Title *</Label><Input required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} className="mt-1" /></div>
+          <div className="sm:col-span-2">
+            <Label>Title (Alphabets only) *</Label>
+            <Input 
+              required 
+              placeholder="e.g. Mechanical Design Engineer"
+              value={f.title} 
+              onChange={(e) => {
+                const lettersOnly = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                setF({ ...f, title: lettersOnly });
+              }} 
+              className="mt-1" 
+            />
+          </div>
           <div><Label>Type</Label>
             <Select value={f.type} onValueChange={(v) => setF({ ...f, type: v as Job["type"] })}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
