@@ -71,8 +71,6 @@ export const adminNav: NavItem[] = [
   { to: "/admin/feedback", label: "Feedback & Grievance", icon: ShieldCheck },
   { to: "/admin/payments", label: "Payments & Billing", icon: Wallet },
   { to: "/admin/roles", label: "Roles & Access", icon: KeyRound },
-  { to: "/admin/data", label: "Data Controls", icon: Database },
-  { to: "/admin/settings", label: "Security & Compliance", icon: Settings },
   { to: "/admin/crowd-monitor", label: "Live Crowd Monitor", icon: Users },
   { to: "/admin/history", label: "Event History", icon: History },
 ];
