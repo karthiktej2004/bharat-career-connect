@@ -32,7 +32,7 @@ function Employers() {
   const fetchEmployers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/employers");
+      const response = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/employers");
       const json = await response.json();
       if (json.success) {
         setEmployers(json.data);
@@ -59,7 +59,7 @@ function Employers() {
     );
 
     try {
-      const response = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/employers/${dbId}/status`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/employers/${dbId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
