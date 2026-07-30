@@ -43,7 +43,7 @@ function LoginPage() {
     setIsLoading(true);
     
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com"; 
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "${import.meta.env.VITE_API_BASE_URL}"; 
       
       const payload = role === "employer" 
         ? { role, company_name: companyName, email: identifier.trim(), identifier: identifier.trim(), password }
@@ -198,7 +198,7 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
   const [pwd2, setPwd2] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://bcc-backend-0cny.onrender.com";
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "${import.meta.env.VITE_API_BASE_URL}";
 
   function reset() {
     setStep("identify"); 
