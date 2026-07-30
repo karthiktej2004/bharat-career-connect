@@ -5,7 +5,7 @@ import { employerNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   CalendarDays, 
   MapPin, 
   Users, 
