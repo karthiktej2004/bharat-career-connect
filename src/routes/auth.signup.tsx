@@ -32,7 +32,7 @@ type Data = Partial<CandidateProfile> & {
 const STEPS = [
   { key: "basic", label: "Basic Info", icon: UserIcon },
   { key: "verify", label: "Verify Phone", icon: ShieldCheck },
-  { key: "password", label: "Password", icon: ShieldCheck }, // New Step added
+  { key: "password", label: "Password", icon: ShieldCheck },
   { key: "education", label: "Education", icon: GraduationCap },
   { key: "skills", label: "Skills", icon: Sparkles },
   { key: "experience", label: "Experience", icon: Briefcase },
@@ -183,7 +183,14 @@ function SignupPage() {
   }, [data.yearOfPassing]);
 
   const validatePassword = () => {
-    // 1 Capital, 1 Small, 1 Number, 1 Special Char, Min 8 Chars
+    if (/^\d+$/.test(password)) {
+      toast.error("Password cannot consist of numbers only.");
+      return false;
+    }
+    if (/^[a-zA-Z]+$/.test(password)) {
+      toast.error("Password cannot consist of letters only.");
+      return false;
+    }
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     
     if (!passwordRegex.test(password)) {
@@ -380,7 +387,7 @@ function SignupPage() {
     };
 
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/auth/candidate/register", {
+      const res = await fetch("http://15.207.249.155:5000/api/auth/candidate/register", {
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
         body: JSON.stringify(payload)
@@ -587,7 +594,7 @@ function SignupPage() {
                     <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters" className="pr-10" />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground hover:text-navy">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character.</p>
+                  <p className="text-xs text-gray-500 mt-2">Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character. Cannot be only letters or only numbers.</p>
                 </div>
                  <div className="md:col-span-2">
                   <Label>Confirm Password <span className="text-red-500">*</span></Label>
