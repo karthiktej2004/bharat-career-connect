@@ -63,7 +63,7 @@ function EmployerEventQueue() {
   const fetchQueue = async () => {
     if (!user || !user.id) return;
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${user.id}/events/${activeEventId}/queue${selectedJobId ? `?jobId=${selectedJobId}` : ''}`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${user.id}/events/${activeEventId}/queue${selectedJobId ? `?jobId=${selectedJobId}` : ''}`);
       const json = await res.json();
       if (json.success) {
         setQueueList(json.data);
@@ -78,7 +78,7 @@ function EmployerEventQueue() {
   const fetchEmployerJobs = async () => {
     if (!user || !user.id) return;
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${user.id}/jobs-list`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${user.id}/jobs-list`);
       const json = await res.json();
       if (json.success) {
         setEventJobs(json.data.filter((j: any) => j.event_id == activeEventId));
@@ -105,7 +105,7 @@ function EmployerEventQueue() {
   const handleCallNext = async () => {
     if (!selectedJobId) { toast.error("Please select a job position first."); return; }
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/queue/call-next`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/queue/call-next`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId: Number(activeEventId), jobId: Number(selectedJobId), employerId: user?.id })
@@ -124,7 +124,7 @@ function EmployerEventQueue() {
 
   const handleUpdateStatus = async (queueId: number, status: string) => {
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/queue/${queueId}/status`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/queue/${queueId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
