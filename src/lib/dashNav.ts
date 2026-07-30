@@ -29,7 +29,8 @@ import {
   LifeBuoy, 
   Sparkles, 
   Bookmark,
-  Ticket 
+  Ticket,
+  CalendarDays
 } from "lucide-react";
 import type { NavItem } from "@/components/DashShell";
 
