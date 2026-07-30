@@ -47,7 +47,7 @@ function CompanyRequests() {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/company-requests");
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/company-requests`);
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setItems(json.data);
