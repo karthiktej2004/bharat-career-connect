@@ -47,4 +47,4 @@ jobs:
             git pull origin main
             npm install
             NITRO_PRESET=node-server npm run build
-            pm2 restart bcc-fronten
+            pm2 restart bcc-frontend
