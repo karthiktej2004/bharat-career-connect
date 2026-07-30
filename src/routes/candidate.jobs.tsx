@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Briefcase, MapPin, Search, Sparkles, Loader2, CheckCircle2, FileText, Check, Bookmark } from "lucide-react";
+import { Briefcase, MapPin, Search, Sparkles, Loader2, CheckCircle2, FileText, Check, Bookmark, Building2, Clock, Banknote, ListChecks } from "lucide-react";
 import { getCompanyLogo, getJobImage, getSession } from "@/lib/mockStore";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -18,14 +18,19 @@ export const Route = createFileRoute("/candidate/jobs")({
   component: Jobs,
 });
 
+const LOCATIONS = ["Bengaluru", "Hyderabad", "Chennai", "Mumbai", "Delhi", "Kolkata", "Vizag", "Kochi", "Pune"];
+const JOB_TYPES = ["Trainee", "Intern", "Apprentice", "Full-Time", "Part-Time", "Contractor", "Freelancer", "Volunteer", "Consultant", "Vendor"];
+const SHIFTS = ["Day Shift", "Night shift", "Remote", "Hybrid", "On-Site", "Rotational"];
+
 // =========================================================
 // 1. INLINED APPLY JOB DIALOG
 // =========================================================
-function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
+function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () => void; onSuccess: (id: number) => void }) {
   const [step, setStep] = useState(1);
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newResume, setNewResume] = useState<File | null>(null); // For replacing resume
 
   useEffect(() => {
     if (!job) return;
@@ -41,7 +46,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
       }
 
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/${session.id}`);
+        const res = await fetch(`http://15.207.249.155:5000/api/candidate/profile/${session.id}`);
         const json = await res.json();
 
         if (json.success) {
@@ -59,6 +64,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
 
     fetchRealProfile();
     setStep(1);
+    setNewResume(null);
   }, [job]);
 
   const submitApplication = async () => {
@@ -66,13 +72,14 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
     const session = getSession();
 
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/applications/apply", {
+      const res = await fetch("http://15.207.249.155:5000/api/applications/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId: job.id,
           candidateId: session?.id,
           employerId: job.employer_id || 1,
+          resumeReplaced: !!newResume, // Flag if a new resume was uploaded
         }),
       });
 
@@ -80,6 +87,7 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
 
       if (json.success) {
         toast.success(json.message || "Application submitted successfully!");
+        onSuccess(job.id);
         onClose();
       } else {
         toast.error(json.message || "Failed to apply.");
@@ -164,12 +172,35 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
               <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <h3 className="text-lg font-bold text-navy">Resume / CV</h3>
                 <p className="text-sm text-muted-foreground">Your resume will be securely attached to this application.</p>
-                <div className="border border-border p-4 rounded-xl bg-slate-50 flex items-start gap-4 mt-4">
-                  <div className="p-3 bg-white rounded-lg border shadow-sm text-saffron"><FileText className="h-6 w-6" /></div>
-                  <div>
-                    <p className="font-bold text-navy">{profile?.resumeFileName || "Generated_Profile_Resume.pdf"}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Uses your registered profile details and documents.</p>
+                
+                <div className="border border-border p-4 rounded-xl bg-slate-50 flex items-start justify-between gap-4 mt-4">
+                  <div className="flex gap-4">
+                    <div className="p-3 bg-white rounded-lg border shadow-sm text-saffron shrink-0">
+                      <FileText className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-navy truncate max-w-[200px] sm:max-w-[300px]">
+                        {newResume?.name || profile?.resumeFileName || "Generated_Profile_Resume.pdf"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {newResume ? "Custom resume attached for this job." : "Uses your registered profile details and documents."}
+                      </p>
+                    </div>
                   </div>
+                  <Label className="cursor-pointer shrink-0 border border-border bg-white hover:bg-slate-100 text-navy px-3 py-1.5 rounded-md text-xs font-medium transition-colors">
+                    Change Resume
+                    <input 
+                      type="file" 
+                      accept=".pdf,.doc,.docx" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        if(e.target.files?.[0]) {
+                          setNewResume(e.target.files[0]);
+                          toast.success("Resume updated for this application.");
+                        }
+                      }} 
+                    />
+                  </Label>
                 </div>
               </div>
             )}
@@ -224,17 +255,111 @@ function LiveApplyDialog({ job, onClose }: { job: any; onClose: () => void }) {
 }
 
 // =========================================================
-// 2. THE BROWSE JOBS PAGE
+// 2. JOB DETAILS DIALOG (LinkedIn/Internshala style)
+// =========================================================
+function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => void; onApply: () => void }) {
+  if (!job) return null;
+
+  const isApplied = job.hasApplied || job.status?.toLowerCase() === "applied";
+
+  return (
+    <Dialog open={!!job} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col bg-white p-0 overflow-hidden">
+        <DialogTitle className="sr-only">Job Details for {job.title}</DialogTitle>
+        
+        {/* Header Action Bar */}
+        <div className="px-6 py-3 border-b flex justify-between items-center bg-slate-50 sticky top-0 z-10">
+          <Badge className="bg-saffron text-navy hover:bg-saffron">{job.type || "Full-time"}</Badge>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+            <Button 
+              size="sm"
+              disabled={isApplied} 
+              className={isApplied ? "bg-slate-100 text-slate-500" : "bg-navy text-white hover:bg-navy/90"}
+              onClick={onApply}
+            >
+              {isApplied ? "Applied" : "Apply Now"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 relative">
+          
+          <div className="flex gap-6 items-start">
+            <div className="h-20 w-20 shrink-0 border rounded-lg overflow-hidden bg-white shadow-sm flex items-center justify-center">
+              {getCompanyLogo(job.company) ? (
+                <img src={getCompanyLogo(job.company)} alt={job.company} className="h-full w-full object-contain p-1" />
+              ) : (
+                <Building2 className="h-10 w-10 text-slate-300" />
+              )}
+            </div>
+            <div>
+              <h1 className="text-3xl font-display font-bold text-navy">{job.title}</h1>
+              <p className="text-lg text-muted-foreground font-medium mt-1">{job.company}</p>
+              <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-600">
+                <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-saffron" /> {job.location}</span>
+                <span className="flex items-center gap-1.5"><Briefcase className="h-4 w-4 text-saffron" /> {job.experience || "Fresher"}</span>
+                <span className="flex items-center gap-1.5"><Banknote className="h-4 w-4 text-saffron" /> {job.salary || "Not specified"}</span>
+                <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-saffron" /> {job.preferredShift || "Day Shift"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-8">
+            <section>
+              <h2 className="text-xl font-bold text-navy mb-4 border-b pb-2 flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-saffron" /> Required Skills
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {(job.skills || []).map((s: string) => (
+                  <Badge key={s} variant="outline" className="bg-slate-50 px-3 py-1 text-sm border-slate-200 text-slate-700">{s}</Badge>
+                ))}
+                {(!job.skills || job.skills.length === 0) && <span className="text-muted-foreground text-sm">Not specifically listed</span>}
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold text-navy mb-4 border-b pb-2 flex items-center gap-2">
+                <ListChecks className="h-5 w-5 text-saffron" /> Job Description & Responsibilities
+              </h2>
+              <div className="prose prose-sm max-w-none text-slate-700">
+                {job.description ? (
+                  <div className="whitespace-pre-wrap">{job.description}</div>
+                ) : (
+                  <p>Detailed job description and responsibilities have not been provided by the employer for this role yet. Please apply or contact the employer for more information.</p>
+                )}
+                {job.responsibilities && (
+                  <div className="mt-4">
+                    <h3 className="font-bold text-navy text-base">Key Responsibilities</h3>
+                    <div className="whitespace-pre-wrap mt-2">{job.responsibilities}</div>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// =========================================================
+// 3. THE BROWSE JOBS PAGE
 // =========================================================
 function Jobs() {
   const [q, setQ] = useState("");
-  const [type, setType] = useState("all");
+  const [locationFilter, setLocationFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [shiftFilter, setShiftFilter] = useState("all");
+  
   const [applying, setApplying] = useState<any | null>(null);
+  const [viewingJob, setViewingJob] = useState<any | null>(null);
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || "${import.meta.env.VITE_API_BASE_URL}";
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
 
   // FETCH JOBS SAFELY FROM POSTGRESQL BACKEND
   useEffect(() => {
@@ -263,7 +388,7 @@ function Jobs() {
     fetchMatchedJobs();
   }, []);
 
-  // Toggle Save Job Handler (Feature 5)
+  // Toggle Save Job Handler
   const handleToggleSave = async (jobId: number) => {
     const session = getSession();
     if (!session?.id) {
@@ -295,31 +420,65 @@ function Jobs() {
     }
   };
 
+  // Update local state when application is successful so the button changes to "Applied"
+  const handleApplySuccess = (jobId: number) => {
+    setJobs((prev) => 
+      prev.map(j => j.id === jobId ? { ...j, hasApplied: true, status: 'Applied' } : j)
+    );
+    // If the viewing modal is open, we update its state implicitly via the jobs mapping, 
+    // but to be safe, close the viewing modal or let it re-render if it depends on the array.
+  };
+
   const filtered = useMemo(() => jobs.filter((j) => {
-    if (type !== "all" && j.type !== type) return false;
+    // 1. Location filter
+    if (locationFilter !== "all" && j.location !== locationFilter) return false;
+    // 2. Job Type filter
+    if (typeFilter !== "all" && j.type !== typeFilter && j.job_type !== typeFilter) return false;
+    // 3. Shift filter
+    if (shiftFilter !== "all" && j.preferredShift !== shiftFilter) return false;
+    
+    // 4. Search text
     const searchString = `${j.title || ""} ${j.company || ""} ${(j.skills || []).join(" ")}`.toLowerCase();
     if (q && !searchString.includes(q.toLowerCase())) return false;
+    
     return true;
-  }), [q, type, jobs]);
+  }), [q, locationFilter, typeFilter, shiftFilter, jobs]);
 
   return (
     <DashShell role="candidate" nav={candidateNav}>
       <PageHeader title="Browse Jobs" description="AI-matched roles based on your profile, skills and location." />
 
-      <Card className="p-4 mb-6 flex flex-col md:flex-row gap-3 border-border/60 bg-white">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search by title, company or skill…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <Card className="p-4 mb-6 border-border/60 bg-white">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="relative md:col-span-4 lg:col-span-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Search by title, company..." value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          
+          <Select value={locationFilter} onValueChange={setLocationFilter}>
+            <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Locations</SelectItem>
+              {LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger><SelectValue placeholder="Job Type" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {JOB_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={shiftFilter} onValueChange={setShiftFilter}>
+            <SelectTrigger><SelectValue placeholder="Preferred Shift" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Shifts</SelectItem>
+              {SHIFTS.map(shift => <SelectItem key={shift} value={shift}>{shift}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={type} onValueChange={setType}>
-          <SelectTrigger className="md:w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="Full-time">Full-time</SelectItem>
-            <SelectItem value="Internship">Internship</SelectItem>
-            <SelectItem value="Apprenticeship">Apprenticeship</SelectItem>
-          </SelectContent>
-        </Select>
       </Card>
 
       {isLoading ? (
@@ -335,74 +494,99 @@ function Jobs() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {filtered.map((j) => (
-            <Card key={j.id} className="overflow-hidden card-hover border-border/60 bg-white">
-              <div className="flex gap-4 flex-wrap md:flex-nowrap">
-                <div className="relative h-32 w-full md:h-auto md:w-40 shrink-0 bg-slate-100">
-                  <img src={getJobImage(j) || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=300&h=300"} alt={j.title} className="h-full w-full object-cover" loading="lazy" />
-                  <div className="absolute bottom-2 left-2 h-9 w-9 rounded-md bg-white border border-white/70 flex items-center justify-center overflow-hidden shadow">
-                    {getCompanyLogo(j.company) ? (
-                      <img src={getCompanyLogo(j.company)} alt={`${j.company} logo`} className="h-full w-full object-contain p-0.5" loading="lazy" onError={(e) => { (e.currentTarget.style.display = "none"); }} />
-                    ) : (
-                      <Briefcase className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </div>
-                </div>
+          {filtered.map((j) => {
+            const isApplied = j.hasApplied || j.status?.toLowerCase() === "applied";
 
-                <div className="flex-1 min-w-0 p-5 md:pl-0 flex items-start justify-between gap-4 flex-wrap">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-display font-bold text-navy text-lg">{j.title}</h3>
-                      <Badge variant="outline" className="bg-slate-50">{j.type}</Badge>
+            return (
+              <Card 
+                key={j.id} 
+                className="overflow-hidden card-hover border-border/60 bg-white cursor-pointer transition-shadow hover:shadow-md"
+                onClick={() => setViewingJob(j)}
+              >
+                <div className="flex gap-4 flex-wrap md:flex-nowrap">
+                  <div className="relative h-32 w-full md:h-auto md:w-40 shrink-0 bg-slate-100">
+                    <img src={getJobImage(j) || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=300&h=300"} alt={j.title} className="h-full w-full object-cover" loading="lazy" />
+                    <div className="absolute bottom-2 left-2 h-9 w-9 rounded-md bg-white border border-white/70 flex items-center justify-center overflow-hidden shadow">
+                      {getCompanyLogo(j.company) ? (
+                        <img src={getCompanyLogo(j.company)} alt={`${j.company} logo`} className="h-full w-full object-contain p-0.5" loading="lazy" onError={(e) => { (e.currentTarget.style.display = "none"); }} />
+                      ) : (
+                        <Briefcase className="h-5 w-5 text-muted-foreground" />
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3">
-                      <Briefcase className="h-4 w-4" />{j.company} 
-                      <MapPin className="h-4 w-4 ml-2" />{j.location}
-                    </p>
-
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {(j.skills || []).map((s: string) => <span key={s} className="text-xs bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded">{s}</span>)}
-                    </div>
-
-                    <p className="text-xs text-muted-foreground mt-3 font-medium">
-                      {j.qualification || "Any Degree"} · {j.experience || "Fresher"} · {j.salary || "Not specified"}
-                    </p>
                   </div>
 
-                  <div className="text-right shrink-0 flex flex-col items-end">
-                    <div className="flex items-center gap-2 mb-2">
-                      {/* Feature 5: Bookmark / Save Job Button */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`size-9 rounded-full border border-border/60 hover:bg-saffron/10 ${j.isSaved ? "text-saffron bg-saffron/5" : "text-muted-foreground"}`}
-                        title={j.isSaved ? "Saved Job" : "Save Job"}
-                        disabled={savingId === j.id}
-                        onClick={() => handleToggleSave(j.id)}
-                      >
-                        {savingId === j.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Bookmark className={`h-4 w-4 ${j.isSaved ? "fill-saffron text-saffron" : ""}`} />
-                        )}
-                      </Button>
-                      
-                      <div className="size-14 rounded-full bg-gradient-to-br from-india-green/10 to-saffron/10 border border-india-green/20 flex flex-col items-center justify-center">
-                        <Sparkles className="h-2.5 w-2.5 text-india-green mb-0.5" />
-                        <p className="font-display font-bold text-navy text-xs">{j.matchScore}%</p>
+                  <div className="flex-1 min-w-0 p-5 md:pl-0 flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-display font-bold text-navy text-lg group-hover:text-saffron transition-colors">{j.title}</h3>
+                        <Badge variant="outline" className="bg-slate-50">{j.type}</Badge>
                       </div>
+                      <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3">
+                        <span className="flex items-center"><Briefcase className="h-4 w-4 mr-1" />{j.company}</span>
+                        <span className="flex items-center"><MapPin className="h-4 w-4 mr-1" />{j.location}</span>
+                      </p>
+
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {(j.skills || []).map((s: string) => <span key={s} className="text-xs bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded">{s}</span>)}
+                      </div>
+
+                      <p className="text-xs text-muted-foreground mt-3 font-medium">
+                        {j.qualification || "Any Degree"} · {j.experience || "Fresher"} · {j.salary || "Not specified"}
+                      </p>
                     </div>
 
-                    <Button size="sm" className="mt-1 bg-navy text-white hover:bg-navy/90 w-full" onClick={() => setApplying(j)}>Apply</Button>
+                    <div className="text-right shrink-0 flex flex-col items-end">
+                      <div className="flex items-center gap-2 mb-2">
+                        {/* Feature 5: Bookmark / Save Job Button */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`size-9 rounded-full border border-border/60 hover:bg-saffron/10 ${j.isSaved ? "text-saffron bg-saffron/5" : "text-muted-foreground"}`}
+                          title={j.isSaved ? "Saved Job" : "Save Job"}
+                          disabled={savingId === j.id}
+                          onClick={(e) => { e.stopPropagation(); handleToggleSave(j.id); }}
+                        >
+                          {savingId === j.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Bookmark className={`h-4 w-4 ${j.isSaved ? "fill-saffron text-saffron" : ""}`} />
+                          )}
+                        </Button>
+                        
+                        <div className="size-14 rounded-full bg-gradient-to-br from-india-green/10 to-saffron/10 border border-india-green/20 flex flex-col items-center justify-center">
+                          <Sparkles className="h-2.5 w-2.5 text-india-green mb-0.5" />
+                          <p className="font-display font-bold text-navy text-xs">{j.matchScore || 85}%</p>
+                        </div>
+                      </div>
+
+                      <Button 
+                        size="sm" 
+                        className={`mt-1 w-full ${isApplied ? "bg-slate-100 text-slate-500 hover:bg-slate-100" : "bg-navy text-white hover:bg-navy/90"}`} 
+                        disabled={isApplied}
+                        onClick={(e) => { e.stopPropagation(); setApplying(j); }}
+                      >
+                        {isApplied ? "Applied" : "Apply"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      <LiveApplyDialog job={applying} onClose={() => setApplying(null)} />
+      {/* Modals */}
+      <LiveApplyDialog job={applying} onClose={() => setApplying(null)} onSuccess={handleApplySuccess} />
+      
+      <JobDetailsDialog 
+        job={viewingJob} 
+        onClose={() => setViewingJob(null)} 
+        onApply={() => {
+          setApplying(viewingJob);
+          setViewingJob(null);
+        }} 
+      />
     </DashShell>
   );
 }
