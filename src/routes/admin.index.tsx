@@ -31,7 +31,7 @@ function AdminHome() {
   useEffect(() => {
     const fetchLiveEvents = async () => {
       try {
-        const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/live-events");
+        const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/live-events");
         const json = await res.json();
         if (json.success) setLiveEvents(json.data);
       } catch (err) {
@@ -53,7 +53,7 @@ function AdminHome() {
     setIsDownloading(true);
     try {
       // Direct fetch to backend export endpoint
-      const response = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${activeEvent.id}/export`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${activeEvent.id}/export`);
       
       if (!response.ok) throw new Error("Failed to generate report from server.");
 
