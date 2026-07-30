@@ -34,7 +34,7 @@ function Candidates() {
   const fetchCandidates = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/candidates");
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/candidates`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data.length > 0) {
