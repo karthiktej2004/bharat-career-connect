@@ -28,7 +28,7 @@ export function ApplyJobDialog({ job, onClose }: { job: any; onClose: () => void
       }
 
       try {
-        const res = await fetch(`http://localhost:5000/api/candidate/profile/${session.id}`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}api/candidate/profile/${session.id}`);
         const json = await res.json();
 
         if (json.success) {
@@ -54,7 +54,7 @@ export function ApplyJobDialog({ job, onClose }: { job: any; onClose: () => void
     const session = getSession();
 
     try {
-      const res = await fetch("http://localhost:5000/api/applications/apply", {
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}api/applications/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
