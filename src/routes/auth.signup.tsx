@@ -224,7 +224,13 @@ function SignupPage() {
 
   const set = <K extends keyof Data>(k: K, v: Data[K]) => setData((d) => ({ ...d, [k]: v }));
   const toggleArr = (k: "skills" | "certifications" | "languagesFluent" | "preferredRoles" | "preferredLocations", v: string) => { setData((d) => { const arr = (d[k] as any[]) || []; return { ...d, [k]: arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v] }; }); };
-
+  const isPasswordValid = useMemo(() => {
+    if (!password || password.length < 8) return false;
+    if (/^\d+$/.test(password)) return false;
+    if (/^[a-zA-Z]+$/.test(password)) return false;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return passwordRegex.test(password) && password === confirmPassword;
+  }, [password, confirmPassword]);
   const canNext = useMemo(() => {
     switch (STEPS[step].key) {
       case "basic": 
@@ -232,7 +238,7 @@ function SignupPage() {
       case "verify": 
         return !!data.otpVerified;
       case "password":
-        return password.length >= 8 && confirmPassword.length >= 8;
+        return isPasswordValid;
       case "education": 
         return !!(data.qualification && data.yearOfPassing && isYopValid);
       case "skills": 
