@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { setSession, NSQF_SKILLS, INDIAN_LANGUAGES, INDIAN_STATES, type CandidateProfile } from "@/lib/mockStore";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Upload, ShieldCheck, Sparkles, GraduationCap, Briefcase, FileText, Target, User as UserIcon, X, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 export const Route = createFileRoute("/auth/signup")({
   head: () => ({ meta: [{ title: "Register as Candidate — Bharat Career Connect" }] }),
@@ -23,13 +24,15 @@ type Data = Partial<CandidateProfile> & {
   mla?: string; mp?: string; gramPanchayat?: string; 
   institutionOther?: string; course?: string; courseOther?: string; 
   specializationOther?: string; schoolName?: string; stateBoardName?: string;
-  countryCode?: string; subCategory?: string; socialCategory?: string;
+  countryCode?: string; socialCategory?: string;
   certifications?: Array<{ title: string; fileName: string }>;
+  gender?: string;
 };
 
 const STEPS = [
   { key: "basic", label: "Basic Info", icon: UserIcon },
   { key: "verify", label: "Verify Phone", icon: ShieldCheck },
+  { key: "password", label: "Password", icon: ShieldCheck }, // New Step added
   { key: "education", label: "Education", icon: GraduationCap },
   { key: "skills", label: "Skills", icon: Sparkles },
   { key: "experience", label: "Experience", icon: Briefcase },
@@ -53,16 +56,15 @@ const HIGHEST_QUALS = [
   "Others"
 ];
 
-const SUB_CATEGORIES = [
-  "Open For All",
-  "Male Candidate(s)",
-  "Female Candidate(s)",
-  "PWD Candidate(s)",
-  "Widow Candidate(s)",
-  "LGBTQ+ Candidate(s)",
-  "Senior Citizens Candidate(s)",
-  "Veterans Candidate(s)",
-  "Other(s)"
+const GENDER_OPTIONS = [
+  "Male", 
+  "Female", 
+  "PWD (Person With Disabilities)", 
+  "Widow", 
+  "LGBTQ+", 
+  "Senior Citizens", 
+  "Veterans", 
+  "Others"
 ];
 
 const SOCIAL_CATEGORIES = [
@@ -136,10 +138,13 @@ function SignupPage() {
     preferredRoles: [], 
     preferredLocations: [],
     countryCode: "+91",
-    subCategory: "Open For All",
-    socialCategory: "UR - Unreserved (General)"
+    socialCategory: "UR - Unreserved (General)",
+    gender: "" 
   });
+  
+  const [otherGenderDetails, setOtherGenderDetails] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [otpSent, setOtpSent] = useState<string | null>(null);
   const [otpInput, setOtpInput] = useState("");
@@ -177,6 +182,23 @@ function SignupPage() {
     return !isNaN(yop) && yop >= 1970 && yop <= currentYear + 6;
   }, [data.yearOfPassing]);
 
+  const validatePassword = () => {
+    // 1 Capital, 1 Small, 1 Number, 1 Special Char, Min 8 Chars
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    
+    if (!passwordRegex.test(password)) {
+      toast.error("Password must be at least 8 chars long with 1 uppercase, 1 lowercase, 1 number & 1 special character.");
+      return false;
+    }
+    
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match.");
+      return false;
+    }
+    
+    return true;
+  };
+
   useEffect(() => {
     const pin = (data.pincode || "").trim();
     if (!/^\d{6}$/.test(pin)) { setPinLookup("idle"); return; }
@@ -206,9 +228,11 @@ function SignupPage() {
   const canNext = useMemo(() => {
     switch (STEPS[step].key) {
       case "basic": 
-        return !!(data.fullName && isNameValid && data.email && isEmailValid && data.phone && isPhoneValid && password.length >= 6 && data.dob && data.pincode?.length === 6);
+        return !!(data.fullName && isNameValid && data.email && isEmailValid && data.phone && isPhoneValid && data.dob && data.pincode?.length === 6 && data.gender && (data.gender !== "Others" || (data.gender === "Others" && otherGenderDetails.trim() !== "")));
       case "verify": 
         return !!data.otpVerified;
+      case "password":
+        return password.length >= 8 && confirmPassword.length >= 8;
       case "education": 
         return !!(data.qualification && data.yearOfPassing && isYopValid);
       case "skills": 
@@ -222,7 +246,7 @@ function SignupPage() {
       case "review": 
         return true;
     }
-  }, [step, data, password, isNameValid, isEmailValid, isPhoneValid, isYopValid]);
+  }, [step, data, password, confirmPassword, isNameValid, isEmailValid, isPhoneValid, isYopValid, otherGenderDetails]);
 
   // True 0% Profile Calculation (Ignores preset defaults until interacted with)
   const completion = useMemo(() => {
@@ -251,6 +275,7 @@ function SignupPage() {
     if (otpInput === "1234" || /^\d{6}$/.test(otpInput)) { 
       set("otpVerified", true); 
       toast.success("Phone verified successfully!"); 
+      setStep((s) => s + 1); // Move to password step automatically
     } else { 
       toast.error("Invalid OTP. Enter 1234"); 
     } 
@@ -310,6 +335,9 @@ function SignupPage() {
     const finalInstitution = data.institution === "State Board" ? `${data.stateBoardName} State Board` : data.institution === "__other__" ? d.institutionOther : data.institution;
     const finalCourse = data.course === "__other__" ? d.courseOther : data.course;
     const finalSpecialization = data.specialization === "__other__" ? d.specializationOther : data.specialization;
+    
+    // Resolve gender text
+    const finalGender = data.gender === "Others" ? otherGenderDetails : data.gender;
 
     const payload = {
       fullName: data.fullName?.trim() || "", 
@@ -317,10 +345,9 @@ function SignupPage() {
       phone: `${data.countryCode || "+91"} ${data.phone?.replace(/\D/g, "")}` || "", 
       password: password, 
       dob: data.dob || null, 
-      gender: data.gender || "Male", 
+      gender: finalGender || "Male", 
       language: data.language || "English", 
       category: data.category || "General Merit (GM)",
-      subCategory: data.subCategory || "Open For All",
       socialCategory: data.socialCategory || "UR - Unreserved (General)",
       state: data.state || "", 
       district: data.district || "", 
@@ -374,6 +401,13 @@ function SignupPage() {
       setIsSubmitting(false);
     }
   }
+
+  const handleNextStep = () => {
+     if (STEPS[step].key === 'password') {
+         if(!validatePassword()) return;
+     }
+     setStep((s) => s + 1);
+  };
 
   return (
     <div className="min-h-screen flex flex-col hero-gradient">
@@ -443,14 +477,6 @@ function SignupPage() {
                 </div>
 
                 <div>
-                  <Label>Password <span className="text-red-500">*</span></Label>
-                  <div className="relative mt-1">
-                    <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" className="pr-10" />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground hover:text-navy">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-                  </div>
-                </div>
-
-                <div>
                   <Label>Date of Birth (15+ Years) <span className="text-red-500">*</span></Label>
                   <Input 
                     type="date" 
@@ -462,16 +488,33 @@ function SignupPage() {
                 </div>
 
                 <div>
-                  <Label>Gender <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="gender">Gender / Classification <span className="text-red-500">*</span></Label>
                   <Select value={data.gender || ""} onValueChange={(v) => set("gender", v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select Gender" /></SelectTrigger>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select classification" />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
+                      {GENDER_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
+                
+                 {data.gender === "Others" && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                    <Label htmlFor="other-gender">Please Specify <span className="text-red-500">*</span></Label>
+                    <Input 
+                      id="other-gender"
+                      placeholder="Enter your specific classification" 
+                      value={otherGenderDetails}
+                      onChange={(e) => setOtherGenderDetails(e.target.value)}
+                      required 
+                    />
+                  </div>
+                )}
 
                 <div>
                   <Label>Social Category (As per Govt. of India) <span className="text-red-500">*</span></Label>
@@ -486,18 +529,6 @@ function SignupPage() {
                 </div>
 
                 <div><Label>Preferred Language</Label><Select value={data.language || "English"} onValueChange={(v) => set("language", v)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{INDIAN_LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent></Select></div>
-                
-                <div>
-                  <Label>Sub Category (Employer Classification)</Label>
-                  <Select value={data.subCategory || "Open For All"} onValueChange={(v) => set("subCategory", v)}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select Sub Category" /></SelectTrigger>
-                    <SelectContent>
-                      {SUB_CATEGORIES.map((sub) => (
-                        <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
                 
                 <div className="md:col-span-2 p-5 bg-slate-50 border border-border rounded-xl mt-2 space-y-4">
                   <div className="font-display font-bold text-navy flex items-center gap-2">Geographic Location {pinLookup === "loading" && <Loader2 className="h-4 w-4 animate-spin text-saffron" />}</div>
@@ -525,11 +556,49 @@ function SignupPage() {
                 <div className="mx-auto size-14 rounded-full bg-saffron/15 flex items-center justify-center mb-4"><ShieldCheck className="h-7 w-7 text-saffron" /></div>
                 <h3 className="font-display text-lg font-bold text-navy">Verify your phone</h3>
                 <p className="text-xs text-muted-foreground mt-1">OTP sent to: <b>{data.countryCode || "+91"} {data.phone}</b></p>
-                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3"><Input value={otpInput} onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Enter OTP (1234)" className="text-center tracking-widest font-mono" maxLength={6} /><div className="flex gap-2 justify-center"><Button onClick={verifyOtp} className="bg-india-green text-white">Verify</Button><Button variant="outline" onClick={sendOtp}>Resend</Button></div></div>)}
+                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3">
+                   <div className="flex justify-center">
+                    <InputOTP maxLength={6} value={otpInput} onChange={setOtpInput}>
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                   </div>
+                   <div className="flex gap-2 justify-center">
+                    <Button onClick={verifyOtp} className="bg-india-green text-white">Verify & Proceed</Button>
+                    <Button variant="outline" onClick={sendOtp}>Resend</Button>
+                   </div>
+                   </div>)}
               </div>
             )}
+            
+            {/* STEP 3: PASSWORD */}
+             {STEPS[step].key === "password" && data.otpVerified && (
+               <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500 max-w-2xl mx-auto">
+                 <div className="md:col-span-2">
+                    <h3 className="font-display text-lg font-bold text-navy mb-4">Set Your Password</h3>
+                 </div>
+                 <div className="md:col-span-2">
+                  <Label>Create Password <span className="text-red-500">*</span></Label>
+                  <div className="relative mt-1">
+                    <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters" className="pr-10" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground hover:text-navy">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character.</p>
+                </div>
+                 <div className="md:col-span-2">
+                  <Label>Confirm Password <span className="text-red-500">*</span></Label>
+                  <div className="relative mt-1">
+                    <Input type={showPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" className="pr-10" />
+                  </div>
+                </div>
+               </div>
+             )}
 
-            {/* STEP 3: EDUCATION */}
+            {/* STEP 4: EDUCATION */}
             {STEPS[step].key === "education" && (() => {
               const q = data.qualification || "";
               const isSchool = ["Below 10th / SSLC", "10th Std / SSLC"].includes(q);
@@ -653,7 +722,7 @@ function SignupPage() {
               );
             })()}
 
-            {/* STEP 4: SKILLS */}
+            {/* STEP 5: SKILLS */}
             {STEPS[step].key === "skills" && (() => {
               const query = skillSearch.trim().toLowerCase();
               const filtered = query ? NSQF_SKILLS.filter((s) => s.toLowerCase().includes(query)) : NSQF_SKILLS;
@@ -675,7 +744,7 @@ function SignupPage() {
               );
             })()}
 
-            {/* STEP 5: EXPERIENCE */}
+            {/* STEP 6: EXPERIENCE */}
             {STEPS[step].key === "experience" && (
               <div className="grid md:grid-cols-2 gap-4 animate-in fade-in">
                 <div className="md:col-span-2"><Label>Experience Type <span className="text-red-500">*</span></Label><div className="mt-2 flex gap-3">{(["Fresher","Experienced"] as const).map((t) => (<button key={t} onClick={() => set("experienceType", t)} className={`flex-1 p-4 rounded-lg border text-left ${data.experienceType === t ? "border-navy bg-navy/5" : "border-border"}`}><div className="font-medium text-navy">{t}</div></button>))}</div></div>
@@ -699,7 +768,7 @@ function SignupPage() {
               </div>
             )}
 
-            {/* STEP 6: RESUME & CERTIFICATIONS */}
+            {/* STEP 7: RESUME & CERTIFICATIONS */}
             {STEPS[step].key === "resume" && (
               <div className="py-4 animate-in fade-in space-y-6">
                 <div>
@@ -778,7 +847,7 @@ function SignupPage() {
               </div>
             )}
 
-            {/* STEP 7: PREFERENCES */}
+            {/* STEP 8: PREFERENCES */}
             {STEPS[step].key === "preferences" && (
               <div className="grid md:grid-cols-2 gap-4 animate-in fade-in">
                 <div className="md:col-span-2">
@@ -854,10 +923,10 @@ function SignupPage() {
               </div>
             )}
 
-            {/* STEP 8: REVIEW */}
+            {/* STEP 9: REVIEW */}
             {STEPS[step].key === "review" && (
               <div className="space-y-6 animate-in fade-in">
-                <ReviewSection title="Basic Information"><ReviewRow label="Full Name" value={data.fullName} /><ReviewRow label="Email" value={data.email} /><ReviewRow label="Phone" value={`${data.countryCode || "+91"} ${data.phone}`} /><ReviewRow label="Gender" value={data.gender} /><ReviewRow label="Social Category" value={data.socialCategory} /><ReviewRow label="PIN Code" value={data.pincode} /></ReviewSection>
+                <ReviewSection title="Basic Information"><ReviewRow label="Full Name" value={data.fullName} /><ReviewRow label="Email" value={data.email} /><ReviewRow label="Phone" value={`${data.countryCode || "+91"} ${data.phone}`} /><ReviewRow label="Gender" value={data.gender === "Others" ? otherGenderDetails : data.gender} /><ReviewRow label="Social Category" value={data.socialCategory} /><ReviewRow label="PIN Code" value={data.pincode} /></ReviewSection>
                 <ReviewSection title="Education"><ReviewRow label="Qualification" value={data.qualification} /><ReviewRow label="Institution" value={data.institution === "State Board" ? `${data.stateBoardName} State Board` : data.institution} /><ReviewRow label="Course/Stream" value={data.course || data.specialization} /><ReviewRow label="Year of Passing" value={data.yearOfPassing} /></ReviewSection>
               </div>
             )}
@@ -865,7 +934,7 @@ function SignupPage() {
 
           <div className="mt-8 flex items-center justify-between gap-3 pt-6 border-t border-border">
             <Button variant="outline" disabled={step === 0} onClick={() => setStep((s) => s - 1)}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
-            {step < STEPS.length - 1 ? (<Button disabled={!canNext} onClick={() => setStep((s) => s + 1)} className="bg-navy hover:bg-navy/90 text-white px-8">Next <ArrowRight className="h-4 w-4 ml-1" /></Button>) : (<Button onClick={finish} disabled={isSubmitting} className="bg-saffron text-navy px-8 font-semibold">{isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-1" />} {isSubmitting ? "Creating..." : "Create Account"}</Button>)}
+            {step < STEPS.length - 1 ? (<Button disabled={!canNext} onClick={handleNextStep} className="bg-navy hover:bg-navy/90 text-white px-8">Next <ArrowRight className="h-4 w-4 ml-1" /></Button>) : (<Button onClick={finish} disabled={isSubmitting} className="bg-saffron text-navy px-8 font-semibold">{isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-1" />} {isSubmitting ? "Creating..." : "Create Account"}</Button>)}
           </div>
 
         </Card>
