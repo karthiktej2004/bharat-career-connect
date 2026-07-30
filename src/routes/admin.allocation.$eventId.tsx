@@ -48,14 +48,14 @@ function AllocationPage() {
 
   const refresh = async () => {
     try {
-      const eventRes = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events");
+      const eventRes = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/events");
       const eventJson = await eventRes.json();
       if (eventJson.success) {
         const currentEvent = eventJson.data.find((e: any) => e.id == eventId);
         setEvent(currentEvent);
       }
 
-      const venueRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${eventId}/venue`);
+      const venueRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue`);
       const venueJson = await venueRes.json();
       if (venueJson.success) {
         setBlocks(venueJson.data);
@@ -213,7 +213,7 @@ function AddBlockDialog({ open, onOpenChange, eventId, onChange }: { open: boole
     
     setIsSubmitting(true);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${eventId}/venue/blocks`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/blocks`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, name: name.trim(), code: code.trim() })
       });
@@ -289,7 +289,7 @@ function BlockInterior({ block, eventId, onBack, onChange }: { block: any; event
   async function handleDeleteBlock() {
     if (!confirm(`Delete "${block.name}"? This removes all its stalls.`)) return;
     try {
-      await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/blocks/${block.id}`, { method: 'DELETE' });
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/blocks/${block.id}`, { method: 'DELETE' });
       toast.success("Block deleted");
       onChange(); onBack();
     } catch (e) {
@@ -300,7 +300,7 @@ function BlockInterior({ block, eventId, onBack, onChange }: { block: any; event
   async function handleDeleteStall(stallId: string) {
     if (!confirm("Delete this stall?")) return;
     try {
-      await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/stalls/${stallId}`, { method: 'DELETE' });
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}`, { method: 'DELETE' });
       toast.success("Stall deleted");
       onChange();
     } catch (e) {
@@ -430,7 +430,7 @@ function AddSectionDialog({ open, onOpenChange, block, eventId, onChange }: { op
     
     setIsSubmitting(true);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${eventId}/venue/rooms`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/rooms`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blockId: block.id, name: name.trim(), code: code.trim() })
       });
@@ -483,7 +483,7 @@ function AddStallsDialog({ open, onOpenChange, block, sectionId, eventId, onChan
     
     setIsSubmitting(true);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${eventId}/venue/stalls`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/stalls`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blockId: block.id, roomId: sectionId, count, prefix: prefix.trim() || "Stall" })
       });
@@ -537,7 +537,7 @@ function CompanyAllocation({ eventId, blocks, autoOpenAppId, onChange }: { event
 
   const fetchApps = async () => {
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/stall-applications`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stall-applications`);
       const json = await res.json();
       if (json.success) {
         // Filter applications specific to this event
@@ -667,14 +667,14 @@ function AssignStallDialog({ app, onClose, allStalls, blocks, onChange }: {
     try {
       // 1. Approve stall application if pending
       if (isPending) {
-        await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/stall-applications/${app.id}/status`, {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stall-applications/${app.id}/status`, {
           method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: "approved" })
         });
       }
 
       // 2. Allocate stall to employer
-      await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/stalls/${stallId}/allocate`, {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}/allocate`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employerId: app.employer_id || app.employerId })
       });
@@ -692,7 +692,7 @@ function AssignStallDialog({ app, onClose, allStalls, blocks, onChange }: {
     const current = allStalls.find((x) => x.stall.allocatedToAppId == app.employer_id);
     if (current) {
       try {
-        await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/stalls/${current.stall.id}/allocate`, {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${current.stall.id}/allocate`, {
           method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ employerId: null })
         });
