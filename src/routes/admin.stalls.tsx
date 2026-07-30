@@ -18,7 +18,7 @@ export function AddBlockModal({ eventId, onClose, onSuccess }: { eventId: number
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${eventId}/venue/blocks`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/blocks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, name: name.trim(), code: code.trim() })
