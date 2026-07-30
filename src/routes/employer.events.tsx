@@ -41,10 +41,10 @@ export function EmployerEventsBody() {
     if (!userId) return;
     setIsLoading(true);
     try {
-      const eventsRes = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/events");
+      const eventsRes = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/events");
       const eventsJson = await eventsRes.json();
 
-      const appsRes = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/${userId}/event-stalls`);
+      const appsRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${userId}/event-stalls`);
       const appsJson = await appsRes.json();
 
       if (eventsJson.success) setEvents(eventsJson.data);
@@ -65,7 +65,7 @@ export function EmployerEventsBody() {
     if (!userId) return;
     setApplyingEventId(eventId);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/employer/event-stalls/apply`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/event-stalls/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employerId: userId, eventId })
@@ -88,7 +88,7 @@ export function EmployerEventsBody() {
     setViewingEvent(evt);
     setIsLoadingJobs(true);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/events/${evt.id}/jobs`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/events/${evt.id}/jobs`);
       const json = await res.json();
       if (json.success) setEventJobs(json.data);
     } catch (err) {
