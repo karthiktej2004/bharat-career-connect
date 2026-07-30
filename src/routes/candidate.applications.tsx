@@ -16,6 +16,24 @@ export const Route = createFileRoute("/candidate/applications")({
   component: Applications,
 });
 
+// Helper function to assign specific colors based on the application status
+const getStatusColors = (status: string) => {
+  const s = (status || "Applied").toLowerCase();
+  if (s.includes("applied")) return "bg-blue-50 text-blue-700 border-blue-200";
+  if (s.includes("shortlist")) return "bg-amber-50 text-amber-700 border-amber-200";
+  if (s.includes("interview")) return "bg-purple-50 text-purple-700 border-purple-200";
+  if (s.includes("hire") || s.includes("select") || s.includes("offer")) return "bg-india-green/10 text-india-green border-india-green/20";
+  if (s.includes("reject")) return "bg-red-50 text-red-700 border-red-200";
+  return "bg-slate-50 text-slate-700 border-slate-200"; // default fallback
+};
+
+// Helper function to determine if the message box should be available
+const isMessageAllowed = (status: string) => {
+  const s = (status || "").toLowerCase();
+  // Allow messaging only if the status implies an interview or beyond
+  return s.includes("interview") || s.includes("hire") || s.includes("select") || s.includes("offer");
+};
+
 function Applications() {
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +51,7 @@ function Applications() {
       }
 
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${session.id}/applications`);
+        const res = await fetch(`http://15.207.249.155:5000/api/candidate/${session.id}/applications`);
         const json = await res.json();
         
         if (json.success) {
@@ -59,7 +77,7 @@ function Applications() {
 
     setIsSending(true);
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/applications/message", {
+      const res = await fetch(`http://15.207.249.155:5000/api/applications/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -72,7 +90,7 @@ function Applications() {
       const json = await res.json();
 
       if (json.success) {
-        toast.success(json.message);
+        toast.success(json.message || "Message sent successfully!");
         setMessagingApp(null);
         setMessageText("");
       } else {
@@ -97,7 +115,6 @@ function Applications() {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 border-b border-border text-muted-foreground">
               <tr>
-                {/* Candidate column removed as requested */}
                 <th className="px-6 py-4 font-medium">Job</th>
                 <th className="px-6 py-4 font-medium">Company</th>
                 <th className="px-6 py-4 font-medium">Applied</th>
@@ -125,7 +142,6 @@ function Applications() {
                     <td className="px-6 py-4">
                       <div className="font-medium text-navy">{app.job_title}</div>
                       <div className="mt-1.5 flex items-center">
-                        {/* HYBRID BADGE LOGIC INJECTED HERE */}
                         {app.event_id ? (
                           <Badge variant="outline" className="bg-saffron/10 text-saffron border-saffron/20 font-medium">
                             <MapPin className="h-3 w-3 mr-1" /> Event Walk-in: {app.event_name}
@@ -139,22 +155,30 @@ function Applications() {
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">{app.company}</td>
                     <td className="px-6 py-4 text-muted-foreground">
-                      {new Date(app.applied_at).toLocaleDateString("en-IN")}
+                      {app.applied_at ? new Date(app.applied_at).toLocaleDateString("en-IN") : "—"}
                     </td>
                     <td className="px-6 py-4">
-                      <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium border-0">
-                        {app.status}
+                      {/* Dynamically colored status badge */}
+                      <Badge variant="outline" className={`font-medium capitalize ${getStatusColors(app.status)}`}>
+                        {app.status || "Applied"}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-navy hover:text-navy hover:bg-slate-100"
-                        onClick={() => setMessagingApp(app)}
-                      >
-                        <MessageSquare className="h-4 w-4 mr-2" /> Open
-                      </Button>
+                      {/* Message button visibility conditional logic */}
+                      {isMessageAllowed(app.status) ? (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-navy hover:text-navy hover:bg-slate-100"
+                          onClick={() => setMessagingApp(app)}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" /> Open
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic bg-slate-50 px-2 py-1.5 rounded-md border border-slate-100">
+                          Available after interview
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))
