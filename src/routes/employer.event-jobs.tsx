@@ -1,16 +1,26 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { DashShell } from '@/components/DashShell'
 import { employerNav } from '@/lib/dashNav'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Briefcase, MapPin, Edit, Trash2, XCircle, RefreshCcw, Clock, Users, Tent } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
+import { Briefcase, MapPin, Edit, Trash2, XCircle, RefreshCcw, Clock, Users, Tent, Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getSession } from '@/lib/mockStore'
 
 export const Route = createFileRoute('/employer/event-jobs')({
   component: EmployerEventJobsPage,
 })
+
+const EMPLOYMENT_TYPES = ["Trainee", "Intern", "Apprentice", "Full-Time", "Part-Time", "Contractor", "Freelancer", "Volunteer", "Consultant", "Vendor"];
+const PREFERRED_SHIFTS = ["Day Shift", "Night Shift", "Remote", "Hybrid", "On-Site", "Rotational"];
+const SUB_CATEGORIES = ["Open For All", "Male Only", "Female Only", "PWD", "Widow", "LGBTQ", "Senior Citizens", "Veterans"];
 
 type JobStatus = 'open' | 'closed' | 'pending';
 
@@ -28,8 +38,9 @@ type EventJob = {
 };
 
 function EmployerEventJobsPage() {
-  // In a real scenario, you will fetch these from your backend 
-  // filtering where event_id IS NOT NULL
+  const user = getSession();
+  const userId = user?.id;
+
   const [jobs, setJobs] = useState<EventJob[]>([
     {
       id: "evt-1",
@@ -44,6 +55,114 @@ function EmployerEventJobsPage() {
       eventName: "Bengaluru Mega Udyoga Mela 2024"
     }
   ]);
+
+  // --- NEW STATES FOR POSTING EVENT JOBS ---
+  const [isJobDialogOpen, setIsJobDialogOpen] = useState(false);
+  const [isSubmittingJob, setIsSubmittingJob] = useState(false);
+  const [approvedEvents, setApprovedEvents] = useState<{id: number, name: string}[]>([]);
+
+  const [formData, setFormData] = useState({
+    title: "", type: "", shift: "", subCategory: "", location: "",
+    qualification: "", experience: "", salary: "", vacancies: "",
+    skills: "", description: "", responsibilities: "", eventId: ""
+  });
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Fetch only events where the employer has an APPROVED stall
+  const fetchApprovedEvents = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const [eventsRes, stallsRes] = await Promise.all([
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${userId}/event-stalls`)
+      ]);
+      const eventsData = await eventsRes.json();
+      const stallsData = await stallsRes.json();
+
+      if (eventsData.success && stallsData.success) {
+        // Find IDs of events where stall is approved
+        const approvedStallEventIds = stallsData.data
+          .filter((app: any) => app.status === 'approved')
+          .map((app: any) => app.eventId);
+
+        // Filter global events to only include the approved ones
+        const filteredEvents = eventsData.data
+          .filter((evt: any) => approvedStallEventIds.includes(evt.id))
+          .map((evt: any) => ({ id: evt.id, name: evt.name }));
+
+        setApprovedEvents(filteredEvents);
+      }
+    } catch (err) {
+      console.error("Error fetching approved events:", err);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchApprovedEvents();
+  }, [fetchApprovedEvents]);
+
+  const handleJobSubmit = async () => {
+    if (!formData.eventId || !formData.title || !formData.type || !formData.location) {
+      toast.error("Please select an Event and fill in all required fields.");
+      return;
+    }
+
+    setIsSubmittingJob(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${userId}/jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          jobType: formData.type,
+          location: formData.location,
+          qualification: formData.qualification,
+          experience: formData.experience,
+          salary: formData.salary,
+          skills: formData.skills ? formData.skills.split(',').map(s => s.trim()) : [],
+          vacancies: formData.vacancies || "1",
+          description: formData.description,
+          event_id: formData.eventId // Tying the job specifically to the selected event
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Event Job posted successfully!");
+        setIsJobDialogOpen(false);
+        
+        const selectedEventName = approvedEvents.find(e => e.id.toString() === formData.eventId)?.name || "Event";
+        
+        // Add to local state to reflect immediately
+        setJobs([{
+           id: json.data?.id || Math.random().toString(36).substr(2, 9),
+           title: formData.title,
+           type: formData.type,
+           shift: formData.shift || "Day Shift",
+           subCategory: formData.subCategory || "Open For All",
+           location: formData.location,
+           vacancies: formData.vacancies || "1",
+           postedDate: new Date().toISOString(),
+           status: "open",
+           eventName: selectedEventName
+        }, ...jobs]);
+        
+        setFormData({
+          title: "", type: "", shift: "", subCategory: "", location: "",
+          qualification: "", experience: "", salary: "", vacancies: "",
+          skills: "", description: "", responsibilities: "", eventId: ""
+        });
+      } else {
+        toast.error(json.message || "Failed to post job.");
+      }
+    } catch (err) {
+      toast.error("Server connection error while posting job.");
+    } finally {
+      setIsSubmittingJob(false);
+    }
+  };
 
   const handleCloseJob = (id: string) => {
     setJobs(jobs.map(job => job.id === id ? { ...job, status: "closed" } : job));
@@ -79,13 +198,148 @@ function EmployerEventJobsPage() {
               Manage jobs that are exclusively posted for approved Job Fairs and Events.
             </p>
           </div>
+
+          {/* THE NEW POST JOB BUTTON & MODAL */}
+          <Dialog open={isJobDialogOpen} onOpenChange={setIsJobDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-saffron text-navy hover:bg-saffron/90 font-medium">
+                <Plus className="h-4 w-4 mr-2" /> Post Event Job
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-display text-navy flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-saffron" /> Post Job for an Event
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="grid md:grid-cols-2 gap-4 py-4">
+                <div className="md:col-span-2">
+                  <Label>Select Event <span className="text-red-500">*</span></Label>
+                  <Select value={formData.eventId} onValueChange={(v) => handleInputChange("eventId", v)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select an approved event" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvedEvents.length === 0 ? (
+                        <div className="p-3 text-sm text-muted-foreground italic">No approved events available. Your stall must be approved first.</div>
+                      ) : (
+                        approvedEvents.map(evt => (
+                          <SelectItem key={evt.id} value={evt.id.toString()}>{evt.name}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label>Job Title <span className="text-red-500">*</span></Label>
+                  <Input 
+                    placeholder="e.g. Junior Software Engineer" 
+                    value={formData.title}
+                    onChange={(e) => handleInputChange("title", e.target.value.replace(/[0-9]/g, ""))}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Numbers are not allowed in the job title.</p>
+                </div>
+
+                <div>
+                  <Label>Employment Type <span className="text-red-500">*</span></Label>
+                  <Select value={formData.type} onValueChange={(v) => handleInputChange("type", v)}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectContent>
+                      {EMPLOYMENT_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Location <span className="text-red-500">*</span></Label>
+                  <Input placeholder="e.g. Bengaluru" value={formData.location} onChange={(e) => handleInputChange("location", e.target.value)} className="mt-1" />
+                </div>
+
+                <div>
+                  <Label>Preferred Shift</Label>
+                  <Select value={formData.shift} onValueChange={(v) => handleInputChange("shift", v)}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select shift" /></SelectTrigger>
+                    <SelectContent>
+                      {PREFERRED_SHIFTS.map(shift => <SelectItem key={shift} value={shift}>{shift}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Sub Category (Classification)</Label>
+                  <Select value={formData.subCategory} onValueChange={(v) => handleInputChange("subCategory", v)}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      {SUB_CATEGORIES.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Qualification</Label>
+                  <Input placeholder="e.g. BE/B-Tech" value={formData.qualification} onChange={(e) => handleInputChange("qualification", e.target.value)} className="mt-1" />
+                </div>
+
+                <div>
+                  <Label>Experience</Label>
+                  <Input placeholder="e.g. 0-2 yrs" value={formData.experience} onChange={(e) => handleInputChange("experience", e.target.value)} className="mt-1" />
+                </div>
+
+                <div>
+                  <Label>CTC / Stipend</Label>
+                  <Input placeholder="e.g. ₹4.2 LPA" value={formData.salary} onChange={(e) => handleInputChange("salary", e.target.value)} className="mt-1" />
+                </div>
+
+                <div>
+                  <Label>Vacancies</Label>
+                  <Input type="number" placeholder="e.g. 5" value={formData.vacancies} onChange={(e) => handleInputChange("vacancies", e.target.value)} className="mt-1" />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label>Skills (comma separated)</Label>
+                  <Input placeholder="e.g. Java, SQL, REST APIs" value={formData.skills} onChange={(e) => handleInputChange("skills", e.target.value)} className="mt-1" />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label>Responsibilities <span className="text-red-500">*</span></Label>
+                  <Textarea 
+                    placeholder="List the day-to-day responsibilities for this role..." 
+                    value={formData.responsibilities} 
+                    onChange={(e) => handleInputChange("responsibilities", e.target.value)} 
+                    className="mt-1 resize-none h-20"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label>Job Description</Label>
+                  <Textarea 
+                    placeholder="Overview, benefits, and requirements..." 
+                    value={formData.description} 
+                    onChange={(e) => handleInputChange("description", e.target.value)} 
+                    className="mt-1 resize-none h-24"
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsJobDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleJobSubmit} disabled={isSubmittingJob} className="bg-saffron text-navy hover:bg-saffron/90">
+                  {isSubmittingJob ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Submit Job
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Info Banner for requirements */}
         <div className="bg-indigo-50 border border-indigo-100 text-indigo-800 px-4 py-3 rounded-lg text-sm flex items-start gap-3">
           <Tent className="h-5 w-5 shrink-0 mt-0.5" />
           <p>
-            <strong>Note:</strong> Jobs listed here are attached to specific events. You can only post new event jobs directly from the <strong>Job Fairs</strong> page once your stall allocation is approved by the BCC Admin.
+            <strong>Note:</strong> Jobs listed here are attached to specific events. You can only post new event jobs if your stall allocation is approved by the BCC Admin.
           </p>
         </div>
 
@@ -168,7 +422,7 @@ function EmployerEventJobsPage() {
               <Tent className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
               <h3 className="font-medium text-navy">No Event Jobs found</h3>
               <p className="text-sm text-muted-foreground mt-1">You haven't posted any jobs for specific Job Fairs yet.</p>
-              <p className="text-xs text-muted-foreground mt-2">Go to the Job Fairs tab to apply for stalls and post event jobs.</p>
+              <p className="text-xs text-muted-foreground mt-2">Click 'Post Event Job' above to get started.</p>
             </div>
           )}
         </div>
