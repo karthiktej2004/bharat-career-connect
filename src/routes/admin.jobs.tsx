@@ -34,7 +34,7 @@ function AdminJobs() {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/jobs");
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/jobs");
       const result = await res.json();
       if (result.success) {
         setJobs(result.data);
@@ -62,7 +62,7 @@ function AdminJobs() {
   async function act(j: Job, status: "approved" | "rejected") {
     try {
       // FIX: Changed from /review to /status to match the backend
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/jobs/${j.id}/status`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/jobs/${j.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
