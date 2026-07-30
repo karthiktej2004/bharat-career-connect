@@ -19,7 +19,7 @@ function AdminEventHistory() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/history`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/history`);
       const json = await res.json();
       if (json.success) {
         setCompletedEvents(json.data);
@@ -38,7 +38,7 @@ function AdminEventHistory() {
   const handleDownloadReport = async (eventId: number, eventName: string) => {
     setDownloadingId(eventId);
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/events/${eventId}/export`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/export`);
       if (!res.ok) throw new Error("Export failed");
       
       const blob = await res.blob();
