@@ -47,7 +47,7 @@ function CompanyRequests() {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const res = await fetch("https://bcc-backend-0cny.onrender.com/api/admin/company-requests");
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/admin/company-requests");
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setItems(json.data);
@@ -76,7 +76,7 @@ function CompanyRequests() {
   // Approve request via Backend API
   async function approve(r: CompanyRequest) {
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/company-requests/${r.id}/review`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/company-requests/${r.id}/review`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "approved" }),
@@ -99,7 +99,7 @@ function CompanyRequests() {
   async function reject() {
     if (!rejecting) return;
     try {
-      const res = await fetch(`https://bcc-backend-0cny.onrender.com/api/admin/company-requests/${rejecting.id}/review`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/company-requests/${rejecting.id}/review`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "rejected", note }),
