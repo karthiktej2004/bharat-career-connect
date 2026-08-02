@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, Check, Pencil, Save, X, User as UserIcon, GraduationCap, Sparkles, Briefcase, FileText, Target, Plus, Loader2 } from "lucide-react";
+import { Upload, Check, Pencil, Save, X, User as UserIcon, GraduationCap, Sparkles, Briefcase, FileText, Target, Plus, Loader2, Image as ImageIcon } from "lucide-react";
 import {
   QUALIFICATIONS, NSQF_SKILLS, INDIAN_LANGUAGES, INDIAN_STATES,
   getSession, type CandidateProfile,
@@ -22,10 +22,24 @@ export const Route = createFileRoute("/candidate/profile")({
   component: Profile,
 });
 
-type Editable = Partial<CandidateProfile>;
+// Helper for Strict Name Capitalization (First letter uppercase, rest lowercase, no numbers)
+const formatNameField = (val: string) => {
+  const cleaned = val.replace(/[^a-zA-Z\s]/g, "");
+  return cleaned
+    .split(" ")
+    .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : "")
+    .join(" ");
+};
+
+type Editable = Partial<CandidateProfile> & {
+  fatherName?: string;
+  motherName?: string;
+  profilePhoto?: string;
+  backgroundImage?: string;
+};
 
 function Profile() {
-  const [profile, setProfile] = useState<CandidateProfile | null>(null);
+  const [profile, setProfile] = useState<Editable | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -33,7 +47,6 @@ function Profile() {
   const [skillSearch, setSkillSearch] = useState("");
   const [newRole, setNewRole] = useState("");
 
-  // 1. FETCH FROM REAL DATABASE ON LOAD
   useEffect(() => {
     const loadProfile = async () => {
       const session = getSession();
@@ -61,15 +74,14 @@ function Profile() {
   const completion = useMemo(() => {
     if (!profile) return 0;
     const p = profile;
-    const fields: unknown[] = [p.fullName, p.email, p.phone, p.dob, p.gender, p.category, p.state, p.district, p.pincode, p.qualification, p.institution, p.yearOfPassing, p.percentage, p.specialization, p.skills?.length, p.experienceType, p.resumeFileName, p.preferredLocations?.length, p.preferredJobType, p.expectedSalary];
+    const fields: unknown[] = [p.fullName, p.email, p.phone, p.dob, p.gender, p.category, p.state, p.district, p.pincode, p.qualification, p.institution, p.yearOfPassing, p.percentage, p.specialization, p.skills?.length, p.experienceType, p.resumeFileName, p.preferredLocations?.length, p.preferredJobType, p.expectedSalary, p.fatherName, p.motherName, p.profilePhoto];
     return Math.round((fields.filter(Boolean).length / fields.length) * 100);
   }, [profile]);
 
-  // 2. MASTER FUNCTION TO SAVE TO REAL POSTGRESQL DATABASE
-  const saveToDatabase = async (mergedData: CandidateProfile) => {
+  const saveToDatabase = async (mergedData: Editable) => {
     setIsSaving(true);
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/update", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/update`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mergedData)
@@ -112,16 +124,15 @@ function Profile() {
   const startEdit = (section: string) => { setDraft({ ...profile }); setEditing(section); };
   const cancelEdit = () => { setEditing(null); setDraft({}); };
   
-  // 3. APPLY EDITS & TRIGGER DB SAVE
   const saveEdit = () => {
-    const merged: CandidateProfile = { ...profile, ...draft, completion };
+    const merged: Editable = { ...profile, ...draft, completion };
     setProfile(merged);
     setEditing(null);
     setDraft({});
-    saveToDatabase(merged); // Sends to API
+    saveToDatabase(merged);
   };
 
-  const set = <K extends keyof CandidateProfile>(k: K, v: CandidateProfile[K]) => setDraft((d) => ({ ...d, [k]: v }));
+  const set = <K extends keyof Editable>(k: K, v: Editable[K]) => setDraft((d) => ({ ...d, [k]: v }));
 
   const addSkill = (s: string) => {
     const v = s.trim();
@@ -173,6 +184,17 @@ function Profile() {
     saveToDatabase(merged);
   };
 
+  const handleImageUpload = (field: "profilePhoto" | "backgroundImage", file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size cannot exceed 5MB!");
+      return;
+    }
+    const merged = { ...profile, [field]: file.name };
+    setProfile(merged);
+    saveToDatabase(merged);
+    toast.success(`${field === "profilePhoto" ? "Profile Photo" : "Background Image"} successfully attached.`);
+  };
+
   const skillMatches = skillSearch.trim()
     ? NSQF_SKILLS.filter((s) => s.toLowerCase().includes(skillSearch.trim().toLowerCase())).slice(0, 12)
     : [];
@@ -199,13 +221,43 @@ function Profile() {
         {completion < 100 && <p className="text-xs text-muted-foreground mt-2">Add the missing details below to reach 100%.</p>}
       </Card>
 
+      {/* Profile & Background Images */}
+      <Section title="Profile Branding & Images" icon={ImageIcon}>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <Label className="block mb-2 text-navy font-medium">Profile Photo (JPG/PNG, ≤5MB)</Label>
+            <label className="block border-2 border-dashed border-navy/30 rounded-xl p-6 hover:bg-navy/5 cursor-pointer transition text-center">
+              <Upload className="h-8 w-8 mx-auto text-navy" />
+              <div className="mt-2 font-medium text-navy">{profile.profilePhoto || "Upload Profile Photo"}</div>
+              <div className="text-xs text-muted-foreground mt-1">Recommended 400x400px</div>
+              <input type="file" accept=".jpg,.jpeg,.png" className="hidden" disabled={isSaving} onChange={(e) => {
+                if (e.target.files?.[0]) handleImageUpload("profilePhoto", e.target.files[0]);
+              }} />
+            </label>
+          </div>
+          <div>
+            <Label className="block mb-2 text-navy font-medium">Background Image (JPG/PNG, ≤5MB)</Label>
+            <label className="block border-2 border-dashed border-navy/30 rounded-xl p-6 hover:bg-navy/5 cursor-pointer transition text-center">
+              <Upload className="h-8 w-8 mx-auto text-navy" />
+              <div className="mt-2 font-medium text-navy">{profile.backgroundImage || "Upload Background Cover"}</div>
+              <div className="text-xs text-muted-foreground mt-1">Optional background banner</div>
+              <input type="file" accept=".jpg,.jpeg,.png" className="hidden" disabled={isSaving} onChange={(e) => {
+                if (e.target.files?.[0]) handleImageUpload("backgroundImage", e.target.files[0]);
+              }} />
+            </label>
+          </div>
+        </div>
+      </Section>
+
       {/* Basic Info */}
       <Section title="Basic Information" icon={UserIcon} editing={editing === "basic"} onEdit={() => startEdit("basic")} onSave={saveEdit} onCancel={cancelEdit} isSaving={isSaving}>
         {editing === "basic" ? (
           <div className="grid md:grid-cols-2 gap-4">
-            <FieldInput label="Full Name" value={draft.fullName} onChange={(v) => set("fullName", v)} />
+            <FieldInput label="Full Name" value={draft.fullName} onChange={(v) => set("fullName", formatNameField(v))} />
+            <FieldInput label="Father's Name" value={draft.fatherName} onChange={(v) => set("fatherName", formatNameField(v))} />
+            <FieldInput label="Mother's Name" value={draft.motherName} onChange={(v) => set("motherName", formatNameField(v))} />
             <FieldInput label="Email" type="email" value={draft.email} onChange={(v) => set("email", v)} />
-            <FieldInput label="Phone" value={draft.phone} onChange={(v) => set("phone", v)} />
+            <FieldInput label="Mobile Number (WhatsApp)" value={draft.phone} onChange={(v) => set("phone", v.replace(/\D/g, "").slice(0, 10))} />
             <FieldInput label="Date of Birth" type="date" value={draft.dob} onChange={(v) => set("dob", v)} />
             <FieldSelect label="Gender" value={draft.gender} onChange={(v) => set("gender", v)} options={["Male","Female","Other"]} />
             <FieldSelect label="Preferred Language" value={draft.language} onChange={(v) => set("language", v)} options={INDIAN_LANGUAGES} />
@@ -218,8 +270,10 @@ function Profile() {
         ) : (
           <ReviewGrid>
             <Row label="Full Name" value={profile.fullName} />
+            <Row label="Father's Name" value={profile.fatherName} />
+            <Row label="Mother's Name" value={profile.motherName} />
             <Row label="Email" value={profile.email} />
-            <Row label="Phone" value={profile.phone} />
+            <Row label="Mobile Number (WhatsApp)" value={profile.phone} />
             <Row label="Date of Birth" value={profile.dob} />
             <Row label="Gender" value={profile.gender} />
             <Row label="Preferred Language" value={profile.language} />
@@ -266,7 +320,7 @@ function Profile() {
         </div>
       </Section>
 
-      {/* Skills — always inline editable */}
+      {/* Skills */}
       <Section title="Skills" icon={Sparkles}>
         <div className="flex gap-2">
           <Input value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(skillSearch); } }} placeholder="Search or type a skill and press Add" />
