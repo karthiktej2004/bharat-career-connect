@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { setSession, NSQF_SKILLS, INDIAN_LANGUAGES, type CandidateProfile } from "@/lib/mockStore";
+import { setSession, INDIAN_LANGUAGES, type CandidateProfile } from "@/lib/mockStore";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Upload, ShieldCheck, Sparkles, GraduationCap, Briefcase, FileText, Target, User as UserIcon, X, Eye, EyeOff, Loader2, AlertCircle, MapPin } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -19,21 +19,15 @@ export const Route = createFileRoute("/auth/signup")({
   component: SignupPage,
 });
 
-// Helper for Strict Name Capitalization (First letter uppercase, rest lowercase)
 const formatNameField = (val: string) => {
   const cleaned = val.replace(/[^a-zA-Z\s]/g, "");
-  return cleaned
-    .split(" ")
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
+  return cleaned.split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
 };
 
 // ==========================================
 // CONSTANTS & DROPDOWN LISTS
 // ==========================================
-const GENDER_OPTIONS = [
-  "Male", "Female", "PWD (Person With Disabilities)", "Widow", "LGBTQ+", "Senior Citizens", "Veterans", "Others"
-];
+const GENDER_OPTIONS = ["Male", "Female", "Widow", "LGBTQ+", "Senior Citizens", "Veterans", "Others"];
 
 const SOCIAL_CATEGORIES = [
   "SC - Scheduled Castes", "ST - Scheduled Tribes", "OBC - Other Backward Classes (Non-Creamy Layer)",
@@ -42,21 +36,7 @@ const SOCIAL_CATEGORIES = [
   "PM - Project Affected Persons", "DC - Disaster Affected Persons", "Others"
 ];
 
-const COUNTRY_CODES = [
-  { code: "+91", label: "India (+91)" }, { code: "+1", label: "USA / Canada (+1)" },
-  { code: "+44", label: "UK (+44)" }, { code: "+971", label: "UAE (+971)" },
-  { code: "+65", label: "Singapore (+65)" }, { code: "+61", label: "Australia (+61)" }
-];
-
-const COMMON_ROLES = [
-  "Software Engineer", "Frontend Developer", "Backend Developer", "Full Stack Developer", "Data Analyst", 
-  "Data Scientist", "UI/UX Designer", "Product Manager", "Quality Assurance (QA)", "DevOps Engineer", 
-  "HR Executive", "Business Development Manager", "Sales Executive", "Digital Marketing Specialist", 
-  "Customer Support Executive", "Accountant / Finance Executive", "Operations Manager", 
-  "Machine Learning Engineer", "System Administrator", "Content Writer"
-];
-
-const BOARDS = ["State Board", "CBSE", "ICSE / CISCE", "Other"];
+const BOARDS = ["State Board", "CBSE", "ICSE", "CISCE", "Other"];
 const STATE_BOARDS_LIST = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"];
 const ITI_TRADES = ["Carpenter", "Computer Operator & Programming Assistant (COPA)", "Electrician", "Fitter", "Machinist", "Mechanic (Motor Vehicle)", "Plumber", "Welder", "Wireman", "Other Trade"];
 const DIPLOMA_STREAMS = ["Civil Engineering", "Computer Science Engineering", "Electrical Engineering", "Electronics & Communication", "Mechanical Engineering", "Commercial Practice", "Pharmacy", "Other"];
@@ -75,7 +55,7 @@ const PG_MAPPING: Record<string, string[]> = {
   "MA": ["Political Science", "History", "English Literature", "Sociology", "Economics"],
   "MSc": ["Physics", "Chemistry", "Mathematics", "Computer Science", "Biotechnology", "Data Analytics"],
   "MBA": ["Finance", "Marketing", "Human Resources", "Operations", "Business Analytics", "International Business"],
-  "MCA (Master in Computer Application)": ["Software Development", "Data Science", "Artificial Intelligence", "Cybersecurity", "Cloud Computing"]
+  "MCA": ["Software Development", "Data Science", "Artificial Intelligence", "Cybersecurity", "Cloud Computing"]
 };
 const PG_COURSES = Object.keys(PG_MAPPING);
 
@@ -97,12 +77,10 @@ const DISABILITIES_LIST = [
   "Multiple Disabilities including deaf-blindness", "Acid Attack victims", "Parkinson’s disease", "All the above", "Others"
 ];
 
-const OPPORTUNITIES_LIST = [
-  "Skill Training Opportunities", "Internship Opportunities", "Apprenticeship Opportunities", "Job Opportunities", "No Preference - Open for all"
-];
+const OPPORTUNITIES_LIST = ["Skill Training Opportunities", "Internship Opportunities", "Apprenticeship Opportunities", "Job Opportunities", "No Preference - Open for all"];
 
 const HEAR_ABOUT_US_LIST = [
-  "Search Engine", "Social Media", "E-mail_campaign", "Newsletter", "SMS", "Website Direct", "Blog Article",
+  "Search Engine", "Social Media", "Naukri", "Indeed", "E-mail_campaign", "Newsletter", "SMS", "Website Direct", "Blog Article",
   "Online ad", "Video ad", "University College", "Newspaper Print", "Television", "FM Radio", "Flyer Poster",
   "Bus Announcement", "Railway Announcement", "Job Fair Event", "Referral Friend", "Employer Outreach",
   "Field Partner", "Walk-in", "Community Group", "Alumni Network", "Other"
@@ -117,6 +95,10 @@ const INDIAN_STATES_LIST = [
   "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
   "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep", "Delhi", "Puducherry", "Ladakh", "Jammu and Kashmir"
 ];
+
+// Generate years dynamically for the dropdown (From 1980 to Current Year + 6)
+const currentYear = new Date().getFullYear();
+const YEARS_LIST = Array.from({ length: 50 }, (_, i) => (currentYear + 6 - i).toString());
 
 type AddressData = {
   country: string; pincode: string; state: string; district: string; taluk: string;
@@ -144,6 +126,7 @@ type Data = Partial<CandidateProfile> & {
   opportunities?: string[]; hearAboutUs?: string; socialMediaPlatform?: string; hearAboutOther?: string;
   referralCode?: string;
   tncAccepted?: boolean; declarationAccepted?: boolean;
+  languagesRead?: string[]; languagesWrite?: string[]; languagesSpeak?: string[];
 };
 
 const STEPS = [
@@ -164,7 +147,7 @@ function SignupPage() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<Data>({ 
     language: "English", experienceType: "Fresher", 
-    certifications: [], skills: [], languagesFluent: ["English"], 
+    certifications: [], skills: [], languagesRead: [], languagesWrite: [], languagesSpeak: [], 
     preferredRoles: [], preferredLocations: [], opportunities: [], disabilities: [],
     countryCode: "+91", socialCategory: "UR - Unreserved (General)", gender: "",
     currentAddress: { ...initialAddress }, permanentAddress: { ...initialAddress }, sameAsCurrent: false,
@@ -176,10 +159,10 @@ function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [otpSent, setOtpSent] = useState<string | null>(null);
   const [otpInput, setOtpInput] = useState("");
   const [done, setDone] = useState<CandidateProfile | null>(null);
-  const [pinLookup, setPinLookup] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [skillSearch, setSkillSearch] = useState("");
   const [scoreType, setScoreType] = useState<"percentage" | "cgpa">("percentage");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -201,8 +184,7 @@ function SignupPage() {
   const isEmailValid = useMemo(() => {
     if (!data.email) return true;
     const cleanEmail = data.email.trim().toLowerCase();
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i;
-    return emailRegex.test(cleanEmail);
+    return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i.test(cleanEmail);
   }, [data.email]);
 
   const isPhoneValid = useMemo(() => {
@@ -235,7 +217,8 @@ function SignupPage() {
   };
 
   const set = <K extends keyof Data>(k: K, v: Data[K]) => setData((d) => ({ ...d, [k]: v }));
-  const toggleArr = (k: "skills" | "languagesFluent" | "preferredRoles" | "preferredLocations" | "opportunities" | "disabilities", v: string) => { 
+  
+  const toggleArr = (k: "skills" | "languagesRead" | "languagesWrite" | "languagesSpeak" | "preferredRoles" | "preferredLocations" | "opportunities" | "disabilities", v: string) => { 
     setData((d) => { const arr = (d[k] as any[]) || []; return { ...d, [k]: arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v] }; }); 
   };
 
@@ -280,7 +263,7 @@ function SignupPage() {
       case "verify": return !!data.otpVerified;
       case "password": return isPasswordValid;
       case "education": return !!(data.educationStatus && data.qualification && data.yearOfPassing && isYopValid && data.specialization?.trim());
-      case "skills": return (data.skills?.length || 0) >= 1 && (data.languagesFluent?.length || 0) >= 1;
+      case "skills": return (data.skills?.length || 0) >= 1 && ((data.languagesRead?.length || 0) >= 1 || (data.languagesWrite?.length || 0) >= 1 || (data.languagesSpeak?.length || 0) >= 1);
       case "experience": return !!data.experienceType;
       case "resume": return true; 
 
@@ -336,19 +319,6 @@ function SignupPage() {
     setSkillSearch("");
   }
 
-  function validateAndAddRole(roleName: string) {
-    const trimmed = roleName.trim();
-    if (!trimmed) return;
-    if (trimmed.length < 2 || trimmed.length > 50) return toast.error("Role name must be between 2 and 50 characters.");
-    const currentRoles = data.preferredRoles || [];
-    if (!currentRoles.some(r => r.toLowerCase() === trimmed.toLowerCase())) {
-      set("preferredRoles", [...currentRoles, trimmed]);
-      toast.success(`Added role: ${trimmed}`);
-    } else {
-      toast.error("Role already added.");
-    }
-  }
-
   async function finish() {
     if (!data.tncAccepted || !data.declarationAccepted) {
       toast.error("Action Required: Please check the Terms & Conditions and Declaration boxes to proceed.");
@@ -357,10 +327,17 @@ function SignupPage() {
 
     setIsSubmitting(true);
     
-    // Combine names automatically for backend compatibility
+    // Combine names
     const combinedFullName = [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ");
     const finalExp = data.experienceType === "Experienced" ? `${data.expYears || "0"}.${data.expMonths || "0"}` : "0.0";
     const finalGender = data.gender === "Others" ? otherGenderDetails : data.gender;
+
+    // Combine Languages into a JSON structure
+    const combinedLanguages = JSON.stringify({
+        read: data.languagesRead || [],
+        write: data.languagesWrite || [],
+        speak: data.languagesSpeak || []
+    });
 
     const payload = {
       ...data,
@@ -368,12 +345,11 @@ function SignupPage() {
       gender: finalGender,
       experience: finalExp,
       fullName: combinedFullName,
+      languagesFluent: combinedLanguages // Sends the JSON string to backend
     };
 
     try {
-      if (payload.aadhaar) {
-        payload.aadhaar = "[Aadhaar Redacted]"; 
-      }
+      if (payload.aadhaar) payload.aadhaar = "[Aadhaar Redacted]"; 
 
       const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
 
@@ -385,9 +361,7 @@ function SignupPage() {
       
       const json = await res.json();
 
-      // IF BACKEND REJECTS IT (400 ERROR), LOG IT AND STOP
       if (!res.ok || !json.success) {
-        console.error("❌ BACKEND VALIDATION FAILED:", json);
         toast.error(`Error: ${json.message || "Registration failed due to invalid data."}`);
         setIsSubmitting(false);
         return;
@@ -398,7 +372,6 @@ function SignupPage() {
       toast.success("Account securely created!");
       
     } catch (err) {
-      console.error("❌ FETCH ERROR:", err);
       toast.error("Could not reach backend server. Please check your connection.");
     } finally {
       setIsSubmitting(false);
@@ -504,34 +477,20 @@ function SignupPage() {
             {/* STEP 1: BASIC INFO */}
             {STEPS[step].key === "basic" && (
               <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500">
-                
-                {/* 3-Part Name Grid */}
                 <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 border rounded-xl bg-slate-50">
                   <div>
                     <Label>First Name <span className="text-red-500">*</span></Label>
-                    <Input 
-                      value={data.firstName || ""} 
-                      onChange={(e) => set("firstName", formatNameField(e.target.value))} 
-                      className="mt-1 bg-white" placeholder="e.g. Rahul" 
-                    />
+                    <Input value={data.firstName || ""} onChange={(e) => set("firstName", formatNameField(e.target.value))} className="mt-1 bg-white" placeholder="e.g. Rahul" />
                     {!isFirstNameValid && data.firstName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Min 2 letters</p>}
                   </div>
                   <div>
                     <Label>Middle Name</Label>
-                    <Input 
-                      value={data.middleName || ""} 
-                      onChange={(e) => set("middleName", formatNameField(e.target.value))} 
-                      className="mt-1 bg-white" placeholder="Optional" 
-                    />
+                    <Input value={data.middleName || ""} onChange={(e) => set("middleName", formatNameField(e.target.value))} className="mt-1 bg-white" placeholder="Optional" />
                     {!isMiddleNameValid && data.middleName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Letters only</p>}
                   </div>
                   <div>
                     <Label>Last Name <span className="text-red-500">*</span></Label>
-                    <Input 
-                      value={data.lastName || ""} 
-                      onChange={(e) => set("lastName", formatNameField(e.target.value))} 
-                      className="mt-1 bg-white" placeholder="e.g. Sharma" 
-                    />
+                    <Input value={data.lastName || ""} onChange={(e) => set("lastName", formatNameField(e.target.value))} className="mt-1 bg-white" placeholder="e.g. Sharma" />
                     {!isLastNameValid && data.lastName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Min 2 letters</p>}
                   </div>
                 </div>
@@ -657,8 +616,8 @@ function SignupPage() {
               <div className="max-w-md mx-auto text-center py-6 animate-in fade-in">
                 <div className="mx-auto size-14 rounded-full bg-saffron/15 flex items-center justify-center mb-4"><ShieldCheck className="h-7 w-7 text-saffron" /></div>
                 <h3 className="font-display text-lg font-bold text-navy">Verify your phone</h3>
-                <p className="text-xs text-muted-foreground mt-1">OTP sent to: <b>{data.countryCode || "+91"} {data.phone}</b></p>
-                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3">
+                <p className="text-xs text-muted-foreground mt-1">OTP sent via SMS to: <b>{data.countryCode || "+91"} {data.phone}</b></p>
+                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send SMS OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3">
                    <div className="flex justify-center"><InputOTP maxLength={6} value={otpInput} onChange={setOtpInput}><InputOTPGroup><InputOTPSlot index={0} /><InputOTPSlot index={1} /><InputOTPSlot index={2} /><InputOTPSlot index={3} /></InputOTPGroup></InputOTP></div>
                    <div className="flex gap-2 justify-center"><Button onClick={verifyOtp} className="bg-india-green text-white">Verify & Proceed</Button><Button variant="outline" onClick={sendOtp}>Resend</Button></div>
                    </div>)}
@@ -673,7 +632,7 @@ function SignupPage() {
                   <Label>Create Password <span className="text-red-500">*</span></Label>
                   <div className="relative mt-1">
                     <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters" className="pr-10" />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground"><Eye className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
                   </div>
                   <div className="mt-3 space-y-1.5 text-xs">
                     <p className={`flex items-center gap-1.5 ${password.length >= 8 ? 'text-india-green' : 'text-muted-foreground'}`}>{password.length >= 8 ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 text-red-500" />} At least 8 characters</p>
@@ -685,7 +644,10 @@ function SignupPage() {
                 </div>
                 <div className="md:col-span-2 mt-2">
                   <Label>Confirm Password <span className="text-red-500">*</span></Label>
-                  <Input type={showPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="mt-1" />
+                  <div className="relative mt-1">
+                    <Input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="pr-10" />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-2.5 text-muted-foreground">{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+                  </div>
                   {confirmPassword && password === confirmPassword && isPasswordValid && <p className="text-xs text-india-green mt-2 flex items-center gap-1.5"><Check className="h-3.5 w-3.5" /> Passwords match</p>}
                 </div>
               </div>
@@ -707,13 +669,17 @@ function SignupPage() {
                     <SelectContent>{HIGHEST_QUALS.map((qq) => <SelectItem key={qq} value={qq}>{qq}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
+                
                 <div>
                   <Label>Year of Passing / Expected Passing <span className="text-red-500">*</span></Label>
-                  <Input type="month" value={data.yearOfPassing || ""} onChange={(e) => set("yearOfPassing", e.target.value.split('-')[0])} className="mt-1" />
-                  {!isYopValid && data.yearOfPassing && <p className="text-xs text-red-500 mt-1">Enter a valid 4-digit passing year</p>}
+                  <Select value={data.yearOfPassing || ""} onValueChange={(v) => set("yearOfPassing", v)}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                    <SelectContent>
+                      {YEARS_LIST.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* Sub-dropdowns conditionally based on Qualification */}
                 {["Below 10th / SSLC", "10th / SSLC"].includes(data.qualification || "") && (
                   <>
                     <div>
@@ -813,7 +779,6 @@ function SignupPage() {
                   </>
                 )}
 
-                {/* Score Section for all */}
                 <div className="md:col-span-2 pt-4 border-t">
                   <Label>Mark Scoring Mode</Label>
                   <Select value={scoreType} onValueChange={(v: any) => setScoreType(v)}>
@@ -849,15 +814,42 @@ function SignupPage() {
             {/* STEP 6: SKILLS & LANGUAGES */}
             {STEPS[step].key === "skills" && (
               <div className="animate-in fade-in space-y-6">
-                <div>
-                  <Label className="mb-2 block">Languages Known (Read/Write/Speak) <span className="text-red-500">*</span></Label>
-                  <div className="flex flex-wrap gap-2">
-                    {INDIAN_LANGUAGES.map((l) => {
-                      const on = data.languagesFluent?.includes(l);
-                      return <Badge key={l} onClick={() => toggleArr("languagesFluent", l)} className={`cursor-pointer px-3 py-1 ${on ? "bg-navy text-white" : "bg-slate-100 text-slate-700"}`}>{l}</Badge>;
-                    })}
+                
+                {/* Granular Languages */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-border space-y-4">
+                  <h4 className="font-display font-bold text-navy border-b pb-2">Language Proficiency</h4>
+                  
+                  <div>
+                    <Label className="mb-2 block">Languages Known to READ <span className="text-red-500">*</span></Label>
+                    <div className="flex flex-wrap gap-2">
+                      {INDIAN_LANGUAGES.map((l) => {
+                        const on = data.languagesRead?.includes(l);
+                        return <Badge key={`read-${l}`} onClick={() => toggleArr("languagesRead", l)} className={`cursor-pointer px-3 py-1 ${on ? "bg-navy text-white" : "bg-white text-slate-700 border"}`}>{l}</Badge>;
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 block">Languages Known to WRITE <span className="text-red-500">*</span></Label>
+                    <div className="flex flex-wrap gap-2">
+                      {INDIAN_LANGUAGES.map((l) => {
+                        const on = data.languagesWrite?.includes(l);
+                        return <Badge key={`write-${l}`} onClick={() => toggleArr("languagesWrite", l)} className={`cursor-pointer px-3 py-1 ${on ? "bg-navy text-white" : "bg-white text-slate-700 border"}`}>{l}</Badge>;
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 block">Languages Known to SPEAK <span className="text-red-500">*</span></Label>
+                    <div className="flex flex-wrap gap-2">
+                      {INDIAN_LANGUAGES.map((l) => {
+                        const on = data.languagesSpeak?.includes(l);
+                        return <Badge key={`speak-${l}`} onClick={() => toggleArr("languagesSpeak", l)} className={`cursor-pointer px-3 py-1 ${on ? "bg-navy text-white" : "bg-white text-slate-700 border"}`}>{l}</Badge>;
+                      })}
+                    </div>
                   </div>
                 </div>
+
                 <div className="border-t pt-4">
                   <Label className="mb-2 block">Professional Skills <span className="text-red-500">*</span></Label>
                   <div className="flex gap-2 mb-4">
@@ -882,25 +874,43 @@ function SignupPage() {
                 
                 {data.experienceType === "Experienced" && (
                   <div className="md:col-span-2 bg-slate-50 p-5 rounded-xl border grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Years</Label>
-                      <Select value={data.expYears} onValueChange={(v) => set("expYears", v)}>
-                        <SelectTrigger className="mt-1 bg-white"><SelectValue/></SelectTrigger>
-                        <SelectContent>{Array.from({length: 51}).map((_, i) => <SelectItem key={i} value={i.toString()}>{i}</SelectItem>)}</SelectContent>
-                      </Select>
+                    
+                    <div className="col-span-2 grid grid-cols-2 gap-4 items-end">
+                      <div>
+                        <Label>Years of Experience *</Label>
+                        <Select value={data.expYears} onValueChange={(v) => set("expYears", v)}>
+                          <SelectTrigger className="mt-1 bg-white"><SelectValue/></SelectTrigger>
+                          <SelectContent>{Array.from({length: 51}).map((_, i) => <SelectItem key={i} value={i.toString()}>{i}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Months *</Label>
+                        <Select value={data.expMonths} onValueChange={(v) => set("expMonths", v)}>
+                          <SelectTrigger className="mt-1 bg-white"><SelectValue/></SelectTrigger>
+                          <SelectContent>{Array.from({length: 12}).map((_, i) => <SelectItem key={i} value={i.toString()}>{i}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div>
-                      <Label>Months</Label>
-                      <Select value={data.expMonths} onValueChange={(v) => set("expMonths", v)}>
-                        <SelectTrigger className="mt-1 bg-white"><SelectValue/></SelectTrigger>
-                        <SelectContent>{Array.from({length: 12}).map((_, i) => <SelectItem key={i} value={i.toString()}>{i}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
+                    
                     <div className="col-span-2 bg-white px-3 py-2 rounded-md border text-sm text-navy font-medium text-center">
                       Formatted Experience: <span className="text-saffron font-bold ml-1">{data.expYears}.{data.expMonths} yrs</span>
                     </div>
-                    <div className="col-span-2"><Label>Current Job Title *</Label><Input value={data.currentRole || ""} onChange={(e) => set("currentRole", e.target.value)} className="mt-1" placeholder="e.g. Software Engineer" /></div>
-                    <div className="col-span-2"><Label>Current Company *</Label><Input value={data.currentCompany || ""} onChange={(e) => set("currentCompany", e.target.value)} className="mt-1" placeholder="e.g. Infosys" /></div>
+
+                    {/* Table-like Grid for Job Role & Company */}
+                    <div className="col-span-2 border rounded-xl overflow-hidden mt-2">
+                       <div className="bg-slate-200 px-4 py-2 font-semibold text-sm text-navy border-b">Recent Employment Details</div>
+                       <div className="p-4 grid md:grid-cols-2 gap-4 bg-white">
+                          <div>
+                            <Label className="text-xs">Current / Last Job Title *</Label>
+                            <Input value={data.currentRole || ""} onChange={(e) => set("currentRole", e.target.value)} className="mt-1" placeholder="e.g. Software Engineer" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Current / Last Company *</Label>
+                            <Input value={data.currentCompany || ""} onChange={(e) => set("currentCompany", e.target.value)} className="mt-1" placeholder="e.g. Infosys" />
+                          </div>
+                       </div>
+                    </div>
+
                   </div>
                 )}
               </div>
@@ -942,7 +952,7 @@ function SignupPage() {
                   <Label>Location Preference to work (Select up to 3) <span className="text-red-500">*</span></Label>
                   <div className="flex gap-2 mt-2">
                     <Select onValueChange={(v) => { if((data.preferredLocations?.length || 0) < 3) toggleArr("preferredLocations", v); }}>
-                      <SelectTrigger><SelectValue placeholder="Add State/District" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Add State/District (Type to search)" /></SelectTrigger>
                       <SelectContent>{INDIAN_STATES_LIST.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
@@ -1016,7 +1026,7 @@ function SignupPage() {
                   <div className="space-y-3 bg-saffron/10 border border-saffron/30 p-4 rounded-xl mt-6">
                     <label className="flex items-start gap-3 cursor-pointer">
                       <Checkbox className="mt-1" checked={data.tncAccepted} onCheckedChange={(v) => set("tncAccepted", !!v)} />
-                      <span className="text-sm font-medium text-navy">I accept the Terms & Conditions and Privacy Policy. I consent to receive important updates & promotions via SMS, email, and WhatsApp. <span className="text-red-500">*</span></span>
+                      <span className="text-sm font-medium text-navy">I accept the Terms & Conditions and Privacy Policy. I consent to receive important updates & promotions via SMS and WhatsApp. <span className="text-red-500">*</span></span>
                     </label>
                     <label className="flex items-start gap-3 cursor-pointer">
                       <Checkbox className="mt-1" checked={data.declarationAccepted} onCheckedChange={(v) => set("declarationAccepted", !!v)} />
@@ -1035,7 +1045,7 @@ function SignupPage() {
             ) : (
               <Button 
                 onClick={finish} 
-                disabled={isSubmitting} 
+                disabled={isSubmitting || !canNext} 
                 className="bg-india-green hover:bg-india-green/90 text-white px-8 font-semibold"
               >
                 {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-1" />} 
