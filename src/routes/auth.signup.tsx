@@ -113,7 +113,7 @@ const initialAddress: AddressData = {
 
 type Data = Partial<CandidateProfile> & { 
   firstName?: string; middleName?: string; lastName?: string;
-  password?: string; otp?: string; otpVerified?: boolean; 
+  password?: string; otpVerified?: boolean; 
   aadhaar?: string; hasDisability?: string; disabilities?: string[];
   currentAddress?: AddressData; permanentAddress?: AddressData; sameAsCurrent?: boolean;
   educationStatus?: string;
@@ -132,7 +132,7 @@ type Data = Partial<CandidateProfile> & {
 const STEPS = [
   { key: "basic", label: "Basic Info", icon: UserIcon },
   { key: "address", label: "Address", icon: MapPin },
-  { key: "verify", label: "Verify Phone", icon: ShieldCheck },
+  { key: "verify", label: "Verify Identity", icon: ShieldCheck },
   { key: "password", label: "Password", icon: ShieldCheck },
   { key: "education", label: "Education", icon: GraduationCap },
   { key: "skills", label: "Skills", icon: Sparkles },
@@ -160,13 +160,18 @@ function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [otpSent, setOtpSent] = useState<string | null>(null);
-  const [otpInput, setOtpInput] = useState("");
+  
+  // Dual OTP State
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpPhoneInput, setOtpPhoneInput] = useState("");
+  const [otpEmailInput, setOtpEmailInput] = useState("");
+  
   const [done, setDone] = useState<CandidateProfile | null>(null);
   const [skillSearch, setSkillSearch] = useState("");
   const [scoreType, setScoreType] = useState<"percentage" | "cgpa">("percentage");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aadhaarFocused, setAadhaarFocused] = useState(false);
+  const [stateSearchInput, setStateSearchInput] = useState(""); // For location preference search bar
 
   const calculatedAge = useMemo(() => {
     if (!data.dob) return null;
@@ -289,19 +294,24 @@ function SignupPage() {
     return Math.round((fields.filter(Boolean).length / fields.length) * 100);
   }, [data]);
 
+  // --- DUAL OTP FUNCTIONS ---
   function sendOtp() { 
     if (!isPhoneValid || !data.phone) return toast.error("Enter a valid 10-digit mobile number!");
-    setOtpSent("any"); 
-    toast.success(`OTP sent to ${data.countryCode || "+91"} ${data.phone}. Enter 1234 to verify.`); 
+    if (!isEmailValid || !data.email) return toast.error("Enter a valid email address!");
+    setOtpSent(true); 
+    toast.success(`OTP sent to Email and Phone. Enter 1234 in both fields to verify.`); 
   }
 
   function verifyOtp() { 
-    if (otpInput === "1234" || /^\d{6}$/.test(otpInput)) { 
+    const phoneValid = otpPhoneInput === "1234" || /^\d{6}$/.test(otpPhoneInput);
+    const emailValid = otpEmailInput === "1234" || /^\d{6}$/.test(otpEmailInput);
+
+    if (phoneValid && emailValid) { 
       set("otpVerified", true); 
-      toast.success("Phone verified successfully!"); 
+      toast.success("Identity verified successfully!"); 
       setStep((s) => s + 1); 
     } else { 
-      toast.error("Invalid OTP. Enter 1234"); 
+      toast.error("Invalid OTP. Please enter 1234 in both fields to test."); 
     } 
   }
 
@@ -327,12 +337,10 @@ function SignupPage() {
 
     setIsSubmitting(true);
     
-    // Combine names
     const combinedFullName = [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ");
     const finalExp = data.experienceType === "Experienced" ? `${data.expYears || "0"}.${data.expMonths || "0"}` : "0.0";
     const finalGender = data.gender === "Others" ? otherGenderDetails : data.gender;
 
-    // Combine Languages into a JSON structure
     const combinedLanguages = JSON.stringify({
         read: data.languagesRead || [],
         write: data.languagesWrite || [],
@@ -345,8 +353,10 @@ function SignupPage() {
       gender: finalGender,
       experience: finalExp,
       fullName: combinedFullName,
-      languagesFluent: combinedLanguages // Sends the JSON string to backend
+      languagesFluent: combinedLanguages
     };
+
+    console.log("📤 FRONTEND PAYLOAD BEING SENT TO BACKEND:", payload); // CONSOLE LOG FOR TESTING
 
     try {
       if (payload.aadhaar) payload.aadhaar = "[Aadhaar Redacted]"; 
@@ -611,16 +621,45 @@ function SignupPage() {
               </div>
             )}
 
-            {/* STEP 3: VERIFY */}
+            {/* STEP 3: VERIFY IDENTITY (DUAL OTP) */}
             {STEPS[step].key === "verify" && (
-              <div className="max-w-md mx-auto text-center py-6 animate-in fade-in">
+              <div className="max-w-xl mx-auto text-center py-6 animate-in fade-in">
                 <div className="mx-auto size-14 rounded-full bg-saffron/15 flex items-center justify-center mb-4"><ShieldCheck className="h-7 w-7 text-saffron" /></div>
-                <h3 className="font-display text-lg font-bold text-navy">Verify your phone</h3>
-                <p className="text-xs text-muted-foreground mt-1">OTP sent via SMS to: <b>{data.countryCode || "+91"} {data.phone}</b></p>
-                {!otpSent ? (<Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send SMS OTP</Button>) : data.otpVerified ? (<div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium"><Check className="h-4 w-4" /> Phone verified</div>) : (<div className="mt-6 space-y-3">
-                   <div className="flex justify-center"><InputOTP maxLength={6} value={otpInput} onChange={setOtpInput}><InputOTPGroup><InputOTPSlot index={0} /><InputOTPSlot index={1} /><InputOTPSlot index={2} /><InputOTPSlot index={3} /></InputOTPGroup></InputOTP></div>
-                   <div className="flex gap-2 justify-center"><Button onClick={verifyOtp} className="bg-india-green text-white">Verify & Proceed</Button><Button variant="outline" onClick={sendOtp}>Resend</Button></div>
-                   </div>)}
+                <h3 className="font-display text-lg font-bold text-navy">Verify Your Identity</h3>
+                <p className="text-xs text-muted-foreground mt-1">We need to verify both your email and phone number to proceed.</p>
+                
+                {!otpSent ? (
+                  <Button className="mt-6 bg-navy text-white hover:bg-navy/90" onClick={sendOtp}>Send OTPs to Email & Phone</Button>
+                ) : data.otpVerified ? (
+                  <div className="mt-6 inline-flex items-center gap-2 text-india-green font-medium bg-india-green/10 px-4 py-2 rounded-lg border border-india-green/20"><Check className="h-5 w-5" /> Identity fully verified</div>
+                ) : (
+                  <div className="mt-8 grid md:grid-cols-2 gap-8 text-left bg-slate-50 p-6 rounded-xl border">
+                    <div className="space-y-3">
+                      <Label className="font-bold text-navy">Enter Email OTP</Label>
+                      <p className="text-xs text-muted-foreground">Sent to: <b>{data.email}</b></p>
+                      <InputOTP maxLength={4} value={otpEmailInput} onChange={setOtpEmailInput}>
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} /><InputOTPSlot index={1} /><InputOTPSlot index={2} /><InputOTPSlot index={3} />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <Label className="font-bold text-navy">Enter Phone OTP</Label>
+                      <p className="text-xs text-muted-foreground">Sent to: <b>{data.countryCode || "+91"} {data.phone}</b></p>
+                      <InputOTP maxLength={4} value={otpPhoneInput} onChange={setOtpPhoneInput}>
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} /><InputOTPSlot index={1} /><InputOTPSlot index={2} /><InputOTPSlot index={3} />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+
+                    <div className="md:col-span-2 flex gap-3 justify-center mt-4">
+                      <Button onClick={verifyOtp} className="bg-india-green text-white px-8">Verify Both</Button>
+                      <Button variant="outline" onClick={sendOtp}>Resend</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             
@@ -868,7 +907,7 @@ function SignupPage() {
               <div className="grid md:grid-cols-2 gap-5 animate-in fade-in">
                 <div className="md:col-span-2 flex gap-3">
                   {["Fresher", "Experienced"].map((t) => (
-                    <button key={t} onClick={() => set("experienceType", t)} className={`flex-1 p-4 rounded-lg border font-medium ${data.experienceType === t ? "border-navy bg-navy/5 text-navy" : "border-border text-slate-600"}`}>{t}</button>
+                    <button key={t} onClick={() => set("experienceType", t)} className={`flex-1 p-4 rounded-lg border font-medium transition-colors ${data.experienceType === t ? "border-navy bg-navy text-white" : "border-border text-slate-600 bg-white hover:bg-slate-50"}`}>{t}</button>
                   ))}
                 </div>
                 
@@ -922,7 +961,7 @@ function SignupPage() {
                 <div>
                   <Label className="block mb-2">Resume Upload (.pdf, .doc, .docx only) - Max 2MB</Label>
                   <label className="block border-2 border-dashed border-navy/30 rounded-xl p-8 text-center hover:bg-navy/5 cursor-pointer">
-                    <Upload className="h-10 w-10 mx-auto text-navy" />
+                    <Upload className="h-10 w-10 mx-auto text-navy mb-2" />
                     <div className="mt-3 font-medium text-navy">{data.resumeFileName || "Upload your Resume"}</div>
                     <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => { 
                         const f = e.target.files?.[0]; 
@@ -951,14 +990,42 @@ function SignupPage() {
                 <div className="md:col-span-2">
                   <Label>Location Preference to work (Select up to 3) <span className="text-red-500">*</span></Label>
                   <div className="flex gap-2 mt-2">
-                    <Select onValueChange={(v) => { if((data.preferredLocations?.length || 0) < 3) toggleArr("preferredLocations", v); }}>
-                      <SelectTrigger><SelectValue placeholder="Add State/District (Type to search)" /></SelectTrigger>
-                      <SelectContent>{INDIAN_STATES_LIST.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
+                    {/* Native Input Datalist (Search Bar enabled location select!) */}
+                    <Input 
+                      list="states-datalist" 
+                      placeholder="Type to search states..."
+                      value={stateSearchInput}
+                      onChange={(e) => setStateSearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if(e.key === "Enter") {
+                          e.preventDefault();
+                          const val = stateSearchInput.trim();
+                          if(val && (data.preferredLocations?.length || 0) < 3) {
+                            toggleArr("preferredLocations", val);
+                            setStateSearchInput("");
+                          } else if((data.preferredLocations?.length || 0) >= 3) {
+                            toast.error("Max 3 locations allowed.");
+                          }
+                        }
+                      }}
+                      className="max-w-sm"
+                    />
+                    <datalist id="states-datalist">
+                      {INDIAN_STATES_LIST.map((s) => <option key={s} value={s} />)}
+                    </datalist>
+                    <Button onClick={() => {
+                        const val = stateSearchInput.trim();
+                        if(val && (data.preferredLocations?.length || 0) < 3) {
+                            toggleArr("preferredLocations", val);
+                            setStateSearchInput("");
+                        } else if((data.preferredLocations?.length || 0) >= 3) {
+                            toast.error("Max 3 locations allowed.");
+                        }
+                    }} className="bg-navy text-white">Add</Button>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2 mt-3">
                     {data.preferredLocations?.map((loc) => (
-                      <Badge key={loc} className="bg-saffron text-navy">{loc} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => toggleArr("preferredLocations", loc)}/></Badge>
+                      <Badge key={loc} className="bg-saffron text-navy px-3 py-1">{loc} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => toggleArr("preferredLocations", loc)}/></Badge>
                     ))}
                   </div>
                 </div>
@@ -1023,14 +1090,18 @@ function SignupPage() {
                     <ReviewRow label="Experience" value={data.experienceType === "Experienced" ? `${data.expYears}.${data.expMonths} Yrs` : "Fresher"} />
                   </ReviewSection>
                   
-                  <div className="space-y-3 bg-saffron/10 border border-saffron/30 p-4 rounded-xl mt-6">
+                  <div className="space-y-3 bg-slate-50 border border-border p-4 rounded-xl mt-6">
                     <label className="flex items-start gap-3 cursor-pointer">
                       <Checkbox className="mt-1" checked={data.tncAccepted} onCheckedChange={(v) => set("tncAccepted", !!v)} />
-                      <span className="text-sm font-medium text-navy">I accept the Terms & Conditions and Privacy Policy. I consent to receive important updates & promotions via SMS and WhatsApp. <span className="text-red-500">*</span></span>
+                      <span className="text-sm font-medium text-slate-700 leading-snug">
+                        I have read, understood, and agree to the <a href="#" className="text-navy font-bold underline">Terms and Conditions</a> governing the use of Bharat Career Connect. I agree to receive promotional updates, job alerts, and communications via Email, SMS, and WhatsApp. <span className="text-red-500">*</span>
+                      </span>
                     </label>
-                    <label className="flex items-start gap-3 cursor-pointer">
+                    <label className="flex items-start gap-3 cursor-pointer mt-4">
                       <Checkbox className="mt-1" checked={data.declarationAccepted} onCheckedChange={(v) => set("declarationAccepted", !!v)} />
-                      <span className="text-sm font-medium text-navy">Candidate Willingness Declaration (I agree to provide accurate information and understand the terms of the platform). <span className="text-red-500">*</span></span>
+                      <span className="text-sm font-medium text-slate-700 leading-snug">
+                        Candidate Willingness Declaration: I hereby declare that the information provided is true and correct to the best of my knowledge. <span className="text-red-500">*</span>
+                      </span>
                     </label>
                   </div>
                 </div>
@@ -1072,7 +1143,7 @@ function SignupPage() {
 }
 
 function ReviewRow({ label, value }: { label: string; value?: string }) {
-  return (<div className="p-3 bg-slate-50 border border-border/50 rounded-lg"><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium text-navy mt-0.5">{value || <span className="text-muted-foreground italic">—</span>}</div></div>);
+  return (<div className="p-3 bg-white border border-border/50 rounded-lg shadow-sm"><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium text-navy mt-0.5">{value || <span className="text-muted-foreground italic">—</span>}</div></div>);
 }
 
 function ReviewSection({ title, children }: { title: string; children: ReactNode }) {
