@@ -206,7 +206,7 @@ export function EmployerEventsBody() {
                       </Button>
                     ) : status === 'approved' ? (
                       <Button 
-                        onClick={() => window.location.href = `/employer/jobs?eventId=${evt.id}`} 
+                        onClick={() => window.location.href = `/employer/event-jobs?action=openModal&eventId=${evt.id}`} 
                         className="bg-saffron text-navy hover:bg-saffron/90 font-semibold w-full gap-1"
                       >
                         <Plus className="h-4 w-4" /> Post Job for this Event
