@@ -171,7 +171,7 @@ function SignupPage() {
   const [scoreType, setScoreType] = useState<"percentage" | "cgpa">("percentage");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aadhaarFocused, setAadhaarFocused] = useState(false);
-  const [stateSearchInput, setStateSearchInput] = useState(""); // For location preference search bar
+  const [stateSearchInput, setStateSearchInput] = useState("");
 
   const calculatedAge = useMemo(() => {
     if (!data.dob) return null;
@@ -181,7 +181,6 @@ function SignupPage() {
 
   const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
 
-  // STRICT FIELD VALIDATIONS
   const isFirstNameValid = useMemo(() => !data.firstName || /^[a-zA-Z\s]{2,60}$/.test(data.firstName.trim()), [data.firstName]);
   const isLastNameValid = useMemo(() => !data.lastName || /^[a-zA-Z\s]{2,60}$/.test(data.lastName.trim()), [data.lastName]);
   const isMiddleNameValid = useMemo(() => !data.middleName || /^[a-zA-Z\s]*$/.test(data.middleName.trim()), [data.middleName]);
@@ -356,7 +355,7 @@ function SignupPage() {
       languagesFluent: combinedLanguages
     };
 
-    console.log("📤 FRONTEND PAYLOAD BEING SENT TO BACKEND:", payload); // CONSOLE LOG FOR TESTING
+    console.log("📤 FRONTEND PAYLOAD BEING SENT TO BACKEND:", payload);
 
     try {
       if (payload.aadhaar) payload.aadhaar = "[Aadhaar Redacted]"; 
