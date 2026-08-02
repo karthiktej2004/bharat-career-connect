@@ -108,7 +108,8 @@ function SignupPage() {
     preferredRoles: [], preferredLocations: [], opportunities: [], disabilities: [],
     countryCode: "+91", socialCategory: "UR - Unreserved (General)", gender: "",
     currentAddress: { ...initialAddress }, permanentAddress: { ...initialAddress }, sameAsCurrent: false,
-    expYears: "0", expMonths: "0"
+    expYears: "0", expMonths: "0",
+    tncAccepted: false, declarationAccepted: false
   });
   
   const [otherGenderDetails, setOtherGenderDetails] = useState("");
@@ -118,9 +119,7 @@ function SignupPage() {
   const [otpSent, setOtpSent] = useState<string | null>(null);
   const [otpInput, setOtpInput] = useState("");
   const [done, setDone] = useState<CandidateProfile | null>(null);
-  const [pinLookup, setPinLookup] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [skillSearch, setSkillSearch] = useState("");
-  const [scoreType, setScoreType] = useState<"percentage" | "cgpa">("percentage");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aadhaarFocused, setAadhaarFocused] = useState(false);
 
@@ -133,6 +132,7 @@ function SignupPage() {
 
   const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
 
+  // STRICT VALIDATIONS
   const isNameValid = useMemo(() => {
     if (!data.fullName) return true;
     return /^[a-zA-Z\s]{2,60}$/.test(data.fullName.trim());
@@ -141,7 +141,7 @@ function SignupPage() {
   const isEmailValid = useMemo(() => {
     if (!data.email) return true;
     const cleanEmail = data.email.trim().toLowerCase();
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|in|org|net|edu|gov|co|io)$/i;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i;
     return emailRegex.test(cleanEmail);
   }, [data.email]);
 
@@ -168,7 +168,7 @@ function SignupPage() {
 
   const validatePassword = () => {
     if (!isPasswordValid) {
-      toast.error("Please meet all password requirements and ensure they match.");
+      toast.error("Please meet all password requirements and ensure passwords match.");
       return false;
     }
     return true;
@@ -192,34 +192,48 @@ function SignupPage() {
     });
   };
 
+  // STRICT CAN-NEXT LOGIC FOR EVERY FIELD
   const canNext = useMemo(() => {
     switch (STEPS[step].key) {
       case "basic": 
-        const basicOk = !!(data.fullName && isNameValid && data.email && isEmailValid && data.phone && isPhoneValid && data.dob && data.gender && data.hasDisability);
+        const basicOk = !!(data.fullName && isNameValid && data.email && isEmailValid && data.phone && isPhoneValid && data.dob && data.gender && data.hasDisability && data.socialCategory);
         if(data.gender === "Others" && !otherGenderDetails.trim()) return false;
         if(data.hasDisability === "Yes" && (!data.disabilities || data.disabilities.length === 0)) return false;
         if(data.aadhaar && data.aadhaar.length > 0 && data.aadhaar.length !== 12) return false;
         return basicOk;
+
       case "address":
         const curr = data.currentAddress;
-        if(!curr?.pincode || curr.pincode.length !== 6 || !curr.state || !curr.district || !curr.fullAddress) return false;
-        if(curr.residentType === "Urban Resident" && (!curr.ulb || !curr.ward)) return false;
-        if(curr.residentType === "Rural Resident" && (!curr.grampanchayat || !curr.village)) return false;
-        if(!data.sameAsCurrent) {
+        const isCurrValid = !!(curr?.pincode && curr.pincode.length === 6 && curr.state && curr.district && curr.fullAddress?.trim() && curr.residentType);
+        if (!isCurrValid) return false;
+        if (curr?.residentType === "Urban Resident" && (!curr.ulb || !curr.ward)) return false;
+        if (curr?.residentType === "Rural Resident" && (!curr.grampanchayat || !curr.village)) return false;
+
+        if (!data.sameAsCurrent) {
           const perm = data.permanentAddress;
-          if(!perm?.pincode || perm.pincode.length !== 6 || !perm.state || !perm.district || !perm.fullAddress) return false;
+          const isPermValid = !!(perm?.pincode && perm.pincode.length === 6 && perm.state && perm.district && perm.fullAddress?.trim() && perm.residentType);
+          if (!isPermValid) return false;
+          if (perm?.residentType === "Urban Resident" && (!perm.ulb || !perm.ward)) return false;
+          if (perm?.residentType === "Rural Resident" && (!perm.grampanchayat || !perm.village)) return false;
         }
         return true;
+
       case "verify": return !!data.otpVerified;
       case "password": return isPasswordValid;
-      case "education": return !!(data.educationStatus && data.qualification && data.yearOfPassing && isYopValid);
+      case "education": return !!(data.educationStatus && data.qualification && data.yearOfPassing && isYopValid && data.specialization?.trim());
       case "skills": return (data.skills?.length || 0) >= 1 && (data.languagesFluent?.length || 0) >= 1;
       case "experience": return !!data.experienceType;
       case "resume": return true; 
+
       case "preferences": 
-        return (data.opportunities?.length || 0) >= 1 && (data.preferredLocations?.length || 0) >= 1 && !!data.hearAboutUs;
+        let prefOk = (data.opportunities?.length || 0) >= 1 && (data.preferredLocations?.length || 0) >= 1 && !!data.hearAboutUs;
+        if (data.hearAboutUs === "Social Media" && !data.socialMediaPlatform) prefOk = false;
+        if (data.hearAboutUs === "Other" && !data.hearAboutOther?.trim()) prefOk = false;
+        if (data.referralCode && !/^[a-zA-Z0-9-]{6,20}$/.test(data.referralCode)) prefOk = false;
+        return prefOk;
+
       case "review": 
-        return true; // We validate the checkboxes actively during the finish() click now
+        return true; // We always leave the submit button clickable so we can explicitly error check inside finish()
     }
   }, [step, data, isPasswordValid, isNameValid, isEmailValid, isPhoneValid, isYopValid, otherGenderDetails]);
 
@@ -227,7 +241,7 @@ function SignupPage() {
     const fields = [
       Boolean(data.fullName?.trim()), Boolean(data.email?.trim()), Boolean(data.phone?.trim()),
       Boolean(data.currentAddress?.pincode), Boolean(data.qualification?.trim()),
-      (data.skills?.length || 0) > 0, data.experienceType === "Experienced" ? Boolean(data.currentRole?.trim()) : true,
+      (data.skills?.length || 0) > 0, data.experienceType === "Experienced" ? Boolean(data.expYears !== "0") : true,
       (data.preferredLocations?.length || 0) > 0, Boolean(data.tncAccepted && data.declarationAccepted)
     ];
     return Math.round((fields.filter(Boolean).length / fields.length) * 100);
@@ -264,9 +278,9 @@ function SignupPage() {
   }
 
   async function finish() {
-    // Explicit Validation Check
+    // 1. Explicit validation to ensure "Submit" button works and warns users
     if (!data.tncAccepted || !data.declarationAccepted) {
-      toast.error("Please accept the Terms & Conditions and Declaration to proceed.");
+      toast.error("Action Required: Please check the Terms & Conditions and Declaration boxes to proceed.");
       return;
     }
 
@@ -284,7 +298,7 @@ function SignupPage() {
     };
 
     try {
-      // Secure processing constraint handler
+      // Secure processing constraint handler for Government IDs
       if (payload.aadhaar) {
         payload.aadhaar = "[Aadhaar Redacted]"; 
       }
@@ -296,6 +310,7 @@ function SignupPage() {
         headers: { "Content-Type": "application/json" }, 
         body: JSON.stringify(payload)
       });
+      
       const json = await res.json();
 
       if (res.ok && json.success) {
@@ -316,7 +331,7 @@ function SignupPage() {
      if (STEPS[step].key === 'password') { if(!validatePassword()) return; }
      if (STEPS[step].key === 'preferences' && data.referralCode) {
          if (!/^[a-zA-Z0-9-]{6,20}$/.test(data.referralCode)) {
-             return toast.error("Invalid Referral Code. Please check and try again.");
+             return toast.error("Invalid Referral Code format.");
          }
      }
      setStep((s) => s + 1);
@@ -451,6 +466,7 @@ function SignupPage() {
                 <div>
                   <Label>Email <span className="text-red-500">*</span></Label>
                   <Input type="email" value={data.email || ""} onChange={(e) => set("email", e.target.value.trim())} className="mt-1" placeholder="name@example.com" />
+                  {!isEmailValid && data.email && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Invalid email format</p>}
                 </div>
 
                 <div>
@@ -459,6 +475,7 @@ function SignupPage() {
                     <Input disabled value={data.countryCode || "+91"} className="w-[60px] font-mono text-center px-1" />
                     <Input value={data.phone || ""} onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))} className="flex-1" placeholder="10-digit mobile" maxLength={10} />
                   </div>
+                  {!isPhoneValid && data.phone && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Must be exactly 10 digits starting with 6-9</p>}
                 </div>
 
                 <div>
@@ -483,6 +500,18 @@ function SignupPage() {
                     <SelectContent>
                       <SelectItem value="No">No</SelectItem>
                       <SelectItem value="Yes">Yes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Social Category (Govt. of India) <span className="text-red-500">*</span></Label>
+                  <Select value={data.socialCategory || ""} onValueChange={(v) => set("socialCategory", v)}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select Category" /></SelectTrigger>
+                    <SelectContent>
+                      {SOCIAL_CATEGORIES.map((sc) => (
+                        <SelectItem key={sc} value={sc}>{sc}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -581,6 +610,7 @@ function SignupPage() {
                 <div>
                   <Label>Year of Passing / Expected Passing <span className="text-red-500">*</span></Label>
                   <Input type="month" value={data.yearOfPassing || ""} onChange={(e) => set("yearOfPassing", e.target.value.split('-')[0])} className="mt-1" />
+                  {!isYopValid && data.yearOfPassing && <p className="text-xs text-red-500 mt-1">Enter a valid 4-digit passing year</p>}
                 </div>
                 <div className="md:col-span-2">
                   <Label>Specialization <span className="text-red-500">*</span></Label>
@@ -721,7 +751,7 @@ function SignupPage() {
                   </div>
                 )}
                 {data.hearAboutUs === "Other" && (
-                  <div><Label>Please Specify</Label><Input onChange={(e)=>set("hearAboutOther", e.target.value)} className="mt-1" /></div>
+                  <div><Label>Please Specify <span className="text-red-500">*</span></Label><Input onChange={(e)=>set("hearAboutOther", e.target.value)} className="mt-1" /></div>
                 )}
 
                 <div className="md:col-span-2 border-t pt-4">
