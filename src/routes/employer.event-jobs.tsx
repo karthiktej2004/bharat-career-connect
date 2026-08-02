@@ -1,4 +1,3 @@
-
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useCallback } from 'react'
 import { DashShell } from '@/components/DashShell'
@@ -15,7 +14,14 @@ import { Briefcase, MapPin, Edit, Trash2, XCircle, RefreshCcw, Clock, Users, Ten
 import { toast } from 'sonner'
 import { getSession } from '@/lib/mockStore'
 
+// 1. Tell TanStack router to expect optional URL search parameters
 export const Route = createFileRoute('/employer/event-jobs')({
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      action: search.action as string | undefined,
+      eventId: search.eventId as string | undefined,
+    }
+  },
   component: EmployerEventJobsPage,
 })
 
@@ -40,6 +46,10 @@ function EmployerEventJobsPage() {
   const user = getSession();
   const userId = user?.id;
 
+  // 2. Grab the search params and navigate function from TanStack Router
+  const { action, eventId } = Route.useSearch();
+  const navigate = Route.useNavigate();
+
   const [jobs, setJobs] = useState<EventJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,6 +63,23 @@ function EmployerEventJobsPage() {
     qualification: "", experience: "", salary: "", vacancies: "",
     skills: "", description: "", responsibilities: "", eventId: ""
   });
+
+  // 3. The magic hook to catch the URL parameters and open the modal
+  useEffect(() => {
+    if (action === 'openModal' && eventId) {
+      // Open the modal
+      setIsJobDialogOpen(true);
+      // Pre-select the event in the form
+      setFormData(prev => ({ ...prev, eventId: eventId }));
+      
+      // Clean up the URL so it doesn't get stuck in a loop if the user refreshes
+      navigate({
+        to: '/employer/event-jobs',
+        search: {}, 
+        replace: true
+      });
+    }
+  }, [action, eventId, navigate]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
