@@ -19,13 +19,17 @@ export const Route = createFileRoute("/auth/signup")({
   component: SignupPage,
 });
 
-// Helper for Name Capitalization
-const formatName = (val: string) => {
-  return val.replace(/[^a-zA-Z\s]/g, "").replace(/\b\w/g, (char) => char.toUpperCase());
+// Helper for Strict Name Capitalization (First letter uppercase, rest lowercase)
+const formatNameField = (val: string) => {
+  const cleaned = val.replace(/[^a-zA-Z\s]/g, "");
+  return cleaned
+    .split(" ")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 };
 
 // ==========================================
-// ALL CONSTANTS & DROPDOWN LISTS
+// CONSTANTS & DROPDOWN LISTS
 // ==========================================
 const GENDER_OPTIONS = [
   "Male", "Female", "PWD (Person With Disabilities)", "Widow", "LGBTQ+", "Senior Citizens", "Veterans", "Others"
@@ -114,9 +118,6 @@ const INDIAN_STATES_LIST = [
   "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep", "Delhi", "Puducherry", "Ladakh", "Jammu and Kashmir"
 ];
 
-// ==========================================
-// TYPES & INTERFACES
-// ==========================================
 type AddressData = {
   country: string; pincode: string; state: string; district: string; taluk: string;
   mla: string; mp: string; residentType: string; ulb: string; ward: string;
@@ -129,6 +130,7 @@ const initialAddress: AddressData = {
 };
 
 type Data = Partial<CandidateProfile> & { 
+  firstName?: string; middleName?: string; lastName?: string;
   password?: string; otp?: string; otpVerified?: boolean; 
   aadhaar?: string; hasDisability?: string; disabilities?: string[];
   currentAddress?: AddressData; permanentAddress?: AddressData; sameAsCurrent?: boolean;
@@ -157,10 +159,6 @@ const STEPS = [
   { key: "review", label: "Review", icon: Check },
 ] as const;
 
-
-// ==========================================
-// MAIN COMPONENT
-// ==========================================
 function SignupPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -196,10 +194,21 @@ function SignupPage() {
 
   const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
 
-  const isNameValid = useMemo(() => {
-    if (!data.fullName) return true;
-    return /^[a-zA-Z\s]{2,60}$/.test(data.fullName.trim());
-  }, [data.fullName]);
+  // STRICT VALIDATIONS
+  const isFirstNameValid = useMemo(() => {
+    if (!data.firstName) return true;
+    return /^[a-zA-Z\s]{2,60}$/.test(data.firstName.trim());
+  }, [data.firstName]);
+
+  const isLastNameValid = useMemo(() => {
+    if (!data.lastName) return true;
+    return /^[a-zA-Z\s]{2,60}$/.test(data.lastName.trim());
+  }, [data.lastName]);
+
+  const isMiddleNameValid = useMemo(() => {
+    if (!data.middleName) return true;
+    return /^[a-zA-Z\s]*$/.test(data.middleName.trim());
+  }, [data.middleName]);
 
   const isEmailValid = useMemo(() => {
     if (!data.email) return true;
@@ -255,10 +264,11 @@ function SignupPage() {
     });
   };
 
+  // STRICT CAN-NEXT LOGIC FOR EVERY FIELD
   const canNext = useMemo(() => {
     switch (STEPS[step].key) {
       case "basic": 
-        const basicOk = !!(data.fullName && isNameValid && data.email && isEmailValid && data.phone && isPhoneValid && data.dob && data.gender && data.hasDisability && data.socialCategory);
+        const basicOk = !!(data.firstName && isFirstNameValid && data.lastName && isLastNameValid && isMiddleNameValid && data.email && isEmailValid && data.phone && isPhoneValid && data.dob && data.gender && data.hasDisability && data.socialCategory);
         if(data.gender === "Others" && !otherGenderDetails.trim()) return false;
         if(data.hasDisability === "Yes" && (!data.disabilities || data.disabilities.length === 0)) return false;
         if(data.aadhaar && data.aadhaar.length > 0 && data.aadhaar.length !== 12) return false;
@@ -297,11 +307,11 @@ function SignupPage() {
       case "review": 
         return true; 
     }
-  }, [step, data, isPasswordValid, isNameValid, isEmailValid, isPhoneValid, isYopValid, otherGenderDetails]);
+  }, [step, data, isPasswordValid, isFirstNameValid, isLastNameValid, isMiddleNameValid, isEmailValid, isPhoneValid, isYopValid, otherGenderDetails]);
 
   const completion = useMemo(() => {
     const fields = [
-      Boolean(data.fullName?.trim()), Boolean(data.email?.trim()), Boolean(data.phone?.trim()),
+      Boolean(data.firstName?.trim()), Boolean(data.lastName?.trim()), Boolean(data.email?.trim()), Boolean(data.phone?.trim()),
       Boolean(data.currentAddress?.pincode), Boolean(data.qualification?.trim()),
       (data.skills?.length || 0) > 0, data.experienceType === "Experienced" ? Boolean(data.expYears !== "0") : true,
       (data.preferredLocations?.length || 0) > 0, Boolean(data.tncAccepted && data.declarationAccepted)
@@ -360,6 +370,8 @@ function SignupPage() {
 
     setIsSubmitting(true);
     
+    // Combine names automatically for backend compatibility
+    const combinedFullName = [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ");
     const finalExp = data.experienceType === "Experienced" ? `${data.expYears || "0"}.${data.expMonths || "0"}` : "0.0";
     const finalGender = data.gender === "Others" ? otherGenderDetails : data.gender;
 
@@ -368,7 +380,7 @@ function SignupPage() {
       password,
       gender: finalGender,
       experience: finalExp,
-      fullName: data.fullName?.trim() || "",
+      fullName: combinedFullName,
     };
 
     try {
@@ -499,14 +511,36 @@ function SignupPage() {
             {/* STEP 1: BASIC INFO */}
             {STEPS[step].key === "basic" && (
               <div className="grid md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-500">
-                <div className="md:col-span-2">
-                  <Label>Name (First / Middle / Last) <span className="text-red-500">*</span></Label>
-                  <Input 
-                    value={data.fullName || ""} 
-                    onChange={(e) => set("fullName", formatName(e.target.value))} 
-                    className="mt-1" placeholder="Letters only (e.g. Rahul Kumar Sharma)" 
-                  />
-                  {!isNameValid && data.fullName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Min 2 letters, no numbers/special chars</p>}
+                
+                {/* 3-Part Name Grid */}
+                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 border rounded-xl bg-slate-50">
+                  <div>
+                    <Label>First Name <span className="text-red-500">*</span></Label>
+                    <Input 
+                      value={data.firstName || ""} 
+                      onChange={(e) => set("firstName", formatNameField(e.target.value))} 
+                      className="mt-1 bg-white" placeholder="e.g. Rahul" 
+                    />
+                    {!isFirstNameValid && data.firstName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Min 2 letters</p>}
+                  </div>
+                  <div>
+                    <Label>Middle Name</Label>
+                    <Input 
+                      value={data.middleName || ""} 
+                      onChange={(e) => set("middleName", formatNameField(e.target.value))} 
+                      className="mt-1 bg-white" placeholder="Optional" 
+                    />
+                    {!isMiddleNameValid && data.middleName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Letters only</p>}
+                  </div>
+                  <div>
+                    <Label>Last Name <span className="text-red-500">*</span></Label>
+                    <Input 
+                      value={data.lastName || ""} 
+                      onChange={(e) => set("lastName", formatNameField(e.target.value))} 
+                      className="mt-1 bg-white" placeholder="e.g. Sharma" 
+                    />
+                    {!isLastNameValid && data.lastName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Min 2 letters</p>}
+                  </div>
                 </div>
 
                 <div>
@@ -903,17 +937,6 @@ function SignupPage() {
             {STEPS[step].key === "preferences" && (
               <div className="grid md:grid-cols-2 gap-6 animate-in fade-in">
                 <div className="md:col-span-2">
-                  <Label>Preferred Roles <span className="text-red-500">*</span></Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input placeholder="Type a role and press Add" id="role-input" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); validateAndAddRole(e.currentTarget.value); e.currentTarget.value = ""; } }} />
-                    <Button type="button" className="bg-navy text-white" onClick={() => { const el = document.getElementById("role-input") as HTMLInputElement; if (el?.value) { validateAndAddRole(el.value); el.value = ""; } }}>Add</Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {data.preferredRoles!.map((r) => <Badge key={r} className="bg-navy text-white px-3 py-1">{r} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => toggleArr("preferredRoles", r)}/></Badge>)}
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
                   <Label>What kind of Opportunities are you looking for? <span className="text-red-500">*</span></Label>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {OPPORTUNITIES_LIST.map((opt) => (
@@ -980,32 +1003,36 @@ function SignupPage() {
             )}
 
             {/* STEP 10: REVIEW */}
-            {STEPS[step].key === "review" && (
-              <div className="space-y-6 animate-in fade-in">
-                <ReviewSection title="Basic Information">
-                  <ReviewRow label="Full Name" value={data.fullName} />
-                  <ReviewRow label="Phone" value={`${data.countryCode || "+91"} ${data.phone}`} />
-                  <ReviewRow label="Gender" value={data.gender === "Others" ? otherGenderDetails : data.gender} />
-                  <ReviewRow label="Current Pincode" value={data.currentAddress?.pincode} />
-                </ReviewSection>
-                <ReviewSection title="Education & Experience">
-                  <ReviewRow label="Qualification" value={data.qualification} />
-                  <ReviewRow label="Specialization" value={data.specialization} />
-                  <ReviewRow label="Experience" value={data.experienceType === "Experienced" ? `${data.expYears}.${data.expMonths} Yrs` : "Fresher"} />
-                </ReviewSection>
-                
-                <div className="space-y-3 bg-saffron/10 border border-saffron/30 p-4 rounded-xl mt-6">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <Checkbox className="mt-1" checked={data.tncAccepted} onCheckedChange={(v) => set("tncAccepted", !!v)} />
-                    <span className="text-sm font-medium text-navy">I accept the Terms & Conditions and Privacy Policy. I consent to receive important updates & promotions via SMS, email, and WhatsApp. <span className="text-red-500">*</span></span>
-                  </label>
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <Checkbox className="mt-1" checked={data.declarationAccepted} onCheckedChange={(v) => set("declarationAccepted", !!v)} />
-                    <span className="text-sm font-medium text-navy">Candidate Willingness Declaration (I agree to provide accurate information and understand the terms of the platform). <span className="text-red-500">*</span></span>
-                  </label>
+            {STEPS[step].key === "review" && (() => {
+              const combinedName = [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ");
+              
+              return (
+                <div className="space-y-6 animate-in fade-in">
+                  <ReviewSection title="Basic Information">
+                    <ReviewRow label="Full Name" value={combinedName} />
+                    <ReviewRow label="Phone" value={`${data.countryCode || "+91"} ${data.phone}`} />
+                    <ReviewRow label="Gender" value={data.gender === "Others" ? otherGenderDetails : data.gender} />
+                    <ReviewRow label="Current Pincode" value={data.currentAddress?.pincode} />
+                  </ReviewSection>
+                  <ReviewSection title="Education & Experience">
+                    <ReviewRow label="Qualification" value={data.qualification} />
+                    <ReviewRow label="Specialization" value={data.specialization} />
+                    <ReviewRow label="Experience" value={data.experienceType === "Experienced" ? `${data.expYears}.${data.expMonths} Yrs` : "Fresher"} />
+                  </ReviewSection>
+                  
+                  <div className="space-y-3 bg-saffron/10 border border-saffron/30 p-4 rounded-xl mt-6">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <Checkbox className="mt-1" checked={data.tncAccepted} onCheckedChange={(v) => set("tncAccepted", !!v)} />
+                      <span className="text-sm font-medium text-navy">I accept the Terms & Conditions and Privacy Policy. I consent to receive important updates & promotions via SMS, email, and WhatsApp. <span className="text-red-500">*</span></span>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <Checkbox className="mt-1" checked={data.declarationAccepted} onCheckedChange={(v) => set("declarationAccepted", !!v)} />
+                      <span className="text-sm font-medium text-navy">Candidate Willingness Declaration (I agree to provide accurate information and understand the terms of the platform). <span className="text-red-500">*</span></span>
+                    </label>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           <div className="mt-8 flex items-center justify-between gap-3 pt-6 border-t border-border">
