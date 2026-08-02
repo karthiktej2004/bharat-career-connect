@@ -185,7 +185,6 @@ function SignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aadhaarFocused, setAadhaarFocused] = useState(false);
 
-  // Auto-calculate age from DOB
   const calculatedAge = useMemo(() => {
     if (!data.dob) return null;
     const diff = new Date().getTime() - new Date(data.dob).getTime();
@@ -194,21 +193,10 @@ function SignupPage() {
 
   const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
 
-  // STRICT VALIDATIONS
-  const isFirstNameValid = useMemo(() => {
-    if (!data.firstName) return true;
-    return /^[a-zA-Z\s]{2,60}$/.test(data.firstName.trim());
-  }, [data.firstName]);
-
-  const isLastNameValid = useMemo(() => {
-    if (!data.lastName) return true;
-    return /^[a-zA-Z\s]{2,60}$/.test(data.lastName.trim());
-  }, [data.lastName]);
-
-  const isMiddleNameValid = useMemo(() => {
-    if (!data.middleName) return true;
-    return /^[a-zA-Z\s]*$/.test(data.middleName.trim());
-  }, [data.middleName]);
+  // STRICT FIELD VALIDATIONS
+  const isFirstNameValid = useMemo(() => !data.firstName || /^[a-zA-Z\s]{2,60}$/.test(data.firstName.trim()), [data.firstName]);
+  const isLastNameValid = useMemo(() => !data.lastName || /^[a-zA-Z\s]{2,60}$/.test(data.lastName.trim()), [data.lastName]);
+  const isMiddleNameValid = useMemo(() => !data.middleName || /^[a-zA-Z\s]*$/.test(data.middleName.trim()), [data.middleName]);
 
   const isEmailValid = useMemo(() => {
     if (!data.email) return true;
@@ -264,7 +252,6 @@ function SignupPage() {
     });
   };
 
-  // STRICT CAN-NEXT LOGIC FOR EVERY FIELD
   const canNext = useMemo(() => {
     switch (STEPS[step].key) {
       case "basic": 
@@ -398,14 +385,20 @@ function SignupPage() {
       
       const json = await res.json();
 
-      if (res.ok && json.success) {
-        setSession({ id: json.uniqueId, name: payload.fullName, email: payload.email, role: "candidate" });
-        setDone({ uniqueId: json.uniqueId } as CandidateProfile);
-        toast.success("Account securely created!");
-      } else {
-        toast.error(json.message || "Registration failed.");
+      // IF BACKEND REJECTS IT (400 ERROR), LOG IT AND STOP
+      if (!res.ok || !json.success) {
+        console.error("❌ BACKEND VALIDATION FAILED:", json);
+        toast.error(`Error: ${json.message || "Registration failed due to invalid data."}`);
+        setIsSubmitting(false);
+        return;
       }
+
+      setSession({ id: json.uniqueId, name: payload.fullName, email: payload.email, role: "candidate" });
+      setDone({ uniqueId: json.uniqueId } as CandidateProfile);
+      toast.success("Account securely created!");
+      
     } catch (err) {
+      console.error("❌ FETCH ERROR:", err);
       toast.error("Could not reach backend server. Please check your connection.");
     } finally {
       setIsSubmitting(false);
