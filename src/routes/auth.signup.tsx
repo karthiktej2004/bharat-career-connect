@@ -24,6 +24,67 @@ const formatName = (val: string) => {
   return val.replace(/[^a-zA-Z\s]/g, "").replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+// ==========================================
+// ALL CONSTANTS & DROPDOWN LISTS
+// ==========================================
+const GENDER_OPTIONS = [
+  "Male", "Female", "PWD (Person With Disabilities)", "Widow", "LGBTQ+", "Senior Citizens", "Veterans", "Others"
+];
+
+const SOCIAL_CATEGORIES = [
+  "SC - Scheduled Castes", "ST - Scheduled Tribes", "OBC - Other Backward Classes (Non-Creamy Layer)",
+  "EWS - Economically Weaker Sections", "UR - Unreserved (General)", "ESM - Ex-Servicemen",
+  "A&PH - Persons with Benchmark Disabilities", "FF - Freedom Fighters", "Sports - Sports Persons",
+  "PM - Project Affected Persons", "DC - Disaster Affected Persons", "Others"
+];
+
+const COUNTRY_CODES = [
+  { code: "+91", label: "India (+91)" }, { code: "+1", label: "USA / Canada (+1)" },
+  { code: "+44", label: "UK (+44)" }, { code: "+971", label: "UAE (+971)" },
+  { code: "+65", label: "Singapore (+65)" }, { code: "+61", label: "Australia (+61)" }
+];
+
+const COMMON_ROLES = [
+  "Software Engineer", "Frontend Developer", "Backend Developer", "Full Stack Developer", "Data Analyst", 
+  "Data Scientist", "UI/UX Designer", "Product Manager", "Quality Assurance (QA)", "DevOps Engineer", 
+  "HR Executive", "Business Development Manager", "Sales Executive", "Digital Marketing Specialist", 
+  "Customer Support Executive", "Accountant / Finance Executive", "Operations Manager", 
+  "Machine Learning Engineer", "System Administrator", "Content Writer"
+];
+
+const BOARDS = ["State Board", "CBSE", "ICSE / CISCE", "Other"];
+const STATE_BOARDS_LIST = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"];
+const ITI_TRADES = ["Carpenter", "Computer Operator & Programming Assistant (COPA)", "Electrician", "Fitter", "Machinist", "Mechanic (Motor Vehicle)", "Plumber", "Welder", "Wireman", "Other Trade"];
+const DIPLOMA_STREAMS = ["Civil Engineering", "Computer Science Engineering", "Electrical Engineering", "Electronics & Communication", "Mechanical Engineering", "Commercial Practice", "Pharmacy", "Other"];
+
+const UG_MAPPING: Record<string, string[]> = {
+  "BA": ["Economics", "English Literature", "History", "Journalism", "Political Science", "Sociology", "Psychology"],
+  "Bachelor of Science (BSc)": ["Computer Science", "Information Technology", "Mathematics", "Physics", "Chemistry", "Biotechnology", "Microbiology"],
+  "Bachelor of Commerce (BCom)": ["Accounting", "Banking and Finance", "Taxation", "Computer Applications", "General"],
+  "Bachelor of Computer Applications (BCA)": ["Software Development", "Database Management", "Networking", "Cyber Security", "Web Development", "AI / Machine Learning", "Data Science"],
+  "BBA": ["Finance", "Marketing", "Human Resource Management (HR)", "Business Analytics", "International Business"],
+  "Bachelor of Pharmacy (BPharm)": ["Pharmaceutical Technology", "Pharmacology", "Pharmaceutical Chemistry", "Quality Assurance"]
+};
+const UG_COURSES = Object.keys(UG_MAPPING);
+
+const PG_MAPPING: Record<string, string[]> = {
+  "MA": ["Political Science", "History", "English Literature", "Sociology", "Economics"],
+  "MSc": ["Physics", "Chemistry", "Mathematics", "Computer Science", "Biotechnology", "Data Analytics"],
+  "MBA": ["Finance", "Marketing", "Human Resources", "Operations", "Business Analytics", "International Business"],
+  "MCA (Master in Computer Application)": ["Software Development", "Data Science", "Artificial Intelligence", "Cybersecurity", "Cloud Computing"]
+};
+const PG_COURSES = Object.keys(PG_MAPPING);
+
+const BE_ME_COURSES = ["Computer Science", "Information Technology", "Electronics & Communication", "Electrical", "Mechanical", "Civil", "Aerospace", "Chemical", "Biotechnology", "Artificial Intelligence & ML", "Other"];
+const UNIVERSITIES = ["IIT (Any)", "NIT (Any)", "IIIT (Any)", "IISc Bengaluru", "BITS Pilani", "Delhi University", "Anna University", "VTU", "Bangalore University", "Mysore University", "Osmania University", "Other"];
+const GENERIC_SPECIALIZATIONS = ["Artificial Intelligence & Machine Learning", "Data Science", "Cyber Security", "Finance", "Marketing", "Human Resources", "Operations", "Business Analytics", "Accounting", "Economics", "Physics", "Chemistry", "Mathematics", "Biology", "English Literature"];
+
+const HIGHEST_QUALS = [
+  "Below 10th / SSLC", "10th / SSLC", "ITI", "12th STD / 2nd PUC / Intermidate", 
+  "Diploma", "UG Degree", "PG Degree", "B.E / B.Tech", "M.E / M. Tech", "PhD", 
+  "Short Term Training (STT)", "Others"
+];
+
 const DISABILITIES_LIST = [
   "Blindness", "Low-vision", "Leprosy Cured persons", "Hearing Impairment", "Locomotor Disability",
   "Dwarfism", "Intellectual Disability", "Mental Illness", "Autism Spectrum Disorder", "Cerebral Palsy",
@@ -53,6 +114,9 @@ const INDIAN_STATES_LIST = [
   "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep", "Delhi", "Puducherry", "Ladakh", "Jammu and Kashmir"
 ];
 
+// ==========================================
+// TYPES & INTERFACES
+// ==========================================
 type AddressData = {
   country: string; pincode: string; state: string; district: string; taluk: string;
   mla: string; mp: string; residentType: string; ulb: string; ward: string;
@@ -93,12 +157,10 @@ const STEPS = [
   { key: "review", label: "Review", icon: Check },
 ] as const;
 
-const HIGHEST_QUALS = [
-  "Below 10th / SSLC", "10th / SSLC", "ITI", "12th STD / 2nd PUC / Intermidate", 
-  "Diploma", "UG Degree", "PG Degree", "B.E / B.Tech", "M.E / M. Tech", "PhD", 
-  "Short Term Training (STT)", "Others"
-];
 
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
 function SignupPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -119,7 +181,9 @@ function SignupPage() {
   const [otpSent, setOtpSent] = useState<string | null>(null);
   const [otpInput, setOtpInput] = useState("");
   const [done, setDone] = useState<CandidateProfile | null>(null);
+  const [pinLookup, setPinLookup] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [skillSearch, setSkillSearch] = useState("");
+  const [scoreType, setScoreType] = useState<"percentage" | "cgpa">("percentage");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aadhaarFocused, setAadhaarFocused] = useState(false);
 
@@ -132,7 +196,6 @@ function SignupPage() {
 
   const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0];
 
-  // STRICT VALIDATIONS
   const isNameValid = useMemo(() => {
     if (!data.fullName) return true;
     return /^[a-zA-Z\s]{2,60}$/.test(data.fullName.trim());
@@ -168,7 +231,7 @@ function SignupPage() {
 
   const validatePassword = () => {
     if (!isPasswordValid) {
-      toast.error("Please meet all password requirements and ensure passwords match.");
+      toast.error("Please meet all password requirements and ensure they match.");
       return false;
     }
     return true;
@@ -192,7 +255,6 @@ function SignupPage() {
     });
   };
 
-  // STRICT CAN-NEXT LOGIC FOR EVERY FIELD
   const canNext = useMemo(() => {
     switch (STEPS[step].key) {
       case "basic": 
@@ -233,7 +295,7 @@ function SignupPage() {
         return prefOk;
 
       case "review": 
-        return true; // We always leave the submit button clickable so we can explicitly error check inside finish()
+        return true; 
     }
   }, [step, data, isPasswordValid, isNameValid, isEmailValid, isPhoneValid, isYopValid, otherGenderDetails]);
 
@@ -277,8 +339,20 @@ function SignupPage() {
     setSkillSearch("");
   }
 
+  function validateAndAddRole(roleName: string) {
+    const trimmed = roleName.trim();
+    if (!trimmed) return;
+    if (trimmed.length < 2 || trimmed.length > 50) return toast.error("Role name must be between 2 and 50 characters.");
+    const currentRoles = data.preferredRoles || [];
+    if (!currentRoles.some(r => r.toLowerCase() === trimmed.toLowerCase())) {
+      set("preferredRoles", [...currentRoles, trimmed]);
+      toast.success(`Added role: ${trimmed}`);
+    } else {
+      toast.error("Role already added.");
+    }
+  }
+
   async function finish() {
-    // 1. Explicit validation to ensure "Submit" button works and warns users
     if (!data.tncAccepted || !data.declarationAccepted) {
       toast.error("Action Required: Please check the Terms & Conditions and Declaration boxes to proceed.");
       return;
@@ -298,7 +372,6 @@ function SignupPage() {
     };
 
     try {
-      // Secure processing constraint handler for Government IDs
       if (payload.aadhaar) {
         payload.aadhaar = "[Aadhaar Redacted]"; 
       }
@@ -449,9 +522,9 @@ function SignupPage() {
                   <Select value={data.gender || ""} onValueChange={(v) => set("gender", v)}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Others">Others</SelectItem>
+                      {GENDER_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -612,9 +685,136 @@ function SignupPage() {
                   <Input type="month" value={data.yearOfPassing || ""} onChange={(e) => set("yearOfPassing", e.target.value.split('-')[0])} className="mt-1" />
                   {!isYopValid && data.yearOfPassing && <p className="text-xs text-red-500 mt-1">Enter a valid 4-digit passing year</p>}
                 </div>
-                <div className="md:col-span-2">
-                  <Label>Specialization <span className="text-red-500">*</span></Label>
-                  <Input value={data.specialization || ""} onChange={(e) => set("specialization", e.target.value)} className="mt-1" placeholder="e.g. Computer Science, Mechanical, History..." />
+
+                {/* Sub-dropdowns conditionally based on Qualification */}
+                {["Below 10th / SSLC", "10th / SSLC"].includes(data.qualification || "") && (
+                  <>
+                    <div>
+                      <Label>Board <span className="text-red-500">*</span></Label>
+                      <Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select Board" /></SelectTrigger>
+                        <SelectContent>{BOARDS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    {data.institution === "State Board" && (
+                      <div>
+                        <Label>Select State <span className="text-red-500">*</span></Label>
+                        <Select value={data.stateBoardName || ""} onValueChange={(v) => set("stateBoardName", v)}>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder="Select State" /></SelectTrigger>
+                          <SelectContent>{STATE_BOARDS_LIST.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div className="md:col-span-2">
+                      <Label>School Name <span className="text-red-500">*</span></Label>
+                      <Input value={data.schoolName || ""} onChange={(e) => set("schoolName", e.target.value)} className="mt-1" placeholder="e.g. Govt High School" />
+                    </div>
+                  </>
+                )}
+
+                {data.qualification === "12th STD / 2nd PUC / Intermidate" && (
+                  <>
+                    <div>
+                      <Label>Intermediate Stream <span className="text-red-500">*</span></Label>
+                      <Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select Stream" /></SelectTrigger>
+                        <SelectContent>
+                          {["Science (PCMB / PCMC)", "Commerce (EBACS / ABMS)", "Arts / Humanities", "Vocational"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>College Name <span className="text-red-500">*</span></Label>
+                      <Input value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} className="mt-1" placeholder="e.g. MES PU College" />
+                    </div>
+                  </>
+                )}
+
+                {["ITI", "Diploma"].includes(data.qualification || "") && (
+                  <>
+                    <div className="md:col-span-2">
+                      <Label>{data.qualification === "ITI" ? "ITI Trade *" : "Diploma Stream *"}</Label>
+                      <Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {(data.qualification === "ITI" ? ITI_TRADES : DIPLOMA_STREAMS).map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          <SelectItem value="__other__">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {data.specialization === "__other__" && <Input className="mt-2" placeholder="Specify your trade/stream" value={data.specializationOther || ""} onChange={(e) => set("specializationOther", e.target.value)} />}
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label>Institute Name <span className="text-red-500">*</span></Label>
+                      <Input value={data.institution || ""} onChange={(e) => set("institution", e.target.value)} className="mt-1" placeholder="e.g. Govt Polytechnic" />
+                    </div>
+                  </>
+                )}
+
+                {["UG Degree", "PG Degree", "B.E / B.Tech"].includes(data.qualification || "") && (
+                  <>
+                    <div className="md:col-span-2">
+                      <Label>University <span className="text-red-500">*</span></Label>
+                      <Select value={data.institution || ""} onValueChange={(v) => set("institution", v)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select University" /></SelectTrigger>
+                        <SelectContent>
+                          {UNIVERSITIES.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Course <span className="text-red-500">*</span></Label>
+                      <Select value={data.course || ""} onValueChange={(v) => { set("course", v); set("specialization", ""); }}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select Course" /></SelectTrigger>
+                        <SelectContent>
+                          {(data.qualification === "UG Degree" ? UG_COURSES : data.qualification === "PG Degree" ? PG_COURSES : BE_ME_COURSES).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          <SelectItem value="__other__">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {data.course === "__other__" && <Input className="mt-2" placeholder="Specify course" value={data.courseOther || ""} onChange={(e) => set("courseOther", e.target.value)} />}
+                    </div>
+                    <div>
+                      <Label>Specialization <span className="text-red-500">*</span></Label>
+                      <Select value={data.specialization || ""} onValueChange={(v) => set("specialization", v)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select Specialization" /></SelectTrigger>
+                        <SelectContent>
+                          {(data.qualification === "UG Degree" && data.course && UG_MAPPING[data.course] ? UG_MAPPING[data.course] : data.qualification === "PG Degree" && data.course && PG_MAPPING[data.course] ? PG_MAPPING[data.course] : GENERIC_SPECIALIZATIONS).map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          <SelectItem value="__other__">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {data.specialization === "__other__" && <Input className="mt-2" placeholder="Specify specialization" value={data.specializationOther || ""} onChange={(e) => set("specializationOther", e.target.value)} />}
+                    </div>
+                  </>
+                )}
+
+                {/* Score Section for all */}
+                <div className="md:col-span-2 pt-4 border-t">
+                  <Label>Mark Scoring Mode</Label>
+                  <Select value={scoreType} onValueChange={(v: any) => setScoreType(v)}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="percentage">Percentage (%)</SelectItem>
+                      <SelectItem value="cgpa">CGPA (Max 10.0)</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Input 
+                    className="mt-2 font-mono"
+                    placeholder={scoreType === "percentage" ? "e.g. 85%" : "e.g. 8.5"}
+                    value={data.percentage || ""}
+                    onChange={(e) => {
+                      let val = e.target.value.replace(/[^0-9.]/g, "");
+                      const parts = val.split('.');
+                      if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+                      
+                      if (scoreType === "percentage" && Number(val) > 100) {
+                        toast.error("Percentage cannot exceed 100%"); return;
+                      }
+                      if (scoreType === "cgpa" && Number(val) > 10) {
+                        toast.error("CGPA cannot exceed 10.0"); return;
+                      }
+                      set("percentage", val);
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -672,6 +872,8 @@ function SignupPage() {
                     <div className="col-span-2 bg-white px-3 py-2 rounded-md border text-sm text-navy font-medium text-center">
                       Formatted Experience: <span className="text-saffron font-bold ml-1">{data.expYears}.{data.expMonths} yrs</span>
                     </div>
+                    <div className="col-span-2"><Label>Current Job Title *</Label><Input value={data.currentRole || ""} onChange={(e) => set("currentRole", e.target.value)} className="mt-1" placeholder="e.g. Software Engineer" /></div>
+                    <div className="col-span-2"><Label>Current Company *</Label><Input value={data.currentCompany || ""} onChange={(e) => set("currentCompany", e.target.value)} className="mt-1" placeholder="e.g. Infosys" /></div>
                   </div>
                 )}
               </div>
@@ -701,6 +903,17 @@ function SignupPage() {
             {STEPS[step].key === "preferences" && (
               <div className="grid md:grid-cols-2 gap-6 animate-in fade-in">
                 <div className="md:col-span-2">
+                  <Label>Preferred Roles <span className="text-red-500">*</span></Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input placeholder="Type a role and press Add" id="role-input" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); validateAndAddRole(e.currentTarget.value); e.currentTarget.value = ""; } }} />
+                    <Button type="button" className="bg-navy text-white" onClick={() => { const el = document.getElementById("role-input") as HTMLInputElement; if (el?.value) { validateAndAddRole(el.value); el.value = ""; } }}>Add</Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {data.preferredRoles!.map((r) => <Badge key={r} className="bg-navy text-white px-3 py-1">{r} <X className="h-3 w-3 ml-2 cursor-pointer" onClick={() => toggleArr("preferredRoles", r)}/></Badge>)}
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
                   <Label>What kind of Opportunities are you looking for? <span className="text-red-500">*</span></Label>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {OPPORTUNITIES_LIST.map((opt) => (
@@ -724,7 +937,7 @@ function SignupPage() {
                   </div>
                 </div>
 
-                <label className="md:col-span-2 flex items-center gap-2 bg-slate-50 p-3 rounded-lg border">
+                <label className="md:col-span-2 flex items-center gap-2 bg-slate-50 p-3 rounded-lg border cursor-pointer">
                   <Checkbox checked={!!data.willingToRelocate} onCheckedChange={(v) => set("willingToRelocate", !!v)} />
                   <span className="font-medium text-navy">Are you Willing to Relocate for the opted opportunity?</span>
                 </label>
