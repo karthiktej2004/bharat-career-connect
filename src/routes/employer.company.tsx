@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Upload, Loader2, Save, MapPin, Users, Briefcase, FileCheck } from "lucide-react";
+import { Building2, Upload, Loader2, Save, MapPin, Users, Briefcase, FileCheck, UserPlus, Trash2 } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
 
@@ -18,10 +18,28 @@ export const Route = createFileRoute("/employer/company")({
   component: EmployerCompanyProfile,
 });
 
-// --- CONSTANTS FROM EXCEL DATA ---
+// --- CONSTANTS ---
 const ORG_TYPES = ["Employer Primary Category(E)", "Sector Skill Council (SSC)", "Associations / Industry Clusters", "Skill Training Centre", "Others"];
 const LEGAL_STRUCTURES = ["Sole Proprietorship", "Partnership", "Limited Liability Partnership (LLP)", "Private Limited Company", "Public Limited Company", "One-Person Company", "NGO - Section 8 / Trust", "State Public Sector Undertaking", "Central Public Sector Undertaking", "Others"];
-const SECTORS = ["IT-ITeS Sector", "Manufacturing Sector", "Healthcare Sector", "Finance Sector", "Education Sector", "Agriculture Sector", "Retail Sector", "Logistics Sector", "Construction Sector", "Tourism & Hospitality", "Telecom Sector", "Others"];
+
+// Updated to match the exact 52 sectors from Registration
+const SECTORS = [
+  "Aerospace and Aviation Sector", "Agriculture Sector", "Apparel Sector", "Automotive Sector",
+  "Beauty & Wellness Sector", "BFSI Sector", "Capital Goods Sector", "Construction Sector",
+  "Domestic Workers Sector", "Education Sector", "Electronics Sector", "Food Processing Sector",
+  "Furniture & Fittings Sector", "Gems & Jewellery Sector", "Government Sector", "Green Jobs Sector",
+  "Handicrafts and Carpet Sector", "Healthcare Sector", "HR Consultancy Sector", "Hydrocarbon Sector",
+  "Infrastructure Equipment Sector", "Instrumentation Automation Surveillance", "Iron and Steel Sector",
+  "IT-ITeS Sector", "Leather Sector", "Life Sciences Sector", "Logistics Sector",
+  "Management & Entrepreneurship and", "Manufacturing Sector", "Media & Entertainment Sector",
+  "Mining Sector", "Persons with Disability Sector", "Power Sector", "Retail Sector",
+  "Rubber, Chemical, & Petrochemical", "Service Sector", "Social Sector", "Sports Sector",
+  "Telecom Sector", "Textile Sector", "Tourism & Hospitality Sector", "Water Management & Plumbing Sector",
+  "Paints and Coating Sector", "State Public Sector Undertaking", "Central Public Sector Undertaking",
+  "Space Sector", "Defence Sector", "Nuclear Sector", "Industrial Safety Sector", "Legal Sector",
+  "General Sector", "Spirituality Sector", "Others"
+];
+
 const ORG_PRESENCE = ["Local", "Regional", "State-wide", "Pan-India", "International"];
 const TITLES = ["Mr.", "Mrs.", "Ms.", "Miss.", "Dr.", "Prof."];
 const DESIGNATIONS = ["Founder", "Chairman", "Director", "President", "Vice President", "Secretary", "HR Manager", "Project Manager", "Coordinator", "Others"];
@@ -51,6 +69,11 @@ export function EmployerCompanyProfileBody() {
   // File states
   const [complianceDoc, setComplianceDoc] = useState<File | null>(null);
   const [brochure, setBrochure] = useState<File | null>(null);
+
+  // HR / Sub-Account States
+  const [hrList, setHrList] = useState<any[]>([]);
+  const [showAddHr, setShowAddHr] = useState(false);
+  const [newHr, setNewHr] = useState({ full_name: "", email: "", phone: "", designation: "", password: "" });
 
   const [profile, setProfile] = useState({
     // Tab 1: Basic
@@ -82,7 +105,7 @@ export function EmployerCompanyProfileBody() {
         const d = json.data;
         setProfile({
           company_name: d.company_name || "", org_type: d.org_type || "", legal_structure: d.legal_structure || "",
-          core_sectors: parseArray(d.core_sectors), website: d.website || "", about_company: d.about_company || "",
+          core_sectors: parseArray(d.core_sectors), website: d.website || "", about_company: d.about_us || "",
           
           country: d.country || "India", pincode: d.pincode || "", state: d.state || "", district: d.district || "",
           taluk: d.taluk || "", mla_constituency: d.mla_constituency || "", mp_constituency: d.mp_constituency || "",
@@ -110,7 +133,21 @@ export function EmployerCompanyProfileBody() {
     }
   }, [userId]);
 
-  useEffect(() => { fetchProfile(); }, [fetchProfile]);
+  const fetchHrs = useCallback(async () => {
+    if (!userId) return;
+    try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/${userId}/hrs`);
+        const json = await res.json();
+        if (json.success) setHrList(json.data || []);
+    } catch (err) {
+        console.error("Failed to fetch HR accounts");
+    }
+  }, [userId]);
+
+  useEffect(() => { 
+    fetchProfile(); 
+    fetchHrs(); 
+  }, [fetchProfile, fetchHrs]);
 
   const handleInputChange = (field: string, value: any) => setProfile(prev => ({ ...prev, [field]: value }));
 
@@ -132,10 +169,13 @@ export function EmployerCompanyProfileBody() {
         else formData.append(key, String(value));
       });
 
+      // Pass ID so backend knows who to update
+      formData.append("id", String(userId));
+
       if (complianceDoc) formData.append("compliance_doc", complianceDoc);
       if (brochure) formData.append("brochure", brochure);
 
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/profile/${userId}/update`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/profile/update`, {
         method: "PUT",
         body: formData,
       });
@@ -150,10 +190,52 @@ export function EmployerCompanyProfileBody() {
     }
   };
 
+  const handleAddHr = async () => {
+    if (!newHr.full_name || !newHr.email || !newHr.password) {
+        return toast.error("Name, Email, and Password are required for a sub-account.");
+    }
+    try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/${userId}/hrs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newHr)
+        });
+        const json = await res.json();
+        if (json.success) {
+            toast.success(json.message);
+            setShowAddHr(false);
+            setNewHr({ full_name: "", email: "", phone: "", designation: "", password: "" });
+            fetchHrs();
+        } else {
+            toast.error(json.message);
+        }
+    } catch (err) {
+        toast.error("Network error adding HR.");
+    }
+  };
+
+  const handleDeleteHr = async (hrId: string) => {
+    if(!confirm("Are you sure you want to remove this login access?")) return;
+    try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/hrs/${hrId}`, {
+            method: 'DELETE'
+        });
+        const json = await res.json();
+        if (json.success) {
+            toast.success(json.message);
+            fetchHrs();
+        } else {
+            toast.error(json.message);
+        }
+    } catch (err) {
+        toast.error("Network error removing HR.");
+    }
+  };
+
   const TABS = [
     { id: "basic", label: "Basic Info", icon: Building2 },
     { id: "location", label: "Location", icon: MapPin },
-    { id: "contacts", label: "PoC Details", icon: Users },
+    { id: "contacts", label: "PoC & Sub-Accounts", icon: Users },
     { id: "hiring", label: "Operations", icon: Briefcase },
     { id: "media", label: "Docs & Media", icon: FileCheck }
   ];
@@ -272,7 +354,7 @@ export function EmployerCompanyProfileBody() {
                 </div>
               )}
 
-              {/* TAB 3: CONTACTS */}
+              {/* TAB 3: CONTACTS & PoC SUB-ACCOUNTS */}
               {activeTab === "contacts" && (
                 <div className="space-y-8 animate-in fade-in duration-300">
                   <div className="space-y-4">
@@ -329,6 +411,58 @@ export function EmployerCompanyProfileBody() {
                         </Select>
                       </div>
                     </div>
+                  </div>
+
+                  {/* --- NEW HR SUB-ACCOUNT SECTION --- */}
+                  <div className="pt-8 mt-8 border-t border-border/40 space-y-4">
+                    <div className="flex justify-between items-center border-b pb-2">
+                       <div>
+                         <h3 className="text-lg font-display font-bold text-navy">HR / Sub-Accounts</h3>
+                         <p className="text-xs text-slate-500 mt-1">Add up to 3 team members who can log in to manage your pipeline.</p>
+                       </div>
+                       {hrList.length < 3 && !showAddHr && (
+                          <Button type="button" onClick={() => setShowAddHr(true)} className="bg-navy text-white h-8 text-xs px-4">
+                            <UserPlus className="h-3 w-3 mr-2"/> Add User
+                          </Button>
+                       )}
+                    </div>
+
+                    {hrList.length > 0 && (
+                       <div className="grid sm:grid-cols-2 gap-4 mt-4">
+                          {hrList.map(hr => (
+                             <Card key={hr.id} className="p-4 border-slate-200 shadow-sm flex justify-between items-center bg-slate-50">
+                                <div>
+                                  <p className="font-bold text-navy text-sm">{hr.full_name}</p>
+                                  <p className="text-xs text-slate-500 font-medium mt-0.5">{hr.designation} • {hr.email}</p>
+                                </div>
+                                <Button type="button" variant="ghost" onClick={() => handleDeleteHr(hr.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0 shrink-0">
+                                  <Trash2 className="h-4 w-4"/>
+                                </Button>
+                             </Card>
+                          ))}
+                       </div>
+                    )}
+
+                    {showAddHr && (
+                       <Card className="p-5 border-saffron/40 bg-saffron/5 shadow-sm space-y-4 mt-4 relative">
+                          <h4 className="font-bold text-navy text-sm mb-2">Create New Sub-Account</h4>
+                          <div className="grid sm:grid-cols-2 gap-4">
+                             <div><Label>Full Name *</Label><Input value={newHr.full_name} onChange={e => setNewHr({...newHr, full_name: e.target.value})} className="mt-1 bg-white border-slate-300"/></div>
+                             <div><Label>Designation *</Label><Input value={newHr.designation} onChange={e => setNewHr({...newHr, designation: e.target.value})} className="mt-1 bg-white border-slate-300"/></div>
+                             <div><Label>Login Email *</Label><Input type="email" value={newHr.email} onChange={e => setNewHr({...newHr, email: e.target.value})} className="mt-1 bg-white border-slate-300"/></div>
+                             <div><Label>Phone *</Label><Input value={newHr.phone} onChange={e => setNewHr({...newHr, phone: e.target.value.replace(/\D/g, '')})} className="mt-1 bg-white border-slate-300"/></div>
+                             <div className="sm:col-span-2">
+                               <Label>Set Password *</Label>
+                               <Input type="text" value={newHr.password} onChange={e => setNewHr({...newHr, password: e.target.value})} className="mt-1 bg-white border-slate-300 font-mono text-sm" placeholder="e.g. Secret@123"/>
+                               <p className="text-[10px] text-slate-500 mt-1">Provide this password to your team member. They can log in immediately.</p>
+                             </div>
+                          </div>
+                          <div className="flex justify-end gap-3 pt-3">
+                             <Button type="button" variant="outline" onClick={() => setShowAddHr(false)} className="h-9 text-xs">Cancel</Button>
+                             <Button type="button" onClick={handleAddHr} className="bg-india-green hover:bg-india-green/90 text-white h-9 text-xs">Save Account</Button>
+                          </div>
+                       </Card>
+                    )}
                   </div>
                 </div>
               )}
