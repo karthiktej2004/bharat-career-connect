@@ -29,7 +29,7 @@ function JoinQueueDialog({ job, eventId, onClose }: { job: any; eventId: number;
     setIsJoining(true);
     const session = getSession();
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/events/queue/join", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/events/queue/join`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           eventId, 
@@ -114,7 +114,7 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
       const session = getSession();
       if (session && session.id) {
         try {
-          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/${session.id}`);
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/profile/${session.id}`);
           const json = await res.json();
           if (json.success) setProfile(json.data);
         } catch (err) {}
@@ -129,7 +129,7 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
     setIsSubmitting(true);
     const session = getSession();
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/events/apply", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/events/apply`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId: event.id, candidateId: session?.id })
       });
@@ -146,7 +146,8 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
   };
 
   if (!event) return null;
-  const eventTitle = event.title || event.name || "Untitled Event";
+  const eventTitle = event.title || event.name || event.event_name || "Untitled Event";
+  const eventVenue = event.venue || event.venue_address || event.location || event.city || "Venue TBA";
 
   return (
     <Dialog open={!!event} onOpenChange={(open) => !open && onClose()}>
@@ -191,7 +192,9 @@ function EventApplyDialog({ event, onClose, onSuccess }: { event: any; onClose: 
                 <h3 className="text-lg font-bold text-navy">Event Registration Confirmation</h3>
                 <div className="bg-india-green/5 border border-india-green/20 p-4 rounded-xl mt-4 space-y-3">
                   <p className="text-sm font-medium text-navy">By registering, your profile will be authorized to access this physical event.</p>
-                  <p className="text-sm font-bold text-navy flex items-center gap-2"><MapPin className="h-4 w-4 text-india-green"/> Venue: {event.venue}</p>
+                  <p className="text-sm font-bold text-navy flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-india-green shrink-0"/> Venue: {eventVenue}
+                  </p>
                 </div>
               </div>
             )}
@@ -241,7 +244,7 @@ function VenueScanDialog({ event, passId, onSuccess, trigger }: { event: any, pa
     setIsVerifying(true);
     const session = getSession();
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/events/attendance/mark", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/events/attendance/mark`, {
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
         body: JSON.stringify({ 
@@ -274,7 +277,7 @@ function VenueScanDialog({ event, passId, onSuccess, trigger }: { event: any, pa
           <DialogTitle className="text-xl font-display font-bold text-navy flex items-center gap-2">
             <ScanLine className="h-5 w-5 text-saffron" /> Venue Check-In
           </DialogTitle>
-          <DialogDescription className="mt-1 text-xs">Scanning Admin QR for: {event.title || event.name}</DialogDescription>
+          <DialogDescription className="mt-1 text-xs">Scanning Admin QR for: {event.title || event.name || event.event_name}</DialogDescription>
         </div>
 
         <div className="p-6">
@@ -349,7 +352,7 @@ function Events() {
   const fetchEvents = async () => {
     if (!user || !user.id) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${user.id}/events`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/${user.id}/events`);
       const json = await res.json();
       if (json.success) setEvents(json.data);
     } catch (err) {} 
@@ -362,7 +365,7 @@ function Events() {
     setViewingEvent(e);
     setIsLoadingJobs(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/events/${e.id}/jobs`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/events/${e.id}/jobs`);
       const json = await res.json();
       if (json.success) setEventJobs(json.data);
     } catch (err) {} 
@@ -386,9 +389,18 @@ function Events() {
 
             const eventTitle = e.title || e.name || e.event_name || "Untitled Event";
             const eventDate = e.event_date || e.date || e.start_date || new Date();
-            const eventVenue = e.venue || e.location || "Venue TBA";
+            const eventVenue = e.venue || e.venue_address || e.location || e.city || "Venue TBA";
             const startTime = e.start_time || "09:00 AM";
             const endTime = e.end_time || "05:00 PM";
+
+            // Status Badge Coloring Logic
+            const statusLower = (e.status || "").toLowerCase();
+            let badgeStyle = "bg-saffron text-navy"; // Default upcoming/other
+            if (statusLower.includes('live') || statusLower.includes('active') || statusLower.includes('upcoming')) {
+              badgeStyle = "bg-india-green text-white";
+            } else if (statusLower.includes('hold') || statusLower.includes('completed') || statusLower.includes('closed')) {
+              badgeStyle = "bg-slate-200 text-slate-700 border border-slate-300";
+            }
 
             return (
               <Card key={e.id} className="p-6 border-border/60 bg-white shadow-sm flex flex-col justify-between">
@@ -402,7 +414,7 @@ function Events() {
                       </p>
                       <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1"><MapPin className="h-4 w-4" />{eventVenue}</p>
                     </div>
-                    <Badge className={e.status === 'Live' ? "bg-india-green text-white" : e.status === 'Hold' ? "bg-red-500 text-white" : "bg-saffron text-navy"}>{e.status}</Badge>
+                    <Badge className={`capitalize font-medium px-2.5 py-1 ${badgeStyle}`}>{e.status || "Upcoming"}</Badge>
                   </div>
 
                   {isRegistered ? (
@@ -427,7 +439,7 @@ function Events() {
                       {isHold ? (
                         <Button disabled className="w-full bg-slate-200 text-slate-500">Event on Hold - Wait for Confirmation</Button>
                       ) : (
-                        <Button onClick={() => setApplyingEvent(e)} className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold">Apply for this Event (Free)</Button>
+                        <Button onClick={() => setApplyingEvent(e)} className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold">Apply for this Event</Button>
                       )}
                     </div>
                   )}
