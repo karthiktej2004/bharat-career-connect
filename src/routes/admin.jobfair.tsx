@@ -66,8 +66,14 @@ function EventApprovals() {
     }
   };
 
-  const pending = apps.filter((a) => a.status === "pending");
-  const approved = apps.filter((a) => a.status === "approved" || a.status === "live");
+  // 1. Filter out applications where the associated event is marked as "completed"
+  const filteredApps = apps.filter((a) => {
+    const relatedEvent = events.find((ev) => ev.id === a.eventId);
+    return relatedEvent && relatedEvent.status?.toLowerCase() !== 'completed';
+  });
+
+  const pending = filteredApps.filter((a) => a.status === "pending");
+  const approved = filteredApps.filter((a) => a.status === "approved" || a.status === "live");
 
   return (
     <DashShell role="admin" nav={adminNav}>
@@ -80,14 +86,15 @@ function EventApprovals() {
           <div className="grid sm:grid-cols-3 gap-4 mb-6">
             <StatCard label="Pending Approval" value={String(pending.length)} icon={Store} accent="saffron" />
             <StatCard label="Approved Companies" value={String(approved.length)} icon={Check} accent="india-green" />
-            <StatCard label="Total Applications" value={String(apps.length)} icon={UsersRound} accent="navy" />
+            <StatCard label="Total Applications" value={String(filteredApps.length)} icon={UsersRound} accent="navy" />
           </div>
 
           {events.length > 0 && (
             <Card className="p-4 mb-6 border-border/60">
               <h3 className="font-display font-bold text-navy text-sm mb-2">Stall Allocation Shortcuts</h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {events.map((ev) => (
+                {/* We also filter out completed events from the shortcuts */}
+                {events.filter(ev => ev.status?.toLowerCase() !== 'completed').map((ev) => (
                   <Link key={ev.id} to="/admin/allocation/$eventId" params={{ eventId: ev.id.toString() }} search={{ tab: "company" }} className="p-3 rounded-lg border border-border hover:border-navy hover:bg-navy/5 transition flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-navy text-sm truncate">{ev.name}</p>
@@ -117,9 +124,9 @@ function EventApprovals() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {apps.length === 0 ? (
+                {filteredApps.length === 0 ? (
                   <TableRow><TableCell colSpan={9} className="text-center py-8 text-sm text-muted-foreground">No applications found.</TableCell></TableRow>
-                ) : apps.map((a) => (
+                ) : filteredApps.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium text-navy">{a.employerName}</TableCell>
                     <TableCell className="text-sm">{a.eventName}</TableCell>
@@ -146,9 +153,23 @@ function EventApprovals() {
                     <TableCell className="text-sm font-mono text-navy font-bold">{a.allocatedStall || "—"}</TableCell>
                     <TableCell>
                       {a.status === "pending" ? (
-                        <div className="flex gap-1">
-                          <Button size="sm" className="bg-india-green text-white hover:bg-india-green/90" onClick={() => handleApprove(a.id, a.employerName)}><Check className="h-3.5 w-3.5" /></Button>
-                          <Button size="sm" variant="outline" className="text-red-600 border-red-200" onClick={() => handleReject(a.id, a.employerName)}><X className="h-3.5 w-3.5" /></Button>
+                        <div className="flex gap-2">
+                          {/* 2. Text buttons instead of icons */}
+                          <Button 
+                            size="sm" 
+                            className="bg-india-green text-white hover:bg-india-green/90 font-medium" 
+                            onClick={() => handleApprove(a.id, a.employerName)}
+                          >
+                            Approve
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-red-600 border-red-200 hover:bg-red-50 font-medium" 
+                            onClick={() => handleReject(a.id, a.employerName)}
+                          >
+                            Reject
+                          </Button>
                         </div>
                       ) : a.status === "approved" ? (
                         <Button asChild size="sm" variant="outline" className="border-navy/20 text-navy hover:bg-navy/5">
