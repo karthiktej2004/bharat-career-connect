@@ -16,41 +16,34 @@ export const Route = createFileRoute("/candidate/feedback")({
   component: FeedbackPage,
 });
 
-// Static list of popular companies or fetched mock list
 const COMPANIES = ["accenture", "axiomate", "Infosys", "TCS", "Wipro", "Cognizant", "Other / General Platform"];
 
-export default function FeedbackPage() {
-  // Overall Rating
+export function FeedbackPage() {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   
-  // Specific Category Ratings (5-star for all)
   const [registrationRating, setRegistrationRating] = useState(0);
   const [interviewRating, setInterviewRating] = useState(0);
   const [eventRating, setEventRating] = useState(0);
 
-  // Company Selection & Optional Dropdown Message Category
   const [selectedCompany, setSelectedCompany] = useState("");
   const [messageCategory, setMessageCategory] = useState("general");
   const [optionalComments, setOptionalComments] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // --- REAL VIDEO RECORDING STATE ---
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
-  // Attach the camera stream to the video element whenever it turns on
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
 
-  // 1. Ask for Permissions and Turn on Camera
   const handleEnableCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -61,7 +54,6 @@ export default function FeedbackPage() {
     }
   };
 
-  // 2. Start Recording the Stream
   const handleStartRecording = () => {
     if (!stream) return;
     
@@ -77,7 +69,6 @@ export default function FeedbackPage() {
       const url = URL.createObjectURL(blob);
       setVideoUrl(url);
       
-      // Turn off the camera indicator light when done
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     };
@@ -87,7 +78,6 @@ export default function FeedbackPage() {
     setIsRecording(true);
   };
 
-  // 3. Stop Recording
   const handleStopRecording = () => {
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       mediaRecorder.stop();
@@ -96,13 +86,11 @@ export default function FeedbackPage() {
     }
   };
 
-  // 4. Retake Video
   const handleRetake = () => {
     setVideoUrl(null);
     handleEnableCamera(); 
   };
 
-  // --- SUBMIT TO BACKEND ---
   const handleSubmit = async () => {
     if (rating === 0) {
       toast.error("Please provide an overall rating.");
@@ -154,7 +142,6 @@ export default function FeedbackPage() {
     }
   };
 
-  // Cleanup camera if user leaves the page while it's on
   useEffect(() => {
     return () => {
       if (stream) stream.getTracks().forEach(track => track.stop());
@@ -174,7 +161,6 @@ export default function FeedbackPage() {
         <Card className="p-6 border-border/60 bg-white shadow-sm space-y-6">
           <h3 className="font-display font-bold text-navy text-lg">Share your experience</h3>
           
-          {/* 1. SELECT COMPANY */}
           <div>
             <Label className="text-navy font-bold flex items-center gap-1.5">
               <Building2 className="h-4 w-4 text-saffron" /> Select Company
@@ -189,7 +175,6 @@ export default function FeedbackPage() {
             </Select>
           </div>
 
-          {/* 2. OVERALL RATING */}
           <div>
             <Label className="text-base text-navy font-bold">Overall Rating</Label>
             <div className="flex gap-1 mt-2">
@@ -208,7 +193,6 @@ export default function FeedbackPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
-            {/* Registration Experience 5-Star */}
             <div>
               <Label className="text-xs font-semibold text-slate-700">Registration</Label>
               <div className="flex gap-0.5 mt-1">
@@ -224,7 +208,6 @@ export default function FeedbackPage() {
               </div>
             </div>
 
-            {/* Interview Quality 5-Star */}
             <div>
               <Label className="text-xs font-semibold text-slate-700">Interview Quality</Label>
               <div className="flex gap-0.5 mt-1">
@@ -240,7 +223,6 @@ export default function FeedbackPage() {
               </div>
             </div>
 
-            {/* Event Management 5-Star */}
             <div>
               <Label className="text-xs font-semibold text-slate-700">Event Management</Label>
               <div className="flex gap-0.5 mt-1">
@@ -257,7 +239,6 @@ export default function FeedbackPage() {
             </div>
           </div>
 
-          {/* 3. OPTIONAL MESSAGE CATEGORY DROPDOWN */}
           <div className="pt-2 border-t border-slate-100">
             <Label className="text-navy font-medium">Feedback Category (Optional)</Label>
             <Select value={messageCategory} onValueChange={setMessageCategory}>
@@ -271,7 +252,6 @@ export default function FeedbackPage() {
             </Select>
           </div>
 
-          {/* 4. OPTIONAL COMMENTS TEXTAREA */}
           <div>
             <Label className="text-navy font-medium">Additional Comments (Optional)</Label>
             <Textarea 
@@ -282,8 +262,10 @@ export default function FeedbackPage() {
             />
           </div>
 
+          {/* FIXED BUTTON WITH TYPE AND CURSOR POINTER */}
           <Button 
-            className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold py-6 text-base"
+            type="button"
+            className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold py-6 text-base cursor-pointer relative z-10"
             onClick={handleSubmit}
             disabled={isSubmitting}
           >
@@ -298,19 +280,17 @@ export default function FeedbackPage() {
           
           <div className="flex-1 border-2 border-dashed border-slate-200 rounded-xl bg-slate-900 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[350px]">
             
-            {/* STATE 1: SAVED VIDEO PLAYBACK */}
             {videoUrl ? (
               <div className="absolute inset-0 w-full h-full bg-black flex flex-col">
                 <video src={videoUrl} controls className="w-full h-full object-contain bg-black" />
                 <div className="absolute top-4 right-4">
-                  <Button variant="secondary" size="sm" onClick={handleRetake} className="font-bold shadow-md">
+                  <Button type="button" variant="secondary" size="sm" onClick={handleRetake} className="font-bold shadow-md cursor-pointer">
                     <Camera className="h-4 w-4 mr-2" /> Retake
                   </Button>
                 </div>
               </div>
             ) : 
             
-            /* STATE 2: LIVE CAMERA STREAM */
             stream ? (
               <>
                 <video 
@@ -333,11 +313,11 @@ export default function FeedbackPage() {
                   
                   <div className="flex justify-center">
                     {isRecording ? (
-                      <Button variant="destructive" size="lg" onClick={handleStopRecording} className="font-bold shadow-xl rounded-full px-8">
+                      <Button type="button" variant="destructive" size="lg" onClick={handleStopRecording} className="font-bold shadow-xl rounded-full px-8 cursor-pointer">
                         <StopCircle className="h-5 w-5 mr-2" /> Stop Recording
                       </Button>
                     ) : (
-                      <Button size="lg" onClick={handleStartRecording} className="bg-red-500 hover:bg-red-600 text-white font-bold shadow-xl rounded-full px-8">
+                      <Button type="button" size="lg" onClick={handleStartRecording} className="bg-red-500 hover:bg-red-600 text-white font-bold shadow-xl rounded-full px-8 cursor-pointer">
                         <Video className="h-5 w-5 mr-2" /> Start Recording
                       </Button>
                     )}
@@ -345,8 +325,6 @@ export default function FeedbackPage() {
                 </div>
               </>
             ) : 
-            
-            /* STATE 3: DEFAULT (CAMERA OFF) */
             (
               <div className="flex flex-col items-center p-8 animate-in fade-in duration-300">
                 <div className="size-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
@@ -356,7 +334,7 @@ export default function FeedbackPage() {
                 <p className="text-slate-400 mt-2 max-w-xs mb-6 text-sm">
                   Allow camera and microphone access to record a short 60-second video regarding your experience with the selected company.
                 </p>
-                <Button className="bg-saffron text-navy hover:bg-saffron/90 font-bold px-6" onClick={handleEnableCamera}>
+                <Button type="button" className="bg-saffron text-navy hover:bg-saffron/90 font-bold px-6 cursor-pointer" onClick={handleEnableCamera}>
                   Enable Camera
                 </Button>
               </div>
