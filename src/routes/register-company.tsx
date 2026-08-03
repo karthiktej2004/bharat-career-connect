@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, ShieldCheck, Clock, ChevronDown, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
+import { Building2, ShieldCheck, Clock, ArrowLeft, Loader2, CheckCircle2, Upload, MapPin, Users, Briefcase, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/register-company")({
@@ -15,149 +15,136 @@ export const Route = createFileRoute("/register-company")({
   component: RegisterCompany,
 });
 
-const INDUSTRIES = [
-  "Information Technology",
-  "Manufacturing",
-  "Healthcare",
-  "Finance & Banking",
-  "Automotive",
-  "Retail & E-Commerce",
-  "Education & Training",
-  "Telecommunications",
-  "Hospitality & Tourism",
-  "Construction & Real Estate",
-  "Media & Entertainment",
-  "Energy & Utilities"
-];
-
-const SECTORS = [
-  "Aerospace and Aviation Sector", "Agriculture Sector", "Apparel Sector", "Automotive Sector",
-  "Beauty & Wellness Sector", "BFSI Sector", "Capital Goods Sector", "Construction Sector",
-  "Domestic Workers Sector", "Education Sector", "Electronics Sector", "Food Processing Sector",
-  "Furniture & Fittings Sector", "Gems & Jewellery Sector", "Government Sector", "Green Jobs Sector",
-  "Handicrafts and Carpet Sector", "Healthcare Sector", "HR Consultancy Sector", "Hydrocarbon Sector",
-  "Infrastructure Equipment Sector", "Instrumentation Automation Surveillance & Communication Sector",
-  "Iron and Steel Sector", "IT-ITeS Sector", "Leather Sector", "Life Sciences Sector",
-  "Logistics Sector", "Management & Entrepreneurship and Professional Sector", "Manufacturing Sector",
-  "Media & Entertainment Sector", "Mining Sector", "Persons with Disability Sector", "Power Sector",
-  "Retail Sector", "Rubber, Chemical, & Petrochemical Sector", "Service Sector", "Social Sector",
-  "Sports Sector", "Telecom Sector", "Textile Sector", "Tourism & Hospitality Sector",
-  "Water Management & Plumbing Sector", "Paints and Coating Sector", "State Public Sector Undertaking",
-  "Central Public Sector Undertaking", "Space Sector", "Defence Sector", "Nuclear Sector",
-  "Industrial Safety Sector", "Legal Sector", "General Sector", "Spirituality Sector"
-];
+// --- CONSTANTS FROM EXCEL DATA ---
+const ORG_TYPES = ["Employer Primary Category(E)", "Sector Skill Council (SSC)", "Associations / Industry Clusters", "Skill Training Centre", "Others"];
+const LEGAL_STRUCTURES = ["Sole Proprietorship", "Partnership", "Limited Liability Partnership (LLP)", "Private Limited Company", "Public Limited Company", "One-Person Company", "NGO - Section 8 / Trust", "State Public Sector Undertaking", "Central Public Sector Undertaking", "Others"];
+const SECTORS = ["IT-ITeS Sector", "Manufacturing Sector", "Healthcare Sector", "Finance Sector", "Education Sector", "Agriculture Sector", "Retail Sector", "Logistics Sector", "Construction Sector", "Tourism & Hospitality", "Telecom Sector", "Others"];
+const ORG_PRESENCE = ["Local", "Regional", "State-wide", "Pan-India", "International"];
+const TITLES = ["Mr.", "Mrs.", "Ms.", "Miss.", "Dr.", "Prof."];
+const DESIGNATIONS = ["Founder", "Chairman", "Director", "President", "Vice President", "Secretary", "HR Manager", "Project Manager", "Coordinator", "Others"];
+const EMPLOYEE_STRENGTH = ["1-4", "5-29", "30-100", "101-300", "301-500", "501-1000", "1001 and above"];
+const DISABILITIES = ["Blindness", "Low-vision", "Hearing Impairment", "Locomotor Disability", "Intellectual Disability", "Specific Learning Disabilities", "Multiple Sclerosis", "All the above"];
+const DISCOVERY_SOURCES = ["Search Engine (Google/Bing)", "Social Media", "Email Campaign", "Job Fair Event / Udyoga Mela", "Referral", "Alumni Network", "Others"];
 
 function RegisterCompany() {
   const navigate = useNavigate();
-  const [f, setF] = useState({
-    company_name: "", email_domain: "", gst_cin: "", industry: "", sector: "", 
-    company_size: "", website: "", hq_city: "", about_company: "", 
-    hr_name: "", hr_phone: "", email: "", password: "", confirmPassword: ""
-  });
-  
+  const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sectorQuery, setSectorQuery] = useState("");
-  const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false);
-  const [passwordMismatch, setPasswordMismatch] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   
+  // File State
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+
   // OTP States
   const [otpSent, setOtpSent] = useState(false);
   const [enteredOtp, setEnteredOtp] = useState("");
   const [isOtpVerified, setIsOtpVerified] = useState(false);
 
-  // Success UI State
-  const [showSuccess, setShowSuccess] = useState(false);
+  // Form State
+  const [f, setF] = useState({
+    // Step 1: Basic
+    gst_number: "", is_gst_verified: false, company_name: "", website: "", org_type: "", legal_structure: "", core_sectors: [] as string[],
+    // Step 2: Location
+    pincode: "", state: "", district: "", taluk: "", mla_constituency: "", mp_constituency: "", resident_type: "", local_body_details: "", locality_area: "", current_address: "", map_link: "", org_presence: "", multiple_branches: "false",
+    // Step 3: PoC
+    poc1_title: "", poc1_name: "", poc1_designation: "", poc1_email: "", poc1_phone: "", password: "", confirmPassword: "",
+    poc2_title: "", poc2_name: "", poc2_designation: "", poc2_email: "", poc2_phone: "",
+    // Step 4: Operations
+    employee_strength: "", hiring_for: "", hire_pwds: "", accepted_disabilities: [] as string[],
+    // Step 5: Docs
+    digital_onboarding: "true", source_of_discovery: "",
+    policy_agreed: false, consent_agreed: false
+  });
 
-  const filteredSectors = SECTORS.filter(s => s.toLowerCase().includes(sectorQuery.toLowerCase()));
+  const handleInputChange = (field: string, value: any) => setF(prev => ({ ...prev, [field]: value }));
 
-  // GST Real-Time Validation & Verification Logic
-  const handleVerifyGST = () => {
-    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-    const formattedGst = f.gst_cin.trim().toUpperCase();
-
-    if (!formattedGst) {
-      toast.error("Please enter a GSTIN number to verify.");
-      return;
-    }
-
-    if (!gstRegex.test(formattedGst)) {
-      toast.error("Invalid GST/CIN number! This is not a legal or verified tax identifier.");
-      setF(prev => ({ ...prev, company_name: "", gst_cin: "" }));
-      return;
-    }
-
-    toast.success("Legal GSTIN Detected! Authenticating profile records...");
-    setF(prev => ({ 
-      ...prev, 
-      gst_cin: formattedGst,
-      company_name: "Manias Technology Solutions Private Limited" 
-    }));
+  const toggleArrayItem = (field: "core_sectors" | "accepted_disabilities", item: string) => {
+    setF(prev => {
+      const array = prev[field];
+      if (array.includes(item)) return { ...prev, [field]: array.filter(i => i !== item) };
+      return { ...prev, [field]: [...array, item] };
+    });
   };
 
-  // OTP Mock Verification
-  const handleSendOTP = () => {
-    if (f.hr_phone.length < 10) {
-      toast.error("Please enter a valid phone number.");
+  // GST Verification
+  const handleVerifyGST = () => {
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    const formattedGst = f.gst_number.trim().toUpperCase();
+
+    if (!gstRegex.test(formattedGst)) {
+      toast.error("Invalid GST/CIN format.");
       return;
     }
+    toast.success("GSTIN Verified!");
+    setF(prev => ({ ...prev, gst_number: formattedGst, is_gst_verified: true, company_name: "Verified Company Pvt Ltd" }));
+  };
+
+  // OTP Verification
+  const handleSendOTP = () => {
+    if (f.poc1_phone.length < 10) return toast.error("Enter a valid phone number.");
     setOtpSent(true);
-    toast.info("OTP sent to mobile. (Use 1234 for testing)");
+    toast.info("OTP sent! (Use 1234 for testing)");
   };
 
   const handleVerifyOTP = () => {
     if (enteredOtp === "1234") {
       setIsOtpVerified(true);
-      toast.success("Phone number verified successfully!");
+      toast.success("Phone verified!");
     } else {
-      toast.error("Invalid OTP. Try 1234.");
+      toast.error("Invalid OTP.");
     }
+  };
+
+  const handleNextStep = () => {
+    if (step === 1 && (!f.company_name || !f.org_type || !f.legal_structure || f.core_sectors.length === 0)) {
+      return toast.error("Please fill all mandatory basic details.");
+    }
+    if (step === 3 && (!isOtpVerified || !f.poc1_email || !f.password || f.password !== f.confirmPassword)) {
+      return toast.error("Please complete PoC 1 details, verify OTP, and ensure passwords match.");
+    }
+    setStep(prev => prev + 1);
+    window.scrollTo(0,0);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (f.password !== f.confirmPassword) {
-      setPasswordMismatch(true);
-      toast.error("Passwords do not match");
-      return;
-    } else {
-      setPasswordMismatch(false);
-    }
-
-    if (!f.sector) {
-      toast.error("Please select a valid sector from the dropdown list");
-      return;
-    }
-    if (!isOtpVerified) {
-      toast.error("You must verify your phone number with the OTP first.");
-      return;
+    if (!f.policy_agreed || !f.consent_agreed) {
+      return toast.error("You must agree to the declarations to proceed.");
     }
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/register", {
+      // Use FormData to send text + file
+      const formData = new FormData();
+      Object.entries(f).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, String(value));
+        }
+      });
+      if (logoFile) formData.append("org_logo", logoFile);
+
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(f)
+        body: formData // No Content-Type header needed for FormData
       });
       
       const json = await res.json();
       if (json.success) {
         setShowSuccess(true);
-        setTimeout(() => {
-          navigate({ to: "/for-employers" }); 
-        }, 4000);
+        setTimeout(() => navigate({ to: "/for-employers" }), 4000);
       } else {
         toast.error(json.message);
-        setIsSubmitting(false);
       }
     } catch (err) {
       toast.error("Database connection failed. Please try again.");
+    } finally {
       setIsSubmitting(false);
-    } 
+    }
   };
 
-  // SUCCESS SCREEN OVERLAY
+  // SUCCESS SCREEN
   if (showSuccess) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
@@ -166,252 +153,363 @@ function RegisterCompany() {
             <CheckCircle2 className="h-10 w-10 text-india-green" />
           </div>
           <h1 className="text-3xl font-display font-bold text-navy mb-4">Registration Sent!</h1>
-          <p className="text-muted-foreground mb-2">
-            Your company profile has been successfully sent for verification.
-          </p>
-          <div className="inline-flex items-center gap-2 bg-saffron/15 text-saffron font-semibold px-4 py-2 rounded-full mt-2 mb-6">
-            <Clock className="h-4 w-4" />
-            Waiting for Admin Approval
+          <p className="text-muted-foreground mb-6">Your comprehensive company profile has been submitted for verification.</p>
+          <div className="inline-flex items-center gap-2 bg-saffron/15 text-saffron font-semibold px-4 py-2 rounded-full mb-6">
+            <Clock className="h-4 w-4" /> Waiting for Admin Approval
           </div>
-          <p className="text-sm text-muted-foreground border-t border-border/60 pt-6">
-            You will receive an email once the admin approves your GST and company details. You will be redirected shortly...
-          </p>
+          <p className="text-sm text-muted-foreground border-t border-border/60 pt-6">Redirecting to dashboard...</p>
         </Card>
       </div>
     );
   }
 
-  // NORMAL FORM SCREEN
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
-      <div className="max-w-6xl mx-auto">
-        
+      <div className="max-w-4xl mx-auto">
         <Link to="/for-employers" className="inline-flex items-center text-sm text-navy hover:underline mb-6 font-medium">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Employers Page
         </Link>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            
-            <div className="bg-orange-50 border border-orange-200 text-orange-900 px-4 py-3 rounded-lg text-sm">
-              This is for <strong>new company registrations</strong>. If you already have an account, <Link to="/auth/login" className="font-bold hover:underline">go to Sign In.</Link>
-            </div>
-
-            <Card className="p-8 border-border/60 shadow-sm rounded-xl">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="size-12 bg-navy rounded-xl flex items-center justify-center shrink-0">
-                  <Building2 className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-display font-bold text-navy">Employer Registration</h1>
-                  <p className="text-sm text-muted-foreground">Employer accounts are activated only after admin verification.</p>
-                </div>
+        {/* STEPPER UI */}
+        <div className="flex items-center justify-between mb-8 overflow-x-auto pb-4">
+          {[
+            { id: 1, name: "Organization", icon: Building2 },
+            { id: 2, name: "Location", icon: MapPin },
+            { id: 3, name: "Contacts", icon: Users },
+            { id: 4, name: "Operations", icon: Briefcase },
+            { id: 5, name: "Documents", icon: FileText }
+          ].map((s) => (
+            <div key={s.id} className="flex flex-col items-center gap-2 min-w-[80px]">
+              <div className={`size-10 rounded-full flex items-center justify-center border-2 transition-colors ${step >= s.id ? "bg-navy border-navy text-white" : "bg-white border-slate-200 text-slate-400"}`}>
+                <s.icon className="h-4 w-4" />
               </div>
+              <span className={`text-xs font-semibold ${step >= s.id ? "text-navy" : "text-slate-400"}`}>{s.name}</span>
+            </div>
+          ))}
+        </div>
 
-              <form onSubmit={handleRegister} className="space-y-8">
-                <div className="space-y-5">
-                  <h3 className="text-xs font-bold tracking-widest text-saffron uppercase">Company Details</h3>
-                  
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label>GST / CIN *</Label>
-                      <div className="flex gap-2 mt-1">
-                        <Input required value={f.gst_cin} onChange={(e) => setF({...f, gst_cin: e.target.value})} placeholder="29AAAAA0000A1Z5" className="uppercase" />
-                        <Button type="button" variant="secondary" onClick={handleVerifyGST} className="bg-slate-500 text-white hover:bg-slate-600">Verify</Button>
-                      </div>
+        <Card className="p-8 border-border/60 shadow-sm rounded-xl bg-white">
+          <form onSubmit={handleRegister} className="space-y-6">
+            
+            {/* STEP 1: BASIC ORG INFO */}
+            {step === 1 && (
+              <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                <h3 className="text-lg font-display font-bold text-navy border-b pb-2">Basic Organization Information</h3>
+                
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <div className="sm:col-span-2">
+                    <Label>GST / CIN Number *</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input required value={f.gst_number} onChange={(e) => handleInputChange('gst_number', e.target.value)} placeholder="e.g., 29AAAAA0000A1Z5" className="uppercase" disabled={f.is_gst_verified} />
+                      <Button type="button" variant={f.is_gst_verified ? "outline" : "default"} onClick={handleVerifyGST} disabled={f.is_gst_verified} className={f.is_gst_verified ? "text-india-green border-india-green" : "bg-navy"}>
+                        {f.is_gst_verified ? "Verified" : "Verify"}
+                      </Button>
                     </div>
+                  </div>
 
-                    <div>
-                      <Label>Company Name (Auto-filled via GST) *</Label>
-                      <Input required value={f.company_name} onChange={(e) => setF({...f, company_name: e.target.value})} placeholder="Acme Technologies Pvt Ltd" className="mt-1" />
-                    </div>
-                    
-                    <div>
-                      <Label>Official Email Domain *</Label>
-                      <Input required value={f.email_domain} onChange={(e) => setF({...f, email_domain: e.target.value})} placeholder="acme.com" className="mt-1" />
-                    </div>
-                    
-                    <div>
-                      <Label>Website</Label>
-                      <Input value={f.website} onChange={(e) => setF({...f, website: e.target.value})} placeholder="https://acme.com" className="mt-1" />
-                    </div>
+                  <div className="sm:col-span-2">
+                    <Label>Organization Name *</Label>
+                    <Input required value={f.company_name} onChange={(e) => handleInputChange('company_name', e.target.value)} placeholder="Company Name" className="mt-1" />
+                  </div>
 
-                    <div>
-                      <Label>Industry *</Label>
-                      <Select value={f.industry} onValueChange={(v) => setF({...f, industry: v})}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select Industry" /></SelectTrigger>
-                        <SelectContent>
-                          {INDUSTRIES.map((ind) => (
-                            <SelectItem key={ind} value={ind}>{ind}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="sm:col-span-2">
+                    <Label>Organization Website</Label>
+                    <Input type="url" value={f.website} onChange={(e) => handleInputChange('website', e.target.value)} placeholder="https://..." className="mt-1" />
+                  </div>
 
-                    <div>
-                      <Label>Company Size</Label>
-                      <Select value={f.company_size} onValueChange={(v) => setF({...f, company_size: v})}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1-50">1 - 50 Employees</SelectItem>
-                          <SelectItem value="51-200">51 - 200 Employees</SelectItem>
-                          <SelectItem value="201-1000">201 - 1000 Employees</SelectItem>
-                          <SelectItem value="1000+">1000+ Employees</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div>
+                    <Label>Organization Type *</Label>
+                    <Select value={f.org_type} onValueChange={(v) => handleInputChange('org_type', v)}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>{ORG_TYPES.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
 
-                    <div className="sm:col-span-2 relative">
-                      <Label>Sector Classification *</Label>
-                      <div className="relative mt-1">
-                        <Input 
-                          required
-                          value={f.sector || sectorQuery} 
-                          onChange={(e) => { 
-                            setSectorQuery(e.target.value); 
-                            setF({...f, sector: ""}); 
-                            setIsSectorDropdownOpen(true); 
-                          }}
-                          onFocus={() => setIsSectorDropdownOpen(true)}
-                          onBlur={() => setTimeout(() => setIsSectorDropdownOpen(false), 200)}
-                          placeholder="Search and select your sector from the list..."
-                          className="pr-8"
-                        />
-                        <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-                      </div>
-                      
-                      {isSectorDropdownOpen && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                          {filteredSectors.length > 0 ? filteredSectors.map(s => (
-                            <div 
-                              key={s} 
-                              className="p-3 text-sm text-navy hover:bg-slate-100 cursor-pointer border-b border-border/40 last:border-0"
-                              onMouseDown={(e) => { 
-                                e.preventDefault(); 
-                                setF({...f, sector: s}); 
-                                setSectorQuery(s);
-                                setIsSectorDropdownOpen(false); 
-                              }}
-                            >
-                              {s}
-                            </div>
-                          )) : (
-                            <div className="p-3 text-sm text-muted-foreground">No matching sectors found.</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  <div>
+                    <Label>Legal Structure *</Label>
+                    <Select value={f.legal_structure} onValueChange={(v) => handleInputChange('legal_structure', v)}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select structure" /></SelectTrigger>
+                      <SelectContent>{LEGAL_STRUCTURES.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
 
-                    <div className="sm:col-span-2">
-                      <Label>Headquarters City</Label>
-                      <Input value={f.hq_city} onChange={(e) => setF({...f, hq_city: e.target.value})} placeholder="Bengaluru" className="mt-1" />
-                    </div>
-                    
-                    <div className="sm:col-span-2">
-                      <Label>About the Company</Label>
-                      <Textarea value={f.about_company} onChange={(e) => setF({...f, about_company: e.target.value})} placeholder="Brief description of your business, products and hiring focus" rows={4} className="mt-1" />
+                  <div className="sm:col-span-2">
+                    <Label>Core Sectors of Operation (Select multiple) *</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {SECTORS.map(s => (
+                        <Badge 
+                          key={s} 
+                          variant={f.core_sectors.includes(s) ? "default" : "outline"}
+                          className={`cursor-pointer px-3 py-1.5 ${f.core_sectors.includes(s) ? "bg-saffron text-navy hover:bg-saffron/90" : "hover:bg-slate-100"}`}
+                          onClick={() => toggleArrayItem("core_sectors", s)}
+                        >
+                          {s}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
 
-                <div className="space-y-5 pt-4 border-t border-border/40">
-                  <h3 className="text-xs font-bold tracking-widest text-saffron uppercase">Authorized HR Contact</h3>
+            {/* STEP 2: LOCATION */}
+            {step === 2 && (
+              <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                <h3 className="text-lg font-display font-bold text-navy border-b pb-2">Location & Address Details</h3>
+                
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <div>
+                    <Label>Pincode *</Label>
+                    <Input required maxLength={6} value={f.pincode} onChange={(e) => handleInputChange('pincode', e.target.value.replace(/\D/g, ''))} placeholder="560001" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>State / Union Territory *</Label>
+                    <Input required value={f.state} onChange={(e) => handleInputChange('state', e.target.value)} placeholder="Karnataka" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>District *</Label>
+                    <Input required value={f.district} onChange={(e) => handleInputChange('district', e.target.value)} placeholder="Bengaluru Urban" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Taluk *</Label>
+                    <Input required value={f.taluk} onChange={(e) => handleInputChange('taluk', e.target.value)} placeholder="Bengaluru" className="mt-1" />
+                  </div>
                   
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
+                  <div className="sm:col-span-2">
+                    <Label>Current Full Address *</Label>
+                    <Textarea required value={f.current_address} onChange={(e) => handleInputChange('current_address', e.target.value)} placeholder="Building, Street, Area..." className="mt-1 resize-none" rows={3} />
+                  </div>
+
+                  <div>
+                    <Label>Resident Type *</Label>
+                    <Select value={f.resident_type} onValueChange={(v) => handleInputChange('resident_type', v)}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Urban">Urban Resident</SelectItem>
+                        <SelectItem value="Rural">Rural Resident</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Organizational Presence *</Label>
+                    <Select value={f.org_presence} onValueChange={(v) => handleInputChange('org_presence', v)}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select presence" /></SelectTrigger>
+                      <SelectContent>{ORG_PRESENCE.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: PoC & SECURITY */}
+            {step === 3 && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                
+                {/* PoC 1 */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-display font-bold text-navy border-b pb-2">Primary Contact (Admin Login)</h3>
+                  <div className="grid sm:grid-cols-12 gap-4">
+                    <div className="sm:col-span-3">
+                      <Label>Title *</Label>
+                      <Select value={f.poc1_title} onValueChange={(v) => handleInputChange('poc1_title', v)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Title" /></SelectTrigger>
+                        <SelectContent>{TITLES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="sm:col-span-5">
                       <Label>Full Name *</Label>
-                      <Input required value={f.hr_name} onChange={(e) => setF({...f, hr_name: e.target.value})} className="mt-1" />
+                      <Input required value={f.poc1_name} onChange={(e) => handleInputChange('poc1_name', e.target.value)} className="mt-1" />
                     </div>
-                    <div>
-                      <Label>Phone *</Label>
+                    <div className="sm:col-span-4">
+                      <Label>Designation *</Label>
+                      <Select value={f.poc1_designation} onValueChange={(v) => handleInputChange('poc1_designation', v)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Designation" /></SelectTrigger>
+                        <SelectContent>{DESIGNATIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="sm:col-span-6">
+                      <Label>WhatsApp Number *</Label>
                       <div className="flex gap-2 mt-1">
-                        <Input required value={f.hr_phone} onChange={(e) => setF({...f, hr_phone: e.target.value})} placeholder="+91" disabled={isOtpVerified} />
-                        {!isOtpVerified && (
-                          <Button type="button" variant="secondary" onClick={handleSendOTP} className="bg-slate-500 text-white hover:bg-slate-600">
-                            {otpSent ? "Resend OTP" : "Send OTP"}
-                          </Button>
-                        )}
-                        {isOtpVerified && (
-                          <Badge className="bg-india-green text-white flex items-center justify-center px-4 rounded-md">Verified</Badge>
-                        )}
+                        <Input required value={f.poc1_phone} onChange={(e) => handleInputChange('poc1_phone', e.target.value.replace(/\D/g, ''))} disabled={isOtpVerified} />
+                        {!isOtpVerified && <Button type="button" variant="secondary" onClick={handleSendOTP}>Send OTP</Button>}
+                        {isOtpVerified && <Badge className="bg-india-green flex items-center justify-center px-4 rounded-md">Verified</Badge>}
                       </div>
                     </div>
-
-                    {otpSent && !isOtpVerified && (
-                      <div className="sm:col-span-2 bg-saffron/10 border border-saffron/30 p-4 rounded-lg flex gap-3 items-end">
-                        <div className="flex-1">
-                          <Label className="text-navy">Enter Mobile OTP *</Label>
-                          <Input value={enteredOtp} onChange={(e) => setEnteredOtp(e.target.value)} placeholder="Enter 4-digit code (Use 1234)" className="mt-1 bg-white" />
-                        </div>
-                        <Button type="button" onClick={handleVerifyOTP} className="bg-navy text-white hover:bg-navy/90">Verify OTP</Button>
-                      </div>
-                    )}
-                    
-                    <div className="sm:col-span-2 mt-2">
-                      <Label>Work Email *</Label>
-                      <Input required type="email" value={f.email} onChange={(e) => setF({...f, email: e.target.value})} placeholder="you@company.com" className="mt-1" />
-                      <p className="text-[11px] text-muted-foreground mt-1.5">HR email must belong to the same domain as the official email domain above.</p>
+                    <div className="sm:col-span-6">
+                      <Label>Official Email ID *</Label>
+                      <Input required type="email" value={f.poc1_email} onChange={(e) => handleInputChange('poc1_email', e.target.value)} className="mt-1" />
                     </div>
+                  </div>
 
+                  {otpSent && !isOtpVerified && (
+                    <div className="bg-saffron/10 border border-saffron/30 p-4 rounded-lg flex gap-3 items-end">
+                      <div className="flex-1">
+                        <Label className="text-navy">Enter Mobile OTP *</Label>
+                        <Input value={enteredOtp} onChange={(e) => setEnteredOtp(e.target.value)} placeholder="Use 1234" className="mt-1 bg-white" />
+                      </div>
+                      <Button type="button" onClick={handleVerifyOTP} className="bg-navy text-white">Verify OTP</Button>
+                    </div>
+                  )}
+
+                  <div className="grid sm:grid-cols-2 gap-4 pt-2">
                     <div>
-                      <Label>Password *</Label>
-                      <Input required type="password" value={f.password} onChange={(e) => setF({...f, password: e.target.value})} placeholder="Minimum 8 characters" className="mt-1" />
+                      <Label>Set Panel Password *</Label>
+                      <Input required type="password" value={f.password} onChange={(e) => handleInputChange('password', e.target.value)} className="mt-1" />
                     </div>
                     <div>
                       <Label>Confirm Password *</Label>
-                      <Input 
-                        required 
-                        type="password" 
-                        value={f.confirmPassword} 
-                        onChange={(e) => {
-                          setF({...f, confirmPassword: e.target.value});
-                          if (passwordMismatch) setPasswordMismatch(false);
-                        }} 
-                        className={`mt-1 ${passwordMismatch ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                      />
-                      {passwordMismatch && (
-                        <p className="text-xs text-destructive mt-1 font-medium">Passwords do not match.</p>
-                      )}
+                      <Input required type="password" value={f.confirmPassword} onChange={(e) => handleInputChange('confirmPassword', e.target.value)} className="mt-1" />
                     </div>
-                    <p className="text-[11px] text-muted-foreground sm:col-span-2">This password will be used by the HR contact above to sign in to the Company Admin Panel after approval.</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 pt-4">
-                  <Button type="submit" disabled={isSubmitting || !isOtpVerified} className="bg-saffron text-navy hover:bg-saffron/90 font-semibold px-8 disabled:opacity-60">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Submit for review
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => navigate({to: "/for-employers"})}>Cancel</Button>
+                {/* PoC 2 (Optional) */}
+                <div className="space-y-4 pt-4 border-t border-border/40">
+                  <h3 className="text-lg font-display font-bold text-navy border-b pb-2">Secondary Contact (Optional)</h3>
+                  <div className="grid sm:grid-cols-12 gap-4">
+                    <div className="sm:col-span-3">
+                      <Label>Title</Label>
+                      <Select value={f.poc2_title} onValueChange={(v) => handleInputChange('poc2_title', v)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Title" /></SelectTrigger>
+                        <SelectContent>{TITLES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="sm:col-span-5">
+                      <Label>Full Name</Label>
+                      <Input value={f.poc2_name} onChange={(e) => handleInputChange('poc2_name', e.target.value)} className="mt-1" />
+                    </div>
+                    <div className="sm:col-span-4">
+                      <Label>Designation</Label>
+                      <Select value={f.poc2_designation} onValueChange={(v) => handleInputChange('poc2_designation', v)}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Designation" /></SelectTrigger>
+                        <SelectContent>{DESIGNATIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
-              </form>
-            </Card>
-          </div>
-
-          <div className="space-y-6">
-            <Card className="p-6 border-border/60 shadow-sm bg-white">
-              <div className="flex items-center gap-2 mb-4">
-                <ShieldCheck className="h-5 w-5 text-india-green" />
-                <h3 className="font-display font-bold text-navy">How verification works</h3>
               </div>
-              <ol className="text-sm text-muted-foreground space-y-3 pl-1">
-                <li>1. Submit company + HR details</li>
-                <li>2. Admin reviews GST, domain and website</li>
-                <li>3. Approval unlocks employer login for anyone on your work-email domain</li>
-                <li>4. Start posting jobs & booking Udyoga Mela stalls</li>
-              </ol>
-            </Card>
+            )}
 
-            <Card className="p-6 border-border/60 shadow-sm bg-white">
-              <p className="text-xs font-bold tracking-widest text-muted-foreground uppercase mb-1">Turnaround</p>
-              <h3 className="font-display font-bold text-navy text-2xl flex items-center gap-2">
-                <Clock className="h-6 w-6 text-navy" /> under 24 hrs
-              </h3>
-              <p className="text-xs text-muted-foreground mt-2">For fully-documented submissions on business days.</p>
-            </Card>
-          </div>
+            {/* STEP 4: OPERATIONS & INCLUSION */}
+            {step === 4 && (
+              <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                <h3 className="text-lg font-display font-bold text-navy border-b pb-2">Operations & Inclusion</h3>
+                
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <div>
+                    <Label>Current Employee Strength *</Label>
+                    <Select value={f.employee_strength} onValueChange={(v) => handleInputChange('employee_strength', v)}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select range" /></SelectTrigger>
+                      <SelectContent>{EMPLOYEE_STRENGTH.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Do you hire Persons with Disabilities? *</Label>
+                    <Select value={f.hire_pwds} onValueChange={(v) => handleInputChange('hire_pwds', v)}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select option" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Yes">Yes</SelectItem>
+                        <SelectItem value="No">No</SelectItem>
+                        <SelectItem value="Planning to">Planning to</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-        </div>
+                  {(f.hire_pwds === "Yes" || f.hire_pwds === "Planning to") && (
+                    <div className="sm:col-span-2">
+                      <Label>Disability Types Accepted (Select multiple)</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {DISABILITIES.map(d => (
+                          <Badge 
+                            key={d} 
+                            variant={f.accepted_disabilities.includes(d) ? "default" : "outline"}
+                            className={`cursor-pointer px-3 py-1.5 ${f.accepted_disabilities.includes(d) ? "bg-navy text-white" : "hover:bg-slate-100"}`}
+                            onClick={() => toggleArrayItem("accepted_disabilities", d)}
+                          >
+                            {d}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* STEP 5: DOCUMENTS & DECLARATIONS */}
+            {step === 5 && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <h3 className="text-lg font-display font-bold text-navy border-b pb-2">Documents & Declarations</h3>
+                
+                <div className="p-5 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 text-center">
+                  <div className="mx-auto w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
+                    <Upload className="h-5 w-5 text-navy" />
+                  </div>
+                  <Label htmlFor="logo-upload" className="cursor-pointer text-navy font-semibold hover:underline">
+                    Click to upload Organization Logo
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1 mb-3">PDF, JPG, PNG only (Max 2MB)</p>
+                  <Input 
+                    id="logo-upload" 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file && file.size > 2 * 1024 * 1024) return toast.error("File size must be under 2MB");
+                      if (file) setLogoFile(file);
+                    }}
+                  />
+                  {logoFile && (
+                    <Badge variant="secondary" className="bg-white border-slate-200">
+                      {logoFile.name} ({(logoFile.size / 1024).toFixed(0)} KB)
+                    </Badge>
+                  )}
+                </div>
+
+                <div>
+                  <Label>How did you hear about us?</Label>
+                  <Select value={f.source_of_discovery} onValueChange={(v) => handleInputChange('source_of_discovery', v)}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select source" /></SelectTrigger>
+                    <SelectContent>{DISCOVERY_SOURCES.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3 bg-slate-100 p-4 rounded-lg border border-slate-200">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" checked={f.policy_agreed} onChange={(e) => handleInputChange('policy_agreed', e.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-300 text-navy focus:ring-navy" />
+                    <span className="text-sm text-slate-700">Self-declaration of compliance with labour laws & confirm organization is not blacklisted. *</span>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" checked={f.consent_agreed} onChange={(e) => handleInputChange('consent_agreed', e.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-300 text-navy focus:ring-navy" />
+                    <span className="text-sm text-slate-700">Consent to data usage & communication regarding hiring events and candidates. *</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* NAVIGATION BUTTONS */}
+            <div className="flex items-center justify-between pt-6 border-t border-border/40">
+              <Button type="button" variant="outline" onClick={() => step > 1 ? setStep(step - 1) : navigate({to: "/for-employers"})}>
+                {step === 1 ? "Cancel" : "Back"}
+              </Button>
+
+              {step < 5 ? (
+                <Button type="button" onClick={handleNextStep} className="bg-navy text-white hover:bg-navy/90 px-8">
+                  Next Step
+                </Button>
+              ) : (
+                <Button type="submit" disabled={isSubmitting || !f.policy_agreed || !f.consent_agreed} className="bg-saffron text-navy hover:bg-saffron/90 font-semibold px-8">
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Complete Registration
+                </Button>
+              )}
+            </div>
+
+          </form>
+        </Card>
       </div>
     </div>
   );
