@@ -60,17 +60,18 @@ function EmployerEventQueue() {
   const fetchEmployerJobs = async () => {
     if (!user || !user.id) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${user.id}/jobs-list`);
+      // Use the filtered job-options endpoint so completed events are hidden
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${user.id}/job-options`);
       const json = await res.json();
       if (json.success) {
-        // Only load jobs attached to events
-        const eJobs = json.data.filter((j: any) => j.event_id != null && j.event_id !== "");
-        setEventJobs(eJobs);
-        if (eJobs.length > 0 && !selectedJobId) {
-          setSelectedJobId(eJobs[0].id.toString());
+        setEventJobs(json.data);
+        if (json.data.length > 0 && !selectedJobId) {
+          setSelectedJobId(json.data[0].id.toString());
         }
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error("Failed to fetch event job options", err);
+    }
   };
 
   const fetchQueue = async () => {
