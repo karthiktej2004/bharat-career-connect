@@ -5,8 +5,9 @@ import { adminNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Star, CheckCircle2, XCircle, Ban, Loader2 } from "lucide-react";
+import { Star, CheckCircle2, XCircle, Trash2, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/employers")({
@@ -27,6 +28,9 @@ interface Employer {
 function Employers() {
   const [employers, setEmployers] = useState<Employer[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State for Selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   // Fetch real data from express backend using the AWS production server URL
   const fetchEmployers = async () => {
@@ -66,7 +70,7 @@ function Employers() {
       });
       const json = await response.json();
       if (json.success) {
-        toast.success(`Employer successfully marked as ${status}!`);
+        toast.success(`Employer successfully marked as ${status === 'blacklisted' ? 'deleted' : status}!`);
       } else {
         toast.error(json.message || "Failed to update status.");
         fetchEmployers(); // Roll back if backend rejected it
@@ -78,9 +82,66 @@ function Employers() {
     }
   };
 
+  // --- Selection Logic ---
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(employers.map((e) => e.dbId)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (dbId: number, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(dbId);
+    } else {
+      newSelected.delete(dbId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  // --- Export Logic ---
+  const handleExport = () => {
+    const dataToExport = selectedIds.size > 0 
+      ? employers.filter(e => selectedIds.has(e.dbId)) 
+      : employers;
+
+    if (dataToExport.length === 0) {
+      toast.error("No data available to export.");
+      return;
+    }
+
+    const csvRows = ["ID,Company,GST,Active Jobs,Rating,Status"];
+    dataToExport.forEach((e) => {
+      // Escape quotes in name to prevent CSV breaking
+      const safeName = e.name.replace(/"/g, '""');
+      csvRows.push(`"${e.id}","${safeName}","${e.gst}",${e.jobs},${e.rating},"${e.status}"`);
+    });
+
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Employers_Export_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Exported ${dataToExport.length} employers successfully.`);
+  };
+
   return (
     <DashShell role="admin" nav={adminNav}>
-      <PageHeader title="Employer Management" description="Approve, verify and rate employer participation." />
+      <PageHeader 
+        title="Employer Management" 
+        description="Approve, verify and rate employer participation." 
+        action={
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            {selectedIds.size > 0 ? `Export Selected (${selectedIds.size})` : "Export All Data"}
+          </Button>
+        }
+      />
       <Card className="border-border/60">
         {loading ? (
           <div className="flex justify-center items-center p-8 text-muted-foreground">
@@ -90,6 +151,12 @@ function Employers() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox 
+                    checked={employers.length > 0 && selectedIds.size === employers.length}
+                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                  />
+                </TableHead>
                 <TableHead>ID</TableHead>
                 <TableHead>Company</TableHead>
                 <TableHead>GST</TableHead>
@@ -102,13 +169,19 @@ function Employers() {
             <TableBody>
               {employers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
                     No employers found.
                   </TableCell>
                 </TableRow>
               ) : (
                 employers.map((e) => (
                   <TableRow key={e.id}>
+                    <TableCell>
+                      <Checkbox 
+                        checked={selectedIds.has(e.dbId)}
+                        onCheckedChange={(checked) => handleSelectOne(e.dbId, checked as boolean)}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{e.id}</TableCell>
                     <TableCell className="font-medium text-navy">{e.name}</TableCell>
                     <TableCell>
@@ -125,7 +198,7 @@ function Employers() {
                     </TableCell>
                     <TableCell>
                       <Badge className={e.status === "Active" ? "bg-india-green/15 text-india-green" : e.status === "Pending" ? "bg-saffron/15 text-saffron" : "bg-destructive/15 text-destructive"}>
-                        {e.status}
+                        {e.status === "Blacklisted" ? "Deleted" : e.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -152,7 +225,7 @@ function Employers() {
                           className="h-8 border-destructive/40 text-destructive hover:bg-destructive/10" 
                           onClick={() => handleStatusUpdate(e.dbId, "blacklisted")}
                         >
-                          <Ban className="h-3.5 w-3.5 mr-1" /> Blacklist
+                          <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
                         </Button>
                       </div>
                     </TableCell>
