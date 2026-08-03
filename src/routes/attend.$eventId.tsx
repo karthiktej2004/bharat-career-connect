@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge"; // <-- FIX: Added missing Badge import
 import { CheckCircle2, User, Building2, Store, ShieldCheck, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -68,11 +69,11 @@ function MobileCheckIn() {
         body: JSON.stringify({ ...formData, role })
       });
       const json = await res.json();
-      if (json.success) {
+      if (json.success && json.data) {
         setCandidateData(json.data);
         setStep('verify');
       } else {
-        toast.error(json.message);
+        toast.error(json.message || "Could not verify candidate data.");
       }
     } catch (err) {
       toast.error("Network error connecting to server.");
@@ -197,10 +198,11 @@ function MobileCheckIn() {
           <Card className="p-6 border-none shadow-lg rounded-2xl animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex items-center gap-3 border-b border-border pb-4 mb-5">
               <div className="h-12 w-12 bg-navy text-white rounded-full flex items-center justify-center font-bold text-xl">
-                {candidateData.name.charAt(0)}
+                {/* FIX: Added fallback to prevent crash if name is empty in database */}
+                {(candidateData.name || "User").charAt(0).toUpperCase()}
               </div>
               <div>
-                <h2 className="font-display font-bold text-navy text-xl leading-tight">{candidateData.name}</h2>
+                <h2 className="font-display font-bold text-navy text-xl leading-tight">{candidateData.name || "N/A"}</h2>
                 <Badge variant="outline" className="mt-1 bg-slate-50 uppercase text-[10px] tracking-wider">{role}</Badge>
               </div>
             </div>
@@ -208,22 +210,22 @@ function MobileCheckIn() {
             <div className="space-y-4 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-100">
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">System ID</p>
-                <p className="font-mono font-medium text-navy mt-0.5">{candidateData.id}</p>
+                <p className="font-mono font-medium text-navy mt-0.5">{candidateData.id || "N/A"}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Email</p>
-                  <p className="text-sm font-medium text-navy truncate mt-0.5" title={candidateData.email}>{candidateData.email}</p>
+                  <p className="text-sm font-medium text-navy truncate mt-0.5" title={candidateData.email}>{candidateData.email || "N/A"}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Phone</p>
-                  <p className="text-sm font-medium text-navy mt-0.5">{candidateData.phone}</p>
+                  <p className="text-sm font-medium text-navy mt-0.5">{candidateData.phone || "N/A"}</p>
                 </div>
               </div>
               {role === 'candidate' && (
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Qualification</p>
-                  <p className="text-sm font-medium text-navy mt-0.5">{candidateData.qual}</p>
+                  <p className="text-sm font-medium text-navy mt-0.5">{candidateData.qual || "N/A"}</p>
                 </div>
               )}
             </div>
