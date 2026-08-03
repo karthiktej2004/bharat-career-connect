@@ -52,7 +52,7 @@ function EmployerHome() {
 
       const activeId = foundUser.id ? foundUser.id.toString() : foundUser.email;
       
-      fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/${activeId}/dashboard`)
+      fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${activeId}/dashboard`)
         .then((res) => res.json())
         .then((json) => {
           if (json.success) {
