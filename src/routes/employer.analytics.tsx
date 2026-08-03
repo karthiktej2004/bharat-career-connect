@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator"; // <-- THE MISSING IMPORT!
+import { Separator } from "@/components/ui/separator"; 
 import { Target, Clock, TrendingUp, Users, Download, Loader2, Store, CalendarOff, Building2 } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
@@ -91,24 +91,27 @@ export function AnalyticsBody() {
     };
   }, [filteredHistory, selectedFilter, data]);
 
+  // --- UPDATED EXCEL EXPORT ENGINE ---
   const downloadReport = () => {
-    if (filteredHistory.length === 0) return toast.error("No data available to export for this view.");
+    // Generate template if no data exists
+    const hasData = filteredHistory.length > 0;
+    const exportData = hasData ? filteredHistory : [{}]; 
 
-    const worksheetData = filteredHistory.map((row: any) => {
+    const worksheetData = exportData.map((row: any) => {
       const evt = (events || []).find(e => e.id === row.event_id);
       const stl = (stalls || []).find(s => s.eventId === row.event_id);
 
       return {
-        "Date Applied": new Date(row.date).toLocaleDateString("en-IN"),
+        "Date Applied": hasData ? new Date(row.date).toLocaleDateString("en-IN") : "N/A",
         "Candidate ID": row.candidate_unique_id || "N/A", 
-        "Candidate Name": row.candidate_name || "Unknown",
+        "Candidate Name": row.candidate_name || "N/A",
         "Email": row.candidate_email || "N/A",            
         "Phone": row.candidate_phone || "N/A",            
         "Job Title Applied": row.job_title || "N/A",
         "Source": row.event_id ? "Job Fair" : "Direct / Online",
-        "Final Status": row.action_type || "Applied",
+        "Final Status": row.action_type || "N/A",
         "Event Name": evt?.name || row.event_name || "N/A",
-        "Event Date": evt ? new Date(evt.event_date).toLocaleDateString("en-IN") : "N/A",
+        "Event Date": evt && evt.event_date ? new Date(evt.event_date).toLocaleDateString("en-IN") : "N/A",
         "Employer Stall ID": stl?.allocatedStall || stl?.stallNo || "N/A",
         "Stall Block/Floor": stl ? `${stl.block || 'Main'} - ${stl.floor || 'Ground'}` : "N/A",
       };
