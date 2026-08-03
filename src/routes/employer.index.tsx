@@ -38,7 +38,6 @@ function EmployerHome() {
         }
       }
 
-      // Block candidates from employer panel
       if (foundUser && foundUser.role === "candidate") {
         navigate({ to: "/auth/login" });
         return;
@@ -51,11 +50,8 @@ function EmployerHome() {
 
       setEmployerUser(foundUser);
 
-      // Fetch Live Data from Backend API
       const activeId = foundUser.id ? foundUser.id.toString() : foundUser.email;
       
-      // We assume your backend is mapped to /api/auth/employer for dashboard as well, 
-      // or /api/employer. Adjust if your route differs slightly.
       fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/${activeId}/dashboard`)
         .then((res) => res.json())
         .then((json) => {
@@ -72,12 +68,11 @@ function EmployerHome() {
     }
   }, [navigate]);
 
-  // Format ID to BCC-UMP-EMP-00000000X
   const formatEmployerId = (id: string | number) => {
     if (!id) return "N/A";
-    const numMatch = String(id).match(/\d+/); // Extract numbers in case of UUIDs
+    const numMatch = String(id).match(/\d+/);
     const num = numMatch ? numMatch[0] : "1";
-    return `BCC-UMP-EMP-${num.padStart(9, '0')}`;
+    return `BCC-UMP-EMP-${num.padStart(9, "0")}`;
   };
 
   const trend = data?.chartData?.map((d: any) => ({ d: d.day, v: d.applications })) || [
@@ -103,7 +98,6 @@ function EmployerHome() {
     );
   }
 
-  // Fallbacks for profile data if backend profile object is missing
   const companyName = data?.profile?.company_name || employerUser?.company_name || employerUser?.name || "Company Profile Pending";
   const contactEmail = data?.profile?.email || employerUser?.email || "N/A";
   const displayId = formatEmployerId(employerUser?.id);
@@ -137,7 +131,6 @@ function EmployerHome() {
         </Card>
       )}
 
-      {/* KPI Cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="ACTIVE EVENT JOBS" value={data?.kpis?.activeJobs || 0} icon={Briefcase} />
         <StatCard label="APPLICATIONS" value={data?.kpis?.applications || 0} icon={Users} accent="navy" />
@@ -145,7 +138,6 @@ function EmployerHome() {
         <StatCard label="OFFERS MADE" value={data?.kpis?.offersMade || 0} icon={Award} accent="india-green" />
       </div>
 
-      {/* Charts Section */}
       <div className="grid lg:grid-cols-2 gap-6">
         <Card className="p-6 border-border/60 shadow-sm bg-white">
           <div className="flex items-center justify-between mb-6">
@@ -156,7 +148,7 @@ function EmployerHome() {
             <LineChart data={trend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} className="opacity-30" />
               <XAxis dataKey="d" axisLine={false} tickLine={false} className="text-xs text-muted-foreground" />
-              <Tooltip cursor={{ stroke: 'var(--border)', strokeWidth: 1, strokeDasharray: '3 3' }} />
+              <Tooltip cursor={{ stroke: "var(--border)", strokeWidth: 1, strokeDasharray: "3 3" }} />
               <Line type="monotone" dataKey="v" stroke="#f97316" strokeWidth={4} dot={{ fill: "#1e293b", r: 4, strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
@@ -168,14 +160,13 @@ function EmployerHome() {
             <BarChart data={funnel} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} className="opacity-30" />
               <XAxis dataKey="stage" axisLine={false} tickLine={false} className="text-xs text-muted-foreground" />
-              <Tooltip cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
+              <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
               <Bar dataKey="v" fill="#15803d" radius={[6, 6, 0, 0]} maxBarSize={60} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
       </div>
 
-      {/* Recent Applicants Section */}
       <Card className="p-6 border-border/60 mt-6 shadow-sm bg-white">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-bold text-navy">Recent applicants</h2>
@@ -186,7 +177,7 @@ function EmployerHome() {
         <div className="space-y-3">
           {data?.recentApplicants?.length > 0 ? (
             data.recentApplicants.map((app: any) => {
-              const appliedDate = new Date(app.applied_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+              const appliedDate = new Date(app.applied_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
               
               return (
                 <div key={app.application_id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-colors">
@@ -212,10 +203,3 @@ function EmployerHome() {
     </DashShell>
   );
 }
-```eof
-
-### Step 2: Now we fix the Backend Logic!
-
-Because you want the dashboard KPI numbers (Active Jobs, Applications, Offers, etc.) to **only count metrics related to "Event Jobs"** (and completely ignore deleted or non-event jobs), we need to update the SQL queries in `employer.routes.js`.
-
-Would you like me to generate the backend code block for the Dashboard API right now to fix the counting logic?
