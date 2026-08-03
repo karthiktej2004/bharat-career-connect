@@ -78,6 +78,39 @@ function Profile() {
     }
   };
 
+  // --- PROFILE COMPLETION % CALCULATION ---
+  const completion = useMemo(() => {
+    if (!profile) return 0;
+    const p = profile;
+    
+    // Check if complex objects actually have data
+    const hasAddress = p.currentAddress && Object.keys(p.currentAddress).length > 0 && !!p.currentAddress.pincode;
+    const hasSkills = (p.technicalSkills?.length || 0) > 0 || (p.nonTechnicalSkills?.length || 0) > 0;
+    
+    // Check languages (handles both the new JSON object format and fallback to old arrays)
+    let hasLanguages = false;
+    if (p.languagesFluent) {
+      if (Array.isArray(p.languagesFluent)) {
+        hasLanguages = p.languagesFluent.length > 0;
+      } else {
+        hasLanguages = (p.languagesFluent.read?.length || 0) > 0 || 
+                       (p.languagesFluent.write?.length || 0) > 0 || 
+                       (p.languagesFluent.speak?.length || 0) > 0;
+      }
+    }
+
+    const fields = [
+      p.fullName, p.email, p.phone, p.dob, p.gender, p.category, 
+      hasAddress, p.qualification, p.institution, p.yearOfPassing, 
+      hasSkills, hasLanguages, p.experienceType, p.resumeFileName, 
+      (p.preferredLocations?.length || 0) > 0, 
+      (p.opportunities?.length || 0) > 0
+    ];
+
+    const filled = fields.filter(Boolean).length;
+    return Math.round((filled / fields.length) * 100);
+  }, [profile]);
+
   if (isLoading) return <DashShell role="candidate" nav={candidateNav}><div className="p-8 text-center">Loading...</div></DashShell>;
   if (!profile) return <DashShell role="candidate" nav={candidateNav}><div className="p-8 text-center text-red-500">Profile Not Found</div></DashShell>;
 
@@ -144,6 +177,31 @@ function Profile() {
   return (
     <DashShell role="candidate" nav={candidateNav}>
       <PageHeader title="Candidate Profile" description={`ID: ${profile.uniqueId}`} />
+
+      {/* COMPLETION PERCENTAGE BAR */}
+      <Card className="p-6 border-border/60 mb-6 bg-white shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="font-display font-bold text-navy text-lg">{profile.fullName}</div>
+            <div className="text-xs text-muted-foreground">{profile.email} · {profile.phone}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground">Profile completion</div>
+            <div className="text-2xl font-bold text-india-green">{completion}%</div>
+          </div>
+        </div>
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-saffron to-india-green transition-all duration-1000" 
+            style={{ width: `${completion}%` }} 
+          />
+        </div>
+        {completion < 100 && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Click "Edit" on the sections below to add missing details and reach 100%.
+          </p>
+        )}
+      </Card>
 
       {/* BRANDING (Auto-saves immediately) */}
       <Section title="Profile Images" icon={ImageIcon}>
