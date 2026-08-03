@@ -26,24 +26,27 @@ function Interviews() {
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
+    let isMounted = true;
     async function fetchInterviews() {
-      if (!user || !user.id) {
-        setIsLoading(false);
+      const session = getSession();
+      if (!session || !session.id) {
+        if (isMounted) setIsLoading(false);
         return;
       }
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/${user.id}/interviews`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/${session.id}/interviews`);
         const json = await res.json();
-        if (json.success) setInterviews(json.data);
+        if (json.success && isMounted) setInterviews(json.data);
       } catch (err) {
-        toast.error("Failed to load interviews.");
+        if (isMounted) toast.error("Failed to load interviews.");
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     }
     fetchInterviews();
-  }, [user]);
+    return () => { isMounted = false; };
+  }, []); // <-- Empty array stops infinite looping completely
 
   const handleSendMessage = async () => {
     if (!messageText.trim()) { toast.error("Please enter a message."); return; }
