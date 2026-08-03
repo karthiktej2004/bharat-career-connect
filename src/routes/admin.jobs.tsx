@@ -10,7 +10,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle2, XCircle, Briefcase, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-// UPDATED: Matched exactly to your PostgreSQL columns
 export interface Job {
   id: string;
   title: string;
@@ -19,6 +18,7 @@ export interface Job {
   location: string;
   created_at: string;
   status: "pending" | "approved" | "rejected" | "inactive";
+  event_id?: number | string | null; // Added to distinguish Event Jobs
 }
 
 export const Route = createFileRoute("/admin/jobs")({
@@ -53,10 +53,13 @@ function AdminJobs() {
     fetchJobs();
   }, []);
 
-  // UPDATED: Using 'status' instead of 'approvalStatus'
-  const pending = jobs.filter((j) => (j.status ?? "pending") === "pending");
+  // Split jobs into categories based on status and whether they are tied to an event
+  const eventJobs = jobs.filter((j) => j.event_id != null && (j.status ?? "pending") === "pending");
+  const pending = jobs.filter((j) => j.event_id == null && (j.status ?? "pending") === "pending");
   const approved = jobs.filter((j) => j.status === "approved");
   const rejected = jobs.filter((j) => j.status === "rejected");
+
+  const totalActionable = eventJobs.length + pending.length;
 
   // 2. Call backend PUT API to approve or reject a job
   async function act(j: Job, status: "approved" | "rejected") {
@@ -94,7 +97,7 @@ function AdminJobs() {
         action={
           <Badge className="bg-saffron/15 text-saffron gap-1">
             <Briefcase className="h-3 w-3" />
-            {pending.length} pending
+            {totalActionable} action required
           </Badge>
         }
       />
@@ -104,12 +107,17 @@ function AdminJobs() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <Tabs defaultValue="pending">
+        <Tabs defaultValue="event-jobs">
           <TabsList>
+            <TabsTrigger value="event-jobs">Event Jobs ({eventJobs.length})</TabsTrigger>
             <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
             <TabsTrigger value="approved">Approved ({approved.length})</TabsTrigger>
             <TabsTrigger value="rejected">Rejected ({rejected.length})</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="event-jobs">
+            <JobTable jobs={eventJobs} showActions onAct={act} />
+          </TabsContent>
           <TabsContent value="pending">
             <JobTable jobs={pending} showActions onAct={act} />
           </TabsContent>
