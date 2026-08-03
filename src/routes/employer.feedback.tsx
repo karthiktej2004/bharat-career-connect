@@ -47,12 +47,12 @@ export function EmployerFeedbackBody() {
   useEffect(() => {
     return () => {
       if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       }
     };
   }, [stream]);
 
-  // FIX: This ensures the stream attaches ONLY AFTER the <video> element actually renders!
+  // Ensure the stream attaches ONLY AFTER the <video> element renders
   useEffect(() => {
     if (cameraActive && videoRef.current && stream) {
       videoRef.current.srcObject = stream;
@@ -87,8 +87,7 @@ export function EmployerFeedbackBody() {
       const url = URL.createObjectURL(blob);
       setRecordedUrl(url);
       setCameraActive(false);
-      // Stop tracks so the camera light turns off
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((track) => track.stop());
       setStream(null);
     };
 
@@ -118,10 +117,13 @@ export function EmployerFeedbackBody() {
 
     setIsSubmitting(true);
     try {
-      // In a real app, upload the videoBlob to an S3 bucket here first.
-      const mockUploadedVideoUrl = recordedUrl ? "https://storage.bharatcareerconnect.com/videos/emp_vid.mp4" : null;
+      const mockUploadedVideoUrl = recordedUrl
+        ? "https://storage.bharatcareerconnect.com/videos/emp_vid.mp4"
+        : null;
 
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/employer/feedback", {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
+      const res = await fetch(`${API_BASE}/api/employer/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -130,20 +132,20 @@ export function EmployerFeedbackBody() {
           candidateQuality,
           eventOrganization,
           hiringEfficiency,
-          videoUrl: mockUploadedVideoUrl
-        })
+          videoUrl: mockUploadedVideoUrl,
+        }),
       });
 
       const json = await res.json();
       if (json.success) {
-        toast.success("Feedback & Video submitted successfully!");
+        toast.success("Feedback submitted successfully!");
         setRating(0);
         setCandidateQuality("");
         setEventOrganization("");
         setHiringEfficiency("");
         setRecordedUrl(null);
       } else {
-        toast.error("Failed to submit feedback.");
+        toast.error(json.message || "Failed to submit feedback.");
       }
     } catch (error) {
       toast.error("Server connection error.");
@@ -160,15 +162,15 @@ export function EmployerFeedbackBody() {
       />
 
       <div className="grid lg:grid-cols-2 gap-6">
-        
         {/* LEFT COLUMN: Main Form */}
         <Card className="p-6 border-border/60">
           <h3 className="font-display font-bold text-navy text-xl mb-6">Share your experience</h3>
           <form onSubmit={handleSubmit} className="space-y-6">
-            
             {/* Star Rating */}
             <div>
-              <Label className="text-base text-navy font-bold flex items-center gap-1 mb-2">Overall rating</Label>
+              <Label className="text-base text-navy font-bold flex items-center gap-1 mb-2">
+                Overall rating
+              </Label>
               <div className="flex gap-1.5">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -223,9 +225,9 @@ export function EmployerFeedbackBody() {
               />
             </div>
 
-            <Button 
-              type="submit" 
-              disabled={isSubmitting || rating === 0} 
+            <Button
+              type="submit"
+              disabled={isSubmitting || rating === 0}
               className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold"
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -237,9 +239,8 @@ export function EmployerFeedbackBody() {
         {/* RIGHT COLUMN: Video Testimonial Box */}
         <Card className="p-6 border-border/60 flex flex-col">
           <h3 className="font-display font-bold text-navy text-xl mb-6">Record a video testimonial</h3>
-          
+
           <div className="flex-1 rounded-2xl bg-navy border-2 border-dashed border-border/50 relative overflow-hidden flex flex-col items-center justify-center p-8 min-h-[400px]">
-            
             {/* STATE 1: IDLE / NOT STARTED */}
             {!cameraActive && !recordedUrl && (
               <div className="text-center text-white flex flex-col items-center max-w-sm">
@@ -250,7 +251,10 @@ export function EmployerFeedbackBody() {
                 <p className="text-white/60 text-sm mb-8">
                   Allow camera and microphone access to record a short 60-second video about your hiring journey.
                 </p>
-                <Button onClick={enableCamera} className="bg-saffron text-navy hover:bg-saffron/90 font-bold px-8 py-6 text-base rounded-full">
+                <Button
+                  onClick={enableCamera}
+                  className="bg-saffron text-navy hover:bg-saffron/90 font-bold px-8 py-6 text-base rounded-full"
+                >
                   Enable Camera
                 </Button>
               </div>
@@ -259,17 +263,19 @@ export function EmployerFeedbackBody() {
             {/* STATE 2: LIVE CAMERA & RECORDING */}
             {cameraActive && (
               <>
-                <video 
-                  ref={videoRef} 
-                  autoPlay 
-                  muted 
-                  playsInline 
-                  className="absolute inset-0 w-full h-full object-cover -scale-x-100" 
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover -scale-x-100"
                 />
-                {/* Overlay Controls */}
                 <div className="absolute bottom-8 left-0 right-0 flex justify-center z-10">
                   {!isRecording ? (
-                    <Button onClick={startRecording} className="bg-red-600 hover:bg-red-700 text-white rounded-full px-6 py-6 shadow-xl">
+                    <Button
+                      onClick={startRecording}
+                      className="bg-red-600 hover:bg-red-700 text-white rounded-full px-6 py-6 shadow-xl"
+                    >
                       <div className="h-4 w-4 rounded-full bg-white mr-2 animate-pulse" />
                       Start Recording
                     </Button>
@@ -278,7 +284,11 @@ export function EmployerFeedbackBody() {
                       <span className="bg-black/50 text-white px-3 py-1 rounded-md text-xs mb-3 flex items-center font-bold tracking-widest backdrop-blur-md">
                         <div className="h-2 w-2 rounded-full bg-red-500 mr-2 animate-pulse" /> RECORDING
                       </span>
-                      <Button onClick={stopRecording} variant="outline" className="border-red-500 bg-black/50 text-red-500 hover:bg-red-500 hover:text-white rounded-full px-6 py-6 backdrop-blur-md">
+                      <Button
+                        onClick={stopRecording}
+                        variant="outline"
+                        className="border-red-500 bg-black/50 text-red-500 hover:bg-red-500 hover:text-white rounded-full px-6 py-6 backdrop-blur-md"
+                      >
                         <Square className="h-4 w-4 mr-2 fill-current" />
                         Stop Recording
                       </Button>
@@ -291,26 +301,28 @@ export function EmployerFeedbackBody() {
             {/* STATE 3: VIDEO RECORDED (PLAYBACK) */}
             {recordedUrl && (
               <>
-                <video 
-                  src={recordedUrl} 
-                  controls 
+                <video
+                  src={recordedUrl}
+                  controls
                   className="absolute inset-0 w-full h-full object-cover bg-black"
                 />
-                {/* Overlay Controls */}
                 <div className="absolute top-4 right-4 z-10">
                   <Badge className="bg-india-green text-white font-bold px-3 py-1 text-sm shadow-md">
                     <CheckCircle className="h-4 w-4 mr-1.5" /> Video Saved
                   </Badge>
                 </div>
                 <div className="absolute bottom-8 left-0 right-0 flex justify-center z-10">
-                  <Button onClick={retakeVideo} variant="outline" className="bg-black/60 border-white/20 text-white hover:bg-black/80 rounded-full backdrop-blur-md">
+                  <Button
+                    onClick={retakeVideo}
+                    variant="outline"
+                    className="bg-black/60 border-white/20 text-white hover:bg-black/80 rounded-full backdrop-blur-md"
+                  >
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Retake Video
                   </Button>
                 </div>
               </>
             )}
-
           </div>
         </Card>
       </div>
