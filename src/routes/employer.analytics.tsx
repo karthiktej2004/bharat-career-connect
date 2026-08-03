@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator"; // <-- THE MISSING IMPORT!
 import { Target, Clock, TrendingUp, Users, Download, Loader2, Store, CalendarOff, Building2 } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
@@ -41,7 +42,6 @@ export function AnalyticsBody() {
     if (!employerId) return;
     setIsLoading(true);
     try {
-      // Fetch Analytics, Stalls, and Events simultaneously
       const [anRes, stRes, evRes] = await Promise.all([
         fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${employerId}/analytics`),
         fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${employerId}/event-stalls`),
@@ -52,7 +52,6 @@ export function AnalyticsBody() {
       const stJson = await stRes.json();
       const evJson = await evRes.json();
 
-      // Defensive state updates - fallback to empty arrays/objects if null
       if (anJson.success) setData(anJson.data || {});
       if (stJson.success) setStalls(stJson.data || []);
       if (evJson.success) setEvents(evJson.data || []);
@@ -67,23 +66,19 @@ export function AnalyticsBody() {
     fetchAllData();
   }, [fetchAllData]);
 
-  // --- DYNAMIC FILTERING LOGIC ---
   const filteredHistory = useMemo(() => {
     if (!data?.history) return [];
     if (selectedFilter === "all") return data.history;
     return data.history.filter((r: any) => r.event_id?.toString() === selectedFilter);
   }, [data, selectedFilter]);
 
-  // Recalculate KPIs based on selection
   const dynamicKpis = useMemo(() => {
     const defaultKpis = { talentPool: 0, totalHires: 0, conversionRate: 0, avgTime: "N/A" };
     
-    // If All-Time is selected, use backend KPIs
     if (selectedFilter === "all") {
       return data?.kpis || defaultKpis;
     }
     
-    // If specific event is selected, recalculate dynamically
     const pool = filteredHistory.length;
     const hires = filteredHistory.filter((r: any) => r.action_type === 'Hired').length;
     const rate = pool > 0 ? Math.round((hires / pool) * 100) : 0;
@@ -96,7 +91,6 @@ export function AnalyticsBody() {
     };
   }, [filteredHistory, selectedFilter, data]);
 
-  // --- EXCEL EXPORT ENGINE ---
   const downloadReport = () => {
     if (filteredHistory.length === 0) return toast.error("No data available to export for this view.");
 
@@ -137,11 +131,8 @@ export function AnalyticsBody() {
     return <div className="flex h-[50vh] items-center justify-center text-muted-foreground">Analytics data is currently unavailable.</div>;
   }
 
-  // Find active context if a specific event is selected
   const activeEvent = selectedFilter !== "all" ? (events || []).find(e => e.id?.toString() === selectedFilter) : null;
   const activeStall = selectedFilter !== "all" ? (stalls || []).find(s => s.eventId?.toString() === selectedFilter) : null;
-
-  // Extract unique events the employer has participated in for the dropdown
   const participatingEvents = (events || []).filter(e => (stalls || []).some(s => s.eventId === e.id));
 
   return (
@@ -171,7 +162,6 @@ export function AnalyticsBody() {
         }
       />
 
-      {/* --- EVENT STALL CONTEXT (Micro View) --- */}
       {selectedFilter !== "all" && activeEvent && (
         <Card className="p-5 mb-6 bg-gradient-to-r from-indigo-50/50 to-white border-indigo-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between shadow-sm">
           <div>
@@ -199,7 +189,6 @@ export function AnalyticsBody() {
         </Card>
       )}
 
-      {/* --- DYNAMIC KPI CARDS --- */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="p-5 border-border/60 shadow-sm bg-white">
           <div className="flex justify-between items-start mb-2">
@@ -232,7 +221,6 @@ export function AnalyticsBody() {
         </Card>
       </div>
 
-      {/* --- ALL-TIME CHARTS --- */}
       {selectedFilter === "all" && (
         <div className="grid lg:grid-cols-2 gap-6 mb-6">
           <Card className="p-6 border-border/60 flex flex-col shadow-sm bg-white">
@@ -277,7 +265,6 @@ export function AnalyticsBody() {
         </div>
       )}
 
-      {/* --- PIPELINE HISTORY TABLE --- */}
       <h3 className="font-display font-bold text-navy text-xl mt-8 mb-4 flex items-center gap-2">
         <CalendarOff className="h-5 w-5 text-saffron" /> 
         {selectedFilter === "all" ? "Master Candidate Pipeline" : "Event Pipeline Roster"}
