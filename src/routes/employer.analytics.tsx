@@ -52,9 +52,10 @@ export function AnalyticsBody() {
       const stJson = await stRes.json();
       const evJson = await evRes.json();
 
-      if (anJson.success) setData(anJson.data);
-      if (stJson.success) setStalls(stJson.data);
-      if (evJson.success) setEvents(evJson.data);
+      // Defensive state updates - fallback to empty arrays/objects if null
+      if (anJson.success) setData(anJson.data || {});
+      if (stJson.success) setStalls(stJson.data || []);
+      if (evJson.success) setEvents(evJson.data || []);
     } catch (error) {
       toast.error("Failed to load analytics data.");
     } finally {
@@ -75,8 +76,14 @@ export function AnalyticsBody() {
 
   // Recalculate KPIs based on selection
   const dynamicKpis = useMemo(() => {
-    if (selectedFilter === "all" && data?.kpis) return data.kpis;
+    const defaultKpis = { talentPool: 0, totalHires: 0, conversionRate: 0, avgTime: "N/A" };
     
+    // If All-Time is selected, use backend KPIs
+    if (selectedFilter === "all") {
+      return data?.kpis || defaultKpis;
+    }
+    
+    // If specific event is selected, recalculate dynamically
     const pool = filteredHistory.length;
     const hires = filteredHistory.filter((r: any) => r.action_type === 'Hired').length;
     const rate = pool > 0 ? Math.round((hires / pool) * 100) : 0;
@@ -89,24 +96,23 @@ export function AnalyticsBody() {
     };
   }, [filteredHistory, selectedFilter, data]);
 
-  // --- EXCEL EXPORT ENGINE (SYSTEM OF RECORD) ---
+  // --- EXCEL EXPORT ENGINE ---
   const downloadReport = () => {
     if (filteredHistory.length === 0) return toast.error("No data available to export for this view.");
 
     const worksheetData = filteredHistory.map((row: any) => {
-      // Cross-reference event and stall data for the record
-      const evt = events.find(e => e.id === row.event_id);
-      const stl = stalls.find(s => s.eventId === row.event_id);
+      const evt = (events || []).find(e => e.id === row.event_id);
+      const stl = (stalls || []).find(s => s.eventId === row.event_id);
 
       return {
         "Date Applied": new Date(row.date).toLocaleDateString("en-IN"),
-        "Candidate ID": row.candidate_unique_id || "N/A", // Requires backend update to feed this
-        "Candidate Name": row.candidate_name,
-        "Email": row.candidate_email || "N/A",            // Requires backend update
-        "Phone": row.candidate_phone || "N/A",            // Requires backend update
-        "Job Title Applied": row.job_title,
+        "Candidate ID": row.candidate_unique_id || "N/A", 
+        "Candidate Name": row.candidate_name || "Unknown",
+        "Email": row.candidate_email || "N/A",            
+        "Phone": row.candidate_phone || "N/A",            
+        "Job Title Applied": row.job_title || "N/A",
         "Source": row.event_id ? "Job Fair" : "Direct / Online",
-        "Final Status": row.action_type,
+        "Final Status": row.action_type || "Applied",
         "Event Name": evt?.name || row.event_name || "N/A",
         "Event Date": evt ? new Date(evt.event_date).toLocaleDateString("en-IN") : "N/A",
         "Employer Stall ID": stl?.allocatedStall || stl?.stallNo || "N/A",
@@ -126,14 +132,17 @@ export function AnalyticsBody() {
   if (isLoading) {
     return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>;
   }
-  if (!data) return null;
+  
+  if (!data || Object.keys(data).length === 0) {
+    return <div className="flex h-[50vh] items-center justify-center text-muted-foreground">Analytics data is currently unavailable.</div>;
+  }
 
   // Find active context if a specific event is selected
-  const activeEvent = selectedFilter !== "all" ? events.find(e => e.id?.toString() === selectedFilter) : null;
-  const activeStall = selectedFilter !== "all" ? stalls.find(s => s.eventId?.toString() === selectedFilter) : null;
+  const activeEvent = selectedFilter !== "all" ? (events || []).find(e => e.id?.toString() === selectedFilter) : null;
+  const activeStall = selectedFilter !== "all" ? (stalls || []).find(s => s.eventId?.toString() === selectedFilter) : null;
 
   // Extract unique events the employer has participated in for the dropdown
-  const participatingEvents = events.filter(e => stalls.some(s => s.eventId === e.id));
+  const participatingEvents = (events || []).filter(e => (stalls || []).some(s => s.eventId === e.id));
 
   return (
     <>
@@ -184,7 +193,7 @@ export function AnalyticsBody() {
              <div className="w-px bg-slate-200" />
              <div>
                <p className="text-slate-500 font-medium text-xs uppercase tracking-wider mb-0.5">Event Date</p>
-               <p className="font-bold text-navy text-base">{new Date(activeEvent.event_date).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}</p>
+               <p className="font-bold text-navy text-base">{new Date(activeEvent.event_date || new Date()).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}</p>
              </div>
           </div>
         </Card>
@@ -197,7 +206,7 @@ export function AnalyticsBody() {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Conversion Rate</p>
             <div className="h-8 w-8 rounded-lg bg-india-green/10 flex items-center justify-center text-india-green"><Target className="h-4 w-4" /></div>
           </div>
-          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.conversionRate}%</h3>
+          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.conversionRate || 0}%</h3>
           <p className="text-xs text-india-green font-medium mt-1">Based on Total Pool</p>
         </Card>
         <Card className="p-5 border-border/60 shadow-sm bg-white">
@@ -205,45 +214,45 @@ export function AnalyticsBody() {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg. Time to Hire</p>
             <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-navy"><Clock className="h-4 w-4" /></div>
           </div>
-          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.avgTime}</h3>
+          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.avgTime || "N/A"}</h3>
         </Card>
         <Card className="p-5 border-border/60 shadow-sm bg-white">
           <div className="flex justify-between items-start mb-2">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Hires</p>
             <div className="h-8 w-8 rounded-lg bg-india-green/10 flex items-center justify-center text-india-green"><TrendingUp className="h-4 w-4" /></div>
           </div>
-          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.totalHires}</h3>
+          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.totalHires || 0}</h3>
         </Card>
         <Card className="p-5 border-border/60 shadow-sm bg-white">
           <div className="flex justify-between items-start mb-2">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Talent Pool</p>
             <div className="h-8 w-8 rounded-lg bg-saffron/15 flex items-center justify-center text-saffron"><Users className="h-4 w-4" /></div>
           </div>
-          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.talentPool}</h3>
+          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.talentPool || 0}</h3>
         </Card>
       </div>
 
-      {/* --- ALL-TIME CHARTS (Hidden when viewing micro-event data) --- */}
+      {/* --- ALL-TIME CHARTS --- */}
       {selectedFilter === "all" && (
         <div className="grid lg:grid-cols-2 gap-6 mb-6">
           <Card className="p-6 border-border/60 flex flex-col shadow-sm bg-white">
             <h3 className="font-display font-bold text-navy text-lg mb-6">Applications vs Hires</h3>
             <div className="relative flex-1 min-h-[200px] flex items-end justify-between px-2 pb-6 border-b border-dashed border-slate-200">
               <div className="absolute left-0 top-0 bottom-6 w-full flex flex-col justify-between pointer-events-none text-[10px] text-muted-foreground">
-                <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-slate-200 before:mr-2">{Math.max(10, dynamicKpis.talentPool)}</span>
-                <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-slate-200 before:mr-2">{Math.max(5, Math.floor(dynamicKpis.talentPool / 2))}</span>
+                <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-slate-200 before:mr-2">{Math.max(10, dynamicKpis.talentPool || 0)}</span>
+                <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-slate-200 before:mr-2">{Math.max(5, Math.floor((dynamicKpis.talentPool || 0) / 2))}</span>
                 <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-slate-200 before:mr-2">0</span>
               </div>
 
-              {data.monthlyData.map((d: any) => {
-                const maxScale = Math.max(10, dynamicKpis.talentPool);
+              {(data?.monthlyData || []).map((d: any, idx: number) => {
+                const maxScale = Math.max(10, dynamicKpis.talentPool || 0);
                 return (
-                  <div key={d.month} className="relative z-10 flex flex-col items-center group w-12 gap-1">
+                  <div key={d.month || idx} className="relative z-10 flex flex-col items-center group w-12 gap-1">
                     <div className="w-full flex items-end justify-center gap-1.5 h-[160px]">
-                      <div className="w-4 bg-saffron rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${(d.apps / maxScale) * 100}%` }}></div>
-                      <div className="w-4 bg-india-green rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${(d.hires / maxScale) * 100}%` }}></div>
+                      <div className="w-4 bg-saffron rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${((d.apps || 0) / maxScale) * 100}%` }}></div>
+                      <div className="w-4 bg-india-green rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${((d.hires || 0) / maxScale) * 100}%` }}></div>
                     </div>
-                    <span className="absolute -bottom-6 text-xs font-semibold text-slate-500">{d.month}</span>
+                    <span className="absolute -bottom-6 text-xs font-semibold text-slate-500">{d.month || ''}</span>
                   </div>
                 );
               })}
@@ -305,12 +314,12 @@ export function AnalyticsBody() {
                 return (
                   <TableRow key={i} className="hover:bg-slate-50 transition-colors">
                     <TableCell className="text-slate-500 font-medium text-sm whitespace-nowrap">
-                      {new Date(row.date).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {new Date(row.date || new Date()).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}
                     </TableCell>
                     <TableCell>
-                      <div className="font-bold text-navy">{row.candidate_name}</div>
+                      <div className="font-bold text-navy">{row.candidate_name || "Unknown"}</div>
                     </TableCell>
-                    <TableCell className="text-slate-600 font-medium text-sm">{row.job_title}</TableCell>
+                    <TableCell className="text-slate-600 font-medium text-sm">{row.job_title || "N/A"}</TableCell>
                     <TableCell>
                       {row.event_id ? (
                         <Badge variant="outline" className="text-saffron border-saffron/30 bg-saffron/5 font-semibold">Job Fair</Badge>
@@ -319,7 +328,7 @@ export function AnalyticsBody() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge className={`border ${badgeColor}`}>{row.action_type}</Badge>
+                      <Badge className={`border ${badgeColor}`}>{row.action_type || "Applied"}</Badge>
                     </TableCell>
                   </TableRow>
                 );
