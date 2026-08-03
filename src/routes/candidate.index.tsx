@@ -13,16 +13,32 @@ export const Route = createFileRoute("/candidate/")({
   component: CandidateHome,
 });
 
-// Profile completion calculator based on actual fields filled
+// Profile completion calculator based on the EXACT logic from Profile.tsx
 function computeCompletion(p: any): number {
   if (!p) return 0;
-  const fields: unknown[] = [
+  
+  const hasAddress = p.currentAddress && Object.keys(p.currentAddress).length > 0 && !!p.currentAddress.pincode;
+  const hasSkills = (p.technicalSkills?.length || 0) > 0 || (p.nonTechnicalSkills?.length || 0) > 0;
+  
+  let hasLanguages = false;
+  if (p.languagesFluent) {
+    if (Array.isArray(p.languagesFluent)) {
+      hasLanguages = p.languagesFluent.length > 0;
+    } else {
+      hasLanguages = (p.languagesFluent.read?.length || 0) > 0 || 
+                     (p.languagesFluent.write?.length || 0) > 0 || 
+                     (p.languagesFluent.speak?.length || 0) > 0;
+    }
+  }
+
+  const fields = [
     p.fullName, p.email, p.phone, p.dob, p.gender, p.category, 
-    p.state, p.district, p.pincode, p.qualification, p.institution, 
-    p.yearOfPassing, p.percentage, p.specialization, p.skills?.length, 
-    p.experienceType, p.resumeFileName, p.preferredLocations?.length, 
-    p.preferredJobType, p.expectedSalary
+    hasAddress, p.qualification, p.institution, p.yearOfPassing, 
+    hasSkills, hasLanguages, p.experienceType, p.resumeFileName, 
+    (p.preferredLocations?.length || 0) > 0, 
+    (p.opportunities?.length || 0) > 0
   ];
+
   const filled = fields.filter(Boolean).length;
   return Math.round((filled / fields.length) * 100);
 }
@@ -94,8 +110,17 @@ function CandidateHome() {
     );
   }
 
-  const profileCompletion = profile?.completion || computeCompletion(profile) || 0;
-  const userSkills = profile?.skills || [];
+  // Calculate the completion percentage using the exact matched logic
+  const profileCompletion = computeCompletion(profile);
+  
+  // Safely extract skills for the UI stat card
+  const userSkills = [];
+  if (profile?.technicalSkills && Array.isArray(profile.technicalSkills)) {
+      userSkills.push(...profile.technicalSkills);
+  }
+  if (profile?.nonTechnicalSkills && Array.isArray(profile.nonTechnicalSkills)) {
+      userSkills.push(...profile.nonTechnicalSkills);
+  }
   
   function scrollTo(i: number) {
     const el = trackRef.current;
