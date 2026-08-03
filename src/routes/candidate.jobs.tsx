@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Briefcase, MapPin, Search, Sparkles, Loader2, CheckCircle2, FileText, Check, Bookmark, Building2, Clock, Banknote, ListChecks, XCircle } from "lucide-react";
+import { Briefcase, MapPin, Search, Sparkles, Loader2, CheckCircle2, FileText, Check, Bookmark, Building2, Clock, Banknote, ListChecks, XCircle, CalendarDays } from "lucide-react";
 import { getCompanyLogo, getJobImage, getSession } from "@/lib/mockStore";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -46,7 +46,7 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
       }
 
       try {
-        const res = await fetch(`http://15.207.249.155:5000/api/candidate/profile/${session.id}`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/profile/${session.id}`);
         const json = await res.json();
 
         if (json.success) {
@@ -72,7 +72,7 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
     const session = getSession();
 
     try {
-      const res = await fetch("http://15.207.249.155:5000/api/applications/apply", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/applications/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -91,7 +91,6 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
         onSuccess(job.id);
         onClose();
       } else {
-        // If they already applied on backend but UI didn't know, sync the UI state
         toast.error(json.message || "You have already applied for this job.");
         onSuccess(job.id); 
         onClose();
@@ -216,11 +215,11 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
                 <div className="bg-india-green/5 border border-india-green/20 p-4 rounded-xl mt-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-india-green" />
-                    <span className="text-sm font-medium text-navy">AI matched your skills to this role.</span>
+                    <span className="text-sm font-medium text-navy">System successfully evaluated matching criteria.</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-india-green" />
-                    <span className="text-sm font-medium text-navy">Your location matches the job requirements.</span>
+                    <span className="text-sm font-medium text-navy">Profile requirements checked.</span>
                   </div>
                 </div>
               </div>
@@ -264,7 +263,7 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
 function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => void; onApply: () => void }) {
   if (!job) return null;
 
-  const isApplied = job.hasApplied || job.status?.toLowerCase() === "applied" || job.application_status?.toLowerCase() === "applied";
+  const isApplied = job.hasApplied || job.has_applied || job.status?.toLowerCase() === "applied" || job.application_status?.toLowerCase() === "applied";
 
   return (
     <Dialog open={!!job} onOpenChange={(open) => !open && onClose()}>
@@ -287,7 +286,7 @@ function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => 
                 }
               }}
             >
-              {isApplied ? "Already Applied" : "Apply Now"}
+              {isApplied ? "Applied" : "Apply Now"}
             </Button>
           </div>
         </div>
@@ -305,6 +304,14 @@ function JobDetailsDialog({ job, onClose, onApply }: { job: any; onClose: () => 
             <div>
               <h1 className="text-3xl font-display font-bold text-navy">{job.title}</h1>
               <p className="text-lg text-muted-foreground font-medium mt-1">{job.company || job.company_name} {job.recruiter ? `· Recruiter: ${job.recruiter}` : ""}</p>
+              
+              {/* Event Connection Badge */}
+              {job.event_name && (
+                <Badge className="mt-2 bg-indigo-50 text-indigo-700 border-indigo-200 gap-1.5 px-2.5 py-1">
+                  <CalendarDays className="h-3.5 w-3.5" /> Published via: {job.event_name}
+                </Badge>
+              )}
+
               <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-600">
                 <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-saffron" /> {job.location}</span>
                 <span className="flex items-center gap-1.5"><Briefcase className="h-4 w-4 text-saffron" /> {job.experience || "Fresher"}</span>
@@ -448,9 +455,8 @@ function Jobs() {
       prev.map(j => j.id === jobId ? { ...j, hasApplied: true, status: 'Applied', application_status: 'Applied' } : j)
     );
     
-    // If the details dialog is open and it's the same job, update its local state too
     if (viewingJob && viewingJob.id === jobId) {
-      setViewingJob(prev => ({ ...prev, hasApplied: true, status: 'Applied', application_status: 'Applied' }));
+      setViewingJob((prev: any) => ({ ...prev, hasApplied: true, status: 'Applied', application_status: 'Applied' }));
     }
   };
 
@@ -461,6 +467,22 @@ function Jobs() {
     setShiftFilter("all");
   };
 
+  // Calculate dynamic job counts for locations
+  const locationCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    LOCATIONS.forEach(loc => counts[loc] = 0);
+    jobs.forEach(j => {
+      if (j.location) {
+        // Handle exact matches or comma separated multiple locations
+        const locs = j.location.split(",").map((l: string) => l.trim());
+        locs.forEach((l: string) => {
+          if (counts[l] !== undefined) counts[l]++;
+        });
+      }
+    });
+    return counts;
+  }, [jobs]);
+
   // Tolerant filtering logic ensuring old database entries don't break the filters
   const filtered = useMemo(() => jobs.filter((j) => {
     // 1. Location filter
@@ -469,14 +491,14 @@ function Jobs() {
       if (!loc.includes(locationFilter.toLowerCase())) return false;
     }
     
-    // 2. Job Type filter (Fallback to "Full-Time" if undefined)
+    // 2. Job Type filter
     if (typeFilter !== "all") {
       const jt = (j.type || j.job_type || j.employmentType || "Full-Time").toLowerCase().replace(/[- ]/g, "");
       const filterFormatted = typeFilter.toLowerCase().replace(/[- ]/g, "");
       if (!jt.includes(filterFormatted) && !filterFormatted.includes(jt)) return false;
     }
     
-    // 3. Shift filter (Fallback to "Day Shift" if undefined)
+    // 3. Shift filter
     if (shiftFilter !== "all") {
       const shift = (j.preferredShift || j.preferred_shift || j.shift || "Day Shift").toLowerCase().replace(/[- ]/g, "");
       const filterFormatted = shiftFilter.toLowerCase().replace(/[- ]/g, "");
@@ -485,7 +507,7 @@ function Jobs() {
     
     // 4. Search Query filter
     if (q) {
-      const searchString = `${j.title || ""} ${j.company || ""} ${j.company_name || ""} ${(j.skills || []).join(" ")}`.toLowerCase();
+      const searchString = `${j.title || ""} ${j.company || ""} ${j.company_name || ""} ${j.event_name || ""} ${(j.skills || []).join(" ")}`.toLowerCase();
       if (!searchString.includes(q.toLowerCase())) return false;
     }
     
@@ -494,20 +516,24 @@ function Jobs() {
 
   return (
     <DashShell role="candidate" nav={candidateNav}>
-      <PageHeader title="Browse Jobs" description="AI-matched roles based on your profile, skills and location." />
+      <PageHeader title="Browse Jobs" description="Roles logically matched based on your profile, skills, education, and location." />
 
       <Card className="p-4 mb-6 border-border/60 bg-white">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
           <div className="relative md:col-span-4 lg:col-span-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search by title, company..." value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input className="pl-9" placeholder="Search by title, company, event..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           
           <Select value={locationFilter} onValueChange={setLocationFilter}>
             <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Locations</SelectItem>
-              {LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
+              {LOCATIONS.map(loc => (
+                <SelectItem key={loc} value={loc}>
+                  {loc} {locationCounts[loc] > 0 ? `(${locationCounts[loc]})` : ""}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -552,12 +578,13 @@ function Jobs() {
       ) : (
         <div className="grid gap-4">
           {filtered.map((j) => {
-            const isApplied = j.hasApplied || j.status?.toLowerCase() === "applied" || j.application_status?.toLowerCase() === "applied";
+            // Check persistence states returned from backend left join
+            const isApplied = j.hasApplied || j.has_applied || j.status?.toLowerCase() === "applied" || j.application_status?.toLowerCase() === "applied";
 
             return (
               <Card 
                 key={j.id} 
-                className="overflow-hidden card-hover border-border/60 bg-white cursor-pointer transition-shadow hover:shadow-md"
+                className="overflow-hidden card-hover border-border/60 bg-white cursor-pointer transition-shadow hover:shadow-md relative"
                 onClick={() => setViewingJob(j)}
               >
                 <div className="flex gap-4 flex-wrap md:flex-nowrap">
@@ -574,9 +601,12 @@ function Jobs() {
 
                   <div className="flex-1 min-w-0 p-5 md:pl-0 flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="font-display font-bold text-navy text-lg group-hover:text-saffron transition-colors">{j.title}</h3>
                         <Badge variant="outline" className="bg-slate-50">{j.type || j.job_type || "Full-Time"}</Badge>
+                        {j.event_name && (
+                           <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 gap-1 rounded-sm"><CalendarDays className="h-3 w-3"/> Event: {j.event_name}</Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3">
                         <span className="flex items-center"><Briefcase className="h-4 w-4 mr-1" />{j.company || j.company_name}</span>
@@ -609,9 +639,10 @@ function Jobs() {
                           )}
                         </Button>
                         
-                        <div className="size-14 rounded-full bg-gradient-to-br from-india-green/10 to-saffron/10 border border-india-green/20 flex flex-col items-center justify-center">
-                          <Sparkles className="h-2.5 w-2.5 text-india-green mb-0.5" />
-                          <p className="font-display font-bold text-navy text-xs">{j.matchScore || 85}%</p>
+                        {/* Deterministic Match Score Badge */}
+                        <div className="size-14 rounded-full bg-gradient-to-br from-india-green/10 to-saffron/10 border border-india-green/20 flex flex-col items-center justify-center" title="Match Score based on Skills, Location, Job Type, & Education">
+                          <ListChecks className="h-2.5 w-2.5 text-india-green mb-0.5" />
+                          <p className="font-display font-bold text-navy text-xs">{j.matchScore || 50}%</p>
                         </div>
                       </div>
 
@@ -624,7 +655,7 @@ function Jobs() {
                           if (!isApplied) setApplying(j); 
                         }}
                       >
-                        {isApplied ? "Already Applied" : "Apply"}
+                        {isApplied ? "Applied" : "Apply"}
                       </Button>
                     </div>
                   </div>
