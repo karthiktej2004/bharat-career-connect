@@ -18,6 +18,7 @@ export const Route = createFileRoute("/candidate/jobs")({
   component: Jobs,
 });
 
+// Fixed static arrays so dropdowns NEVER disappear
 const LOCATIONS = ["Bengaluru", "Hyderabad", "Chennai", "Mumbai", "Delhi", "Kolkata", "Vizag", "Kochi", "Pune"];
 const JOB_TYPES = ["Trainee", "Intern", "Apprentice", "Full-Time", "Part-Time", "Contractor", "Freelancer", "Volunteer", "Consultant", "Vendor"];
 const SHIFTS = ["Day Shift", "Night shift", "Remote", "Hybrid", "On-Site", "Rotational"];
@@ -472,8 +473,6 @@ function Jobs() {
 
       if (json.success) {
         toast.success("Application successfully withdrawn.");
-        
-        // Update local state instantly
         setJobs(prev => prev.map(j => j.id === jobId ? { ...j, hasApplied: false, has_applied: false, status: 'Open', application_status: null } : j));
         if (viewingJob && viewingJob.id === jobId) {
           setViewingJob((prev: any) => ({ ...prev, hasApplied: false, has_applied: false, status: 'Open', application_status: null }));
@@ -486,12 +485,10 @@ function Jobs() {
     }
   };
 
-  // Sync state across list and modal perfectly
   const handleApplySuccess = (jobId: number) => {
     setJobs((prev) => 
       prev.map(j => j.id === jobId ? { ...j, hasApplied: true, has_applied: true, status: 'Applied', application_status: 'Applied' } : j)
     );
-    
     if (viewingJob && viewingJob.id === jobId) {
       setViewingJob((prev: any) => ({ ...prev, hasApplied: true, has_applied: true, status: 'Applied', application_status: 'Applied' }));
     }
@@ -504,38 +501,67 @@ function Jobs() {
     setShiftFilter("all");
   };
 
-  // Calculate dynamic job counts for locations (Bengaluru (58))
-  const locationCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    LOCATIONS.forEach(loc => counts[loc] = 0);
+  // --- DYNAMICALLY CALCULATE FILTER COUNTS DIRECTLY FROM LIVE DB DATA ---
+  const filterCounts = useMemo(() => {
+    const locs: Record<string, number> = {};
+    const types: Record<string, number> = {};
+    const shifts: Record<string, number> = {};
+
+    // Initialize all standard keys so dropdowns are NEVER empty
+    LOCATIONS.forEach(l => locs[l.toLowerCase()] = 0);
+    JOB_TYPES.forEach(t => types[t.toLowerCase().replace(/[- ]/g, "")] = 0);
+    SHIFTS.forEach(s => shifts[s.toLowerCase().replace(/[- ]/g, "")] = 0);
+
     jobs.forEach(j => {
+      // Safely map locations, auto-correcting bangalore spelling
       if (j.location) {
-        const locs = j.location.split(",").map((l: string) => l.trim());
-        locs.forEach((l: string) => {
-          if (counts[l] !== undefined) counts[l]++;
+        const jLocs = j.location.split(",").map((l: string) => l.trim().toLowerCase());
+        jLocs.forEach((l: string) => {
+          let key = l;
+          if (["bangalore", "bengalore", "bengaluru"].includes(l)) key = "bengaluru";
+          if (["hyderabd", "hyderabad"].includes(l)) key = "hyderabad";
+          locs[key] = (locs[key] || 0) + 1;
         });
       }
+      
+      // Job Types
+      const jt = (j.type || j.job_type || j.employmentType || "Full-Time").toLowerCase().replace(/[- ]/g, "");
+      types[jt] = (types[jt] || 0) + 1;
+
+      // Shifts
+      const shift = (j.preferredShift || j.preferred_shift || j.shift || "Day Shift").toLowerCase().replace(/[- ]/g, "");
+      shifts[shift] = (shifts[shift] || 0) + 1;
     });
-    return counts;
+
+    return { locs, types, shifts };
   }, [jobs]);
 
   // Tolerant filtering logic ensuring old database entries don't break the filters
   const filtered = useMemo(() => jobs.filter((j) => {
     if (locationFilter !== "all") {
-      const loc = (j.location || "").toLowerCase();
-      if (!loc.includes(locationFilter.toLowerCase())) return false;
+      const rawLoc = (j.location || "").toLowerCase();
+      let matches = false;
+      const target = locationFilter.toLowerCase();
+      
+      if (target === "bengaluru" && (rawLoc.includes("bangalore") || rawLoc.includes("bengaluru") || rawLoc.includes("bengalore"))) {
+        matches = true;
+      } else if (target === "hyderabad" && (rawLoc.includes("hyderabd") || rawLoc.includes("hyderabad"))) {
+        matches = true;
+      } else if (rawLoc.includes(target)) {
+        matches = true;
+      }
+      
+      if (!matches) return false;
     }
     
     if (typeFilter !== "all") {
       const jt = (j.type || j.job_type || j.employmentType || "Full-Time").toLowerCase().replace(/[- ]/g, "");
-      const filterFormatted = typeFilter.toLowerCase().replace(/[- ]/g, "");
-      if (!jt.includes(filterFormatted) && !filterFormatted.includes(jt)) return false;
+      if (!jt.includes(typeFilter)) return false;
     }
     
     if (shiftFilter !== "all") {
       const shift = (j.preferredShift || j.preferred_shift || j.shift || "Day Shift").toLowerCase().replace(/[- ]/g, "");
-      const filterFormatted = shiftFilter.toLowerCase().replace(/[- ]/g, "");
-      if (!shift.includes(filterFormatted) && !filterFormatted.includes(shift)) return false;
+      if (!shift.includes(shiftFilter)) return false;
     }
     
     if (q) {
@@ -561,11 +587,15 @@ function Jobs() {
             <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Locations</SelectItem>
-              {LOCATIONS.map(loc => (
-                <SelectItem key={loc} value={loc}>
-                  {loc} ({locationCounts[loc] || 0})
-                </SelectItem>
-              ))}
+              {LOCATIONS.map(loc => {
+                const key = loc.toLowerCase();
+                const count = filterCounts.locs[key] || 0;
+                return (
+                  <SelectItem key={loc} value={key}>
+                    {loc} {count >= 0 ? `(${count})` : ""}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
 
@@ -573,7 +603,15 @@ function Jobs() {
             <SelectTrigger><SelectValue placeholder="Job Type" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              {JOB_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+              {JOB_TYPES.map(type => {
+                const key = type.toLowerCase().replace(/[- ]/g, "");
+                const count = filterCounts.types[key] || 0;
+                return (
+                  <SelectItem key={type} value={key}>
+                    {type} {count >= 0 ? `(${count})` : ""}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
 
@@ -581,7 +619,15 @@ function Jobs() {
             <SelectTrigger><SelectValue placeholder="Preferred Shift" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Shifts</SelectItem>
-              {SHIFTS.map(shift => <SelectItem key={shift} value={shift}>{shift}</SelectItem>)}
+              {SHIFTS.map(shift => {
+                const key = shift.toLowerCase().replace(/[- ]/g, "");
+                const count = filterCounts.shifts[key] || 0;
+                return (
+                  <SelectItem key={shift} value={key}>
+                    {shift} {count >= 0 ? `(${count})` : ""}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
 
@@ -610,7 +656,6 @@ function Jobs() {
       ) : (
         <div className="grid gap-4">
           {filtered.map((j) => {
-            // Check persistence states returned from backend left join
             const isApplied = j.hasApplied || j.has_applied || j.status?.toLowerCase() === "applied" || j.application_status?.toLowerCase() === "applied";
 
             return (
