@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { DashShell, PageHeader } from "@/components/DashShell";
 import { employerNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Target, Clock, TrendingUp, Users, Download, Loader2, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Target, Clock, TrendingUp, Users, Download, Loader2, Store, CalendarOff, Building2 } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -30,15 +31,30 @@ export function AnalyticsBody() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<any>(null);
+  const [stalls, setStalls] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  
+  // Filter State: "all" or specific event ID
+  const [selectedFilter, setSelectedFilter] = useState<string>("all");
 
-  const fetchAnalytics = useCallback(async () => {
+  const fetchAllData = useCallback(async () => {
     if (!employerId) return;
+    setIsLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${employerId}/analytics`);
-      const json = await res.json();
-      if (json.success) {
-        setData(json.data);
-      }
+      // Fetch Analytics, Stalls, and Events simultaneously
+      const [anRes, stRes, evRes] = await Promise.all([
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${employerId}/analytics`),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${employerId}/event-stalls`),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`)
+      ]);
+      
+      const anJson = await anRes.json();
+      const stJson = await stRes.json();
+      const evJson = await evRes.json();
+
+      if (anJson.success) setData(anJson.data);
+      if (stJson.success) setStalls(stJson.data);
+      if (evJson.success) setEvents(evJson.data);
     } catch (error) {
       toast.error("Failed to load analytics data.");
     } finally {
@@ -47,211 +63,263 @@ export function AnalyticsBody() {
   }, [employerId]);
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
+    fetchAllData();
+  }, [fetchAllData]);
 
-  // ==========================================================================
-  // EXCEL DOWNLOAD: NORMAL HIRING
-  // ==========================================================================
-  const downloadNormalExcel = () => {
-    if (!data || !data.history) return;
-    const normalApps = data.history.filter((r: any) => !r.event_id);
+  // --- DYNAMIC FILTERING LOGIC ---
+  const filteredHistory = useMemo(() => {
+    if (!data?.history) return [];
+    if (selectedFilter === "all") return data.history;
+    return data.history.filter((r: any) => r.event_id?.toString() === selectedFilter);
+  }, [data, selectedFilter]);
+
+  // Recalculate KPIs based on selection
+  const dynamicKpis = useMemo(() => {
+    if (selectedFilter === "all" && data?.kpis) return data.kpis;
     
-    if (normalApps.length === 0) return toast.error("No Normal Hiring data available yet.");
+    const pool = filteredHistory.length;
+    const hires = filteredHistory.filter((r: any) => r.action_type === 'Hired').length;
+    const rate = pool > 0 ? Math.round((hires / pool) * 100) : 0;
+    
+    return {
+      talentPool: pool,
+      totalHires: hires,
+      conversionRate: rate,
+      avgTime: "Event Specific"
+    };
+  }, [filteredHistory, selectedFilter, data]);
 
-    const worksheetData = normalApps.map((row: any) => ({
-      "Date": new Date(row.date).toLocaleDateString("en-IN"),
-      "Candidate Name": row.candidate_name,
-      "Job Title": row.job_title,
-      "Current Status": row.action_type
-    }));
+  // --- EXCEL EXPORT ENGINE (SYSTEM OF RECORD) ---
+  const downloadReport = () => {
+    if (filteredHistory.length === 0) return toast.error("No data available to export for this view.");
+
+    const worksheetData = filteredHistory.map((row: any) => {
+      // Cross-reference event and stall data for the record
+      const evt = events.find(e => e.id === row.event_id);
+      const stl = stalls.find(s => s.eventId === row.event_id);
+
+      return {
+        "Date Applied": new Date(row.date).toLocaleDateString("en-IN"),
+        "Candidate ID": row.candidate_unique_id || "N/A", // Requires backend update to feed this
+        "Candidate Name": row.candidate_name,
+        "Email": row.candidate_email || "N/A",            // Requires backend update
+        "Phone": row.candidate_phone || "N/A",            // Requires backend update
+        "Job Title Applied": row.job_title,
+        "Source": row.event_id ? "Job Fair" : "Direct / Online",
+        "Final Status": row.action_type,
+        "Event Name": evt?.name || row.event_name || "N/A",
+        "Event Date": evt ? new Date(evt.event_date).toLocaleDateString("en-IN") : "N/A",
+        "Employer Stall ID": stl?.allocatedStall || stl?.stallNo || "N/A",
+        "Stall Block/Floor": stl ? `${stl.block || 'Main'} - ${stl.floor || 'Ground'}` : "N/A",
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Normal Hiring");
+    const sheetName = selectedFilter === "all" ? "Master_Hiring_Record" : "Event_Hiring_Record";
     
-    XLSX.writeFile(workbook, `Normal_Hiring_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-    toast.success("Normal Hiring Excel report downloaded successfully!");
-  };
-
-  // ==========================================================================
-  // EXCEL DOWNLOAD: EVENT HIRING
-  // ==========================================================================
-  const downloadEventExcel = () => {
-    if (!data || !data.history) return;
-    const eventApps = data.history.filter((r: any) => r.event_id);
-    
-    if (eventApps.length === 0) return toast.error("No Event Hiring data available yet.");
-
-    const worksheetData = eventApps.map((row: any) => ({
-      "Date": new Date(row.date).toLocaleDateString("en-IN"),
-      "Candidate Name": row.candidate_name,
-      "Event Name": row.event_name || "Job Fair",
-      "Job Title": row.job_title,
-      "Current Status": row.action_type
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Event Hiring");
-    
-    XLSX.writeFile(workbook, `Event_Hiring_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-    toast.success("Event Hiring Excel report downloaded successfully!");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+    XLSX.writeFile(workbook, `${sheetName}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success("Comprehensive Hiring Report downloaded successfully!");
   };
 
   if (isLoading) {
     return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>;
   }
-
   if (!data) return null;
+
+  // Find active context if a specific event is selected
+  const activeEvent = selectedFilter !== "all" ? events.find(e => e.id?.toString() === selectedFilter) : null;
+  const activeStall = selectedFilter !== "all" ? stalls.find(s => s.eventId?.toString() === selectedFilter) : null;
+
+  // Extract unique events the employer has participated in for the dropdown
+  const participatingEvents = events.filter(e => stalls.some(s => s.eventId === e.id));
 
   return (
     <>
       <PageHeader
-        title="Hiring Analytics"
-        description="Performance across events, sources, and time."
+        title="Hiring Analytics & History"
+        description="Your complete system of record for event ROI, candidate pipelines, and source tracking."
         action={
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button onClick={downloadNormalExcel} variant="outline" className="border-navy text-navy hover:bg-navy/5">
-              <Download className="h-4 w-4 mr-2" />
-              Normal Hiring Excel
-            </Button>
-            <Button onClick={downloadEventExcel} className="bg-navy text-white hover:bg-navy/90">
-              <Calendar className="h-4 w-4 mr-2" />
-              Event Hiring Excel
+          <div className="flex items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
+            <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+              <SelectTrigger className="w-[240px] bg-white border-slate-300 font-semibold text-navy">
+                <SelectValue placeholder="All-Time Performance" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="font-bold text-navy">All-Time Performance</SelectItem>
+                {participatingEvents.length > 0 && <Separator className="my-1" />}
+                {participatingEvents.map(e => (
+                  <SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button onClick={downloadReport} className="bg-india-green text-white hover:bg-india-green/90 font-bold shadow-sm">
+              <Download className="h-4 w-4 mr-2" /> Download Report
             </Button>
           </div>
         }
       />
 
-      {/* KPI CARDS */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="p-5 border-border/60">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Conversion Rate</p>
-            <div className="h-8 w-8 rounded-full bg-india-green/10 flex items-center justify-center text-india-green"><Target className="h-4 w-4" /></div>
+      {/* --- EVENT STALL CONTEXT (Micro View) --- */}
+      {selectedFilter !== "all" && activeEvent && (
+        <Card className="p-5 mb-6 bg-gradient-to-r from-indigo-50/50 to-white border-indigo-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between shadow-sm">
+          <div>
+             <h3 className="text-lg font-display font-bold text-navy flex items-center gap-2 mb-1">
+               <Store className="h-5 w-5 text-indigo-600" /> {activeEvent.name} — Stall Record
+             </h3>
+             <p className="text-sm text-slate-600 flex items-center gap-1.5 font-medium">
+               <Building2 className="h-3.5 w-3.5" />
+               Stall ID: <strong className="text-navy bg-white px-1.5 py-0.5 rounded border shadow-sm">{activeStall?.allocatedStall || activeStall?.stallNo || "TBD"}</strong> • 
+               Block: <strong className="text-navy">{activeStall?.block || "Main"}</strong> • 
+               Floor: <strong className="text-navy">{activeStall?.floor || "Ground"}</strong>
+             </p>
           </div>
-          <h3 className="font-display font-bold text-navy text-3xl">{data.kpis.conversionRate}%</h3>
+          <div className="flex gap-6 text-sm text-right bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
+             <div>
+               <p className="text-slate-500 font-medium text-xs uppercase tracking-wider mb-0.5">Stall Fee Paid</p>
+               <p className="font-bold text-emerald-600 text-base">₹{activeEvent.stall_price || 0}</p>
+             </div>
+             <div className="w-px bg-slate-200" />
+             <div>
+               <p className="text-slate-500 font-medium text-xs uppercase tracking-wider mb-0.5">Event Date</p>
+               <p className="font-bold text-navy text-base">{new Date(activeEvent.event_date).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}</p>
+             </div>
+          </div>
+        </Card>
+      )}
+
+      {/* --- DYNAMIC KPI CARDS --- */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card className="p-5 border-border/60 shadow-sm bg-white">
+          <div className="flex justify-between items-start mb-2">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Conversion Rate</p>
+            <div className="h-8 w-8 rounded-lg bg-india-green/10 flex items-center justify-center text-india-green"><Target className="h-4 w-4" /></div>
+          </div>
+          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.conversionRate}%</h3>
           <p className="text-xs text-india-green font-medium mt-1">Based on Total Pool</p>
         </Card>
-        <Card className="p-5 border-border/60">
+        <Card className="p-5 border-border/60 shadow-sm bg-white">
           <div className="flex justify-between items-start mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Avg. Time to Hire</p>
-            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-navy"><Clock className="h-4 w-4" /></div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg. Time to Hire</p>
+            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-navy"><Clock className="h-4 w-4" /></div>
           </div>
-          <h3 className="font-display font-bold text-navy text-3xl">{data.kpis.avgTime}</h3>
+          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.avgTime}</h3>
         </Card>
-        <Card className="p-5 border-border/60">
+        <Card className="p-5 border-border/60 shadow-sm bg-white">
           <div className="flex justify-between items-start mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Hires</p>
-            <div className="h-8 w-8 rounded-full bg-india-green/10 flex items-center justify-center text-india-green"><TrendingUp className="h-4 w-4" /></div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Hires</p>
+            <div className="h-8 w-8 rounded-lg bg-india-green/10 flex items-center justify-center text-india-green"><TrendingUp className="h-4 w-4" /></div>
           </div>
-          <h3 className="font-display font-bold text-navy text-3xl">{data.kpis.totalHires}</h3>
+          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.totalHires}</h3>
         </Card>
-        <Card className="p-5 border-border/60">
+        <Card className="p-5 border-border/60 shadow-sm bg-white">
           <div className="flex justify-between items-start mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Active Talent Pool</p>
-            <div className="h-8 w-8 rounded-full bg-saffron/15 flex items-center justify-center text-saffron"><Users className="h-4 w-4" /></div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Talent Pool</p>
+            <div className="h-8 w-8 rounded-lg bg-saffron/15 flex items-center justify-center text-saffron"><Users className="h-4 w-4" /></div>
           </div>
-          <h3 className="font-display font-bold text-navy text-3xl">{data.kpis.talentPool}</h3>
+          <h3 className="font-display font-bold text-navy text-3xl">{dynamicKpis.talentPool}</h3>
         </Card>
       </div>
 
-      {/* CHARTS ROW */}
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        
-        {/* BAR CHART: Applications vs Hires */}
-        <Card className="p-6 border-border/60 flex flex-col">
-          <h3 className="font-display font-bold text-navy text-lg mb-6">Applications vs Hires</h3>
-          <div className="relative flex-1 min-h-[200px] flex items-end justify-between px-2 pb-6 border-b border-dashed border-border">
-            
-            <div className="absolute left-0 top-0 bottom-6 w-full flex flex-col justify-between pointer-events-none text-[10px] text-muted-foreground">
-              <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-border/50 before:mr-2">{Math.max(10, data.kpis.talentPool)}</span>
-              <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-border/50 before:mr-2">{Math.max(5, Math.floor(data.kpis.talentPool / 2))}</span>
-              <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-border/50 before:mr-2">0</span>
-            </div>
+      {/* --- ALL-TIME CHARTS (Hidden when viewing micro-event data) --- */}
+      {selectedFilter === "all" && (
+        <div className="grid lg:grid-cols-2 gap-6 mb-6">
+          <Card className="p-6 border-border/60 flex flex-col shadow-sm bg-white">
+            <h3 className="font-display font-bold text-navy text-lg mb-6">Applications vs Hires</h3>
+            <div className="relative flex-1 min-h-[200px] flex items-end justify-between px-2 pb-6 border-b border-dashed border-slate-200">
+              <div className="absolute left-0 top-0 bottom-6 w-full flex flex-col justify-between pointer-events-none text-[10px] text-muted-foreground">
+                <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-slate-200 before:mr-2">{Math.max(10, dynamicKpis.talentPool)}</span>
+                <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-slate-200 before:mr-2">{Math.max(5, Math.floor(dynamicKpis.talentPool / 2))}</span>
+                <span className="flex items-center before:content-[''] before:flex-1 before:border-b before:border-dashed before:border-slate-200 before:mr-2">0</span>
+              </div>
 
-            {data.monthlyData.map((d: any) => {
-              const maxScale = Math.max(10, data.kpis.talentPool);
-              return (
-                <div key={d.month} className="relative z-10 flex flex-col items-center group w-12 gap-1">
-                  <div className="w-full flex items-end justify-center gap-1.5 h-[160px]">
-                    <div className="w-4 bg-saffron rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${(d.apps / maxScale) * 100}%` }}></div>
-                    <div className="w-4 bg-india-green rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${(d.hires / maxScale) * 100}%` }}></div>
+              {data.monthlyData.map((d: any) => {
+                const maxScale = Math.max(10, dynamicKpis.talentPool);
+                return (
+                  <div key={d.month} className="relative z-10 flex flex-col items-center group w-12 gap-1">
+                    <div className="w-full flex items-end justify-center gap-1.5 h-[160px]">
+                      <div className="w-4 bg-saffron rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${(d.apps / maxScale) * 100}%` }}></div>
+                      <div className="w-4 bg-india-green rounded-t-sm transition-all duration-500 hover:opacity-80" style={{ height: `${(d.hires / maxScale) * 100}%` }}></div>
+                    </div>
+                    <span className="absolute -bottom-6 text-xs font-semibold text-slate-500">{d.month}</span>
                   </div>
-                  <span className="absolute -bottom-6 text-xs font-medium text-muted-foreground">{d.month}</span>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+                );
+              })}
+            </div>
+          </Card>
 
-        {/* DONUT CHART: Candidate Sources */}
-        <Card className="p-6 border-border/60 flex flex-col items-center">
-          <h3 className="font-display font-bold text-navy text-lg mb-6 w-full text-left">Candidate Sources</h3>
-          
-          <div className="relative w-48 h-48 mb-8">
-            <div 
-              className="absolute inset-0 rounded-full" 
-              style={{ background: 'conic-gradient(#f97316 0% 45%, #16a34a 45% 65%, #1e1b4b 65% 85%, #eab308 85% 100%)' }}
-            ></div>
-            <div className="absolute inset-5 bg-white rounded-full flex items-center justify-center shadow-inner"></div>
-          </div>
+          <Card className="p-6 border-border/60 flex flex-col items-center shadow-sm bg-white">
+            <h3 className="font-display font-bold text-navy text-lg mb-6 w-full text-left">Candidate Sources</h3>
+            <div className="relative w-48 h-48 mb-8">
+              <div 
+                className="absolute inset-0 rounded-full" 
+                style={{ background: 'conic-gradient(#f97316 0% 45%, #16a34a 45% 65%, #1e1b4b 65% 85%, #eab308 85% 100%)' }}
+              ></div>
+              <div className="absolute inset-5 bg-white rounded-full flex items-center justify-center shadow-inner"></div>
+            </div>
+            <div className="flex flex-wrap justify-center gap-4 text-sm font-semibold">
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#f97316] shadow-sm"></div><span className="text-slate-600">Job Fair</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#16a34a] shadow-sm"></div><span className="text-slate-600">Direct Apply</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#1e1b4b] shadow-sm"></div><span className="text-slate-600">AI Match</span></div>
+            </div>
+          </Card>
+        </div>
+      )}
 
-          <div className="flex flex-wrap justify-center gap-4 text-sm font-medium">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#f97316]"></div><span className="text-saffron">Job Fair</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#16a34a]"></div><span className="text-india-green">Direct Apply</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#1e1b4b]"></div><span className="text-navy">AI Match</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#eab308]"></div><span className="text-yellow-500">Referrals</span></div>
-          </div>
-        </Card>
-
-      </div>
-
-      {/* HISTORY TABLE */}
-      <h3 className="font-display font-bold text-navy text-xl mt-8 mb-4">Candidate Pipeline History</h3>
-      <Card className="border-border/60 overflow-hidden">
+      {/* --- PIPELINE HISTORY TABLE --- */}
+      <h3 className="font-display font-bold text-navy text-xl mt-8 mb-4 flex items-center gap-2">
+        <CalendarOff className="h-5 w-5 text-saffron" /> 
+        {selectedFilter === "all" ? "Master Candidate Pipeline" : "Event Pipeline Roster"}
+      </h3>
+      
+      <Card className="border-border/60 shadow-sm bg-white overflow-hidden">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Candidate</TableHead>
-              <TableHead>Role Applied</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Current Status</TableHead>
+              <TableHead className="font-bold text-slate-600">Date</TableHead>
+              <TableHead className="font-bold text-slate-600">Candidate</TableHead>
+              <TableHead className="font-bold text-slate-600">Role Applied</TableHead>
+              <TableHead className="font-bold text-slate-600">Source</TableHead>
+              <TableHead className="font-bold text-slate-600">Current Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.history.length === 0 ? (
+            {filteredHistory.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  No candidate history found yet.
+                <TableCell colSpan={5} className="text-center py-12 text-slate-500 font-medium">
+                  No candidate history found for this selection.
                 </TableCell>
               </TableRow>
             ) : (
-              data.history.map((row: any, i: number) => {
-                let badgeColor = "bg-muted text-navy";
-                if (row.action_type === "Shortlisted") badgeColor = "bg-saffron/20 text-saffron";
-                if (row.action_type === "Interview") badgeColor = "bg-blue-100 text-blue-700";
-                if (row.action_type === "Hired") badgeColor = "bg-india-green/15 text-india-green";
-                if (row.action_type === "Rejected") badgeColor = "bg-red-100 text-red-700";
+              filteredHistory.map((row: any, i: number) => {
+                let badgeColor = "bg-slate-100 text-slate-700 border-slate-200";
+                if (row.action_type === "Shortlisted") badgeColor = "bg-amber-100 text-amber-800 border-amber-200";
+                if (row.action_type === "Interview") badgeColor = "bg-blue-100 text-blue-700 border-blue-200";
+                if (row.action_type === "Interviewed") badgeColor = "bg-purple-100 text-purple-700 border-purple-200";
+                if (row.action_type === "Offer") badgeColor = "bg-teal-100 text-teal-800 border-teal-200";
+                if (row.action_type === "Hired") badgeColor = "bg-india-green/15 text-india-green border-india-green/20";
+                if (row.action_type === "Rejected") badgeColor = "bg-red-100 text-red-700 border-red-200";
 
                 return (
-                  <TableRow key={i}>
-                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                      {new Date(row.date).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' })}
+                  <TableRow key={i} className="hover:bg-slate-50 transition-colors">
+                    <TableCell className="text-slate-500 font-medium text-sm whitespace-nowrap">
+                      {new Date(row.date).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}
                     </TableCell>
-                    <TableCell className="font-bold text-navy">{row.candidate_name}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{row.job_title}</TableCell>
+                    <TableCell>
+                      <div className="font-bold text-navy">{row.candidate_name}</div>
+                    </TableCell>
+                    <TableCell className="text-slate-600 font-medium text-sm">{row.job_title}</TableCell>
                     <TableCell>
                       {row.event_id ? (
-                        <Badge variant="outline" className="text-saffron border-saffron/30 bg-saffron/5">Event</Badge>
+                        <Badge variant="outline" className="text-saffron border-saffron/30 bg-saffron/5 font-semibold">Job Fair</Badge>
                       ) : (
-                        <Badge variant="outline" className="text-india-green border-india-green/30 bg-india-green/5">Direct</Badge>
+                        <Badge variant="outline" className="text-india-green border-india-green/30 bg-india-green/5 font-semibold">Direct</Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge className={badgeColor}>{row.action_type}</Badge>
+                      <Badge className={`border ${badgeColor}`}>{row.action_type}</Badge>
                     </TableCell>
                   </TableRow>
                 );
