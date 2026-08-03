@@ -14,7 +14,6 @@ import { Briefcase, MapPin, Edit, Trash2, XCircle, RefreshCcw, Clock, Users, Ten
 import { toast } from 'sonner'
 import { getSession } from '@/lib/mockStore'
 
-// 1. Tell TanStack router to expect optional URL search parameters
 export const Route = createFileRoute('/employer/event-jobs')({
   validateSearch: (search: Record<string, unknown>) => {
     return {
@@ -40,39 +39,45 @@ type EventJob = {
   postedDate: string;
   status: string;
   eventName: string; 
+  eventStatus: string;
+  eventId: string;
+  qualification: string;
+  experience: string;
+  salary: string;
+  skills: string;
+  description: string;
+};
+
+const emptyFormState = {
+  title: "", type: "", shift: "", subCategory: "", location: "",
+  qualification: "", experience: "", salary: "", vacancies: "",
+  skills: "", description: "", responsibilities: "", eventId: ""
 };
 
 function EmployerEventJobsPage() {
   const user = getSession();
   const userId = user?.id;
 
-  // 2. Grab the search params and navigate function from TanStack Router
   const { action, eventId } = Route.useSearch();
   const navigate = Route.useNavigate();
 
   const [jobs, setJobs] = useState<EventJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- NEW STATES FOR POSTING EVENT JOBS ---
   const [isJobDialogOpen, setIsJobDialogOpen] = useState(false);
   const [isSubmittingJob, setIsSubmittingJob] = useState(false);
   const [approvedEvents, setApprovedEvents] = useState<{id: number, name: string}[]>([]);
+  
+  // NEW: Track if we are editing an existing job
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
-    title: "", type: "", shift: "", subCategory: "", location: "",
-    qualification: "", experience: "", salary: "", vacancies: "",
-    skills: "", description: "", responsibilities: "", eventId: ""
-  });
+  const [formData, setFormData] = useState({ ...emptyFormState });
 
-  // 3. The magic hook to catch the URL parameters and open the modal
   useEffect(() => {
     if (action === 'openModal' && eventId) {
-      // Open the modal
       setIsJobDialogOpen(true);
-      // Pre-select the event in the form
       setFormData(prev => ({ ...prev, eventId: eventId }));
       
-      // Clean up the URL so it doesn't get stuck in a loop if the user refreshes
       navigate({
         to: '/employer/event-jobs',
         search: {}, 
@@ -85,7 +90,6 @@ function EmployerEventJobsPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Fetch approved events and existing event jobs from backend
   const fetchData = useCallback(async () => {
     if (!userId) return;
     setIsLoading(true);
@@ -103,20 +107,23 @@ function EmployerEventJobsPage() {
       let allEvents: any[] = [];
       if (eventsData.success) allEvents = eventsData.data;
 
-      // 1. FILTER: Find events where the admin has explicitly "approved" the stall
       if (eventsData.success && stallsData.success) {
         const approvedStallEventIds = stallsData.data
           .filter((app: any) => app.status === 'approved')
           .map((app: any) => app.eventId);
 
+        // Filter out events that are completed, expired, or closed so they don't show in the dropdown
         const appEvents = allEvents
-          .filter((evt: any) => approvedStallEventIds.includes(evt.id))
+          .filter((evt: any) => {
+            const eStat = (evt.status || '').toLowerCase();
+            const isActiveEvent = eStat !== 'completed' && eStat !== 'expired' && eStat !== 'closed';
+            return approvedStallEventIds.includes(evt.id) && isActiveEvent;
+          })
           .map((evt: any) => ({ id: evt.id, name: evt.name }));
         
         setApprovedEvents(appEvents);
       }
 
-      // 2. FETCH JOBS: Display only jobs tied to an event
       if (jobsData.success) {
          const eJobs = jobsData.data.filter((j: any) => j.event_id != null && j.event_id.toString() !== '0');
          const formattedJobs = eJobs.map((j: any) => {
@@ -131,7 +138,14 @@ function EmployerEventJobsPage() {
               vacancies: j.vacancies?.toString() || "1",
               postedDate: j.created_at || new Date().toISOString(),
               status: j.status,
-              eventName: evt ? evt.name : `Event ID: ${j.event_id}`
+              eventName: evt ? evt.name : `Event ID: ${j.event_id}`,
+              eventStatus: evt ? (evt.status || '').toLowerCase() : 'active',
+              eventId: j.event_id?.toString() || "",
+              qualification: j.qualification_required || "",
+              experience: j.experience_required || "",
+              salary: j.salary_range || "",
+              skills: Array.isArray(j.skills_required) ? j.skills_required.join(', ') : (j.skills_required || ""),
+              description: j.description || "",
             };
          });
          setJobs(formattedJobs);
@@ -147,6 +161,35 @@ function EmployerEventJobsPage() {
     fetchData();
   }, [fetchData]);
 
+  // NEW: Handle opening the edit modal and populating data
+  const handleEditClick = (job: EventJob) => {
+    setEditingJobId(job.id);
+    setFormData({
+      title: job.title,
+      type: job.type,
+      shift: job.shift,
+      subCategory: job.subCategory,
+      location: job.location,
+      qualification: job.qualification,
+      experience: job.experience,
+      salary: job.salary,
+      vacancies: job.vacancies,
+      skills: job.skills,
+      description: job.description,
+      responsibilities: "",
+      eventId: job.eventId
+    });
+    setIsJobDialogOpen(true);
+  };
+
+  const handleModalClose = (isOpen: boolean) => {
+    setIsJobDialogOpen(isOpen);
+    if (!isOpen) {
+      setEditingJobId(null);
+      setFormData({ ...emptyFormState });
+    }
+  };
+
   const handleJobSubmit = async () => {
     if (!formData.eventId || !formData.title || !formData.type || !formData.location) {
       toast.error("Please select an Event and fill in all required fields.");
@@ -155,8 +198,14 @@ function EmployerEventJobsPage() {
 
     setIsSubmittingJob(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${userId}/jobs`, {
-        method: "POST",
+      const url = editingJobId 
+        ? `${import.meta.env.VITE_API_BASE_URL}/api/employer/jobs/${editingJobId}`
+        : `${import.meta.env.VITE_API_BASE_URL}/api/employer/${userId}/jobs`;
+        
+      const method = editingJobId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: formData.title,
@@ -168,32 +217,35 @@ function EmployerEventJobsPage() {
           skills: formData.skills ? formData.skills.split(',').map(s => s.trim()) : [],
           vacancies: formData.vacancies || "1",
           description: formData.description,
-          event_id: formData.eventId // Ties the job strictly to the event
+          event_id: formData.eventId
         })
       });
       const json = await res.json();
+      
       if (json.success) {
-        toast.success("Event Job posted successfully!");
-        setIsJobDialogOpen(false);
-        setFormData({
-          title: "", type: "", shift: "", subCategory: "", location: "",
-          qualification: "", experience: "", salary: "", vacancies: "",
-          skills: "", description: "", responsibilities: "", eventId: ""
-        });
-        fetchData(); // Refresh the list
+        toast.success(editingJobId ? "Event Job updated successfully!" : "Event Job posted successfully!");
+        handleModalClose(false);
+        fetchData();
       } else {
-        toast.error(json.message || "Failed to post job.");
+        toast.error(json.message || "Failed to save job.");
       }
     } catch (err) {
-      toast.error("Server connection error while posting job.");
+      toast.error("Server connection error while saving job.");
     } finally {
       setIsSubmittingJob(false);
     }
   };
 
-  const handleCloseJob = (id: string) => {
-    setJobs(jobs.map(job => job.id === id ? { ...job, status: "closed" } : job));
-    toast.info("Event job has been closed locally.");
+  const handleCloseJob = async (id: string) => {
+    try {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/jobs/${id}/close`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employerId: userId })
+      });
+      setJobs(jobs.map(job => job.id === id ? { ...job, status: "closed" } : job));
+      toast.info("Event job has been closed.");
+    } catch {
+      toast.error("Failed to close job.");
+    }
   };
 
   const handleRevokeJob = async (id: string) => {
@@ -238,8 +290,7 @@ function EmployerEventJobsPage() {
             </p>
           </div>
 
-          {/* THE NEW POST JOB BUTTON & MODAL */}
-          <Dialog open={isJobDialogOpen} onOpenChange={setIsJobDialogOpen}>
+          <Dialog open={isJobDialogOpen} onOpenChange={handleModalClose}>
             <DialogTrigger asChild>
               <Button className="bg-saffron text-navy hover:bg-saffron/90 font-medium">
                 <Plus className="h-4 w-4 mr-2" /> Post Event Job
@@ -248,7 +299,7 @@ function EmployerEventJobsPage() {
             <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-xl font-display text-navy flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-saffron" /> Post Job for an Event
+                  <Briefcase className="h-5 w-5 text-saffron" /> {editingJobId ? "Edit Event Job" : "Post Job for an Event"}
                 </DialogTitle>
               </DialogHeader>
               
@@ -261,7 +312,7 @@ function EmployerEventJobsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {approvedEvents.length === 0 ? (
-                        <div className="p-3 text-sm text-muted-foreground italic">No approved events available. Your stall must be approved first.</div>
+                        <div className="p-3 text-sm text-muted-foreground italic">No active approved events available.</div>
                       ) : (
                         approvedEvents.map(evt => (
                           <SelectItem key={evt.id} value={evt.id.toString()}>{evt.name}</SelectItem>
@@ -343,16 +394,6 @@ function EmployerEventJobsPage() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label>Responsibilities <span className="text-red-500">*</span></Label>
-                  <Textarea 
-                    placeholder="List the day-to-day responsibilities for this role..." 
-                    value={formData.responsibilities} 
-                    onChange={(e) => handleInputChange("responsibilities", e.target.value)} 
-                    className="mt-1 resize-none h-20"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
                   <Label>Job Description</Label>
                   <Textarea 
                     placeholder="Overview, benefits, and requirements..." 
@@ -364,10 +405,10 @@ function EmployerEventJobsPage() {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsJobDialogOpen(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => handleModalClose(false)}>Cancel</Button>
                 <Button onClick={handleJobSubmit} disabled={isSubmittingJob} className="bg-saffron text-navy hover:bg-saffron/90">
                   {isSubmittingJob ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Submit Job
+                  {editingJobId ? "Save Changes" : "Submit Job"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -386,19 +427,30 @@ function EmployerEventJobsPage() {
         ) : (
           <div className="grid gap-4">
             {sortedJobs.map((job) => {
-              const isClosed = job.status === "closed" || job.status === "rejected";
+              // Check if the event is completed/expired from the backend admin side
+              const isEventCompleted = job.eventStatus === "completed" || job.eventStatus === "expired" || job.eventStatus === "closed";
+              // Check if the job itself was manually closed by the employer
+              const isClosed = job.status === "closed" || job.status === "rejected" || isEventCompleted;
 
               return (
                 <Card 
                   key={job.id} 
                   className={`p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300 ${
-                    isClosed ? "bg-slate-50 border-slate-200 opacity-60 blur-[0.4px] hover:blur-none hover:opacity-100" : "bg-white border-border hover:border-navy/30 hover:shadow-md"
+                    isEventCompleted 
+                      ? "bg-slate-100 border-slate-200 opacity-70" // Grayed out style for completed events
+                      : isClosed 
+                        ? "bg-slate-50 border-slate-200 opacity-60 blur-[0.4px] hover:blur-none hover:opacity-100" 
+                        : "bg-white border-border hover:border-navy/30 hover:shadow-md"
                   }`}
                 >
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-display font-bold text-lg text-navy">{job.title}</h3>
-                      {isClosed ? (
+                      <h3 className={`font-display font-bold text-lg ${isEventCompleted ? 'text-slate-500' : 'text-navy'}`}>
+                        {job.title}
+                      </h3>
+                      {isEventCompleted ? (
+                         <Badge variant="secondary" className="bg-slate-200 text-slate-600 border-slate-300">Event Completed</Badge>
+                      ) : isClosed ? (
                         <Badge variant="secondary" className="bg-slate-200 text-slate-700">Closed</Badge>
                       ) : job.status === 'pending' ? (
                         <Badge className="bg-amber-100 text-amber-800 border-amber-200">Waiting for Approval</Badge>
@@ -407,8 +459,11 @@ function EmployerEventJobsPage() {
                       )}
                     </div>
 
-                    <div className="inline-flex items-center text-xs font-semibold bg-navy/5 text-navy px-2 py-1 rounded-md border border-navy/10">
-                       <Tent className="h-3.5 w-3.5 mr-1.5 text-saffron" /> {job.eventName}
+                    <div className={`inline-flex items-center text-xs font-semibold px-2 py-1 rounded-md border ${
+                      isEventCompleted ? "bg-slate-200 text-slate-500 border-slate-300" : "bg-navy/5 text-navy border-navy/10"
+                    }`}>
+                       <Tent className={`h-3.5 w-3.5 mr-1.5 ${isEventCompleted ? 'text-slate-400' : 'text-saffron'}`} /> 
+                       {job.eventName}
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground pt-1">
@@ -427,7 +482,11 @@ function EmployerEventJobsPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {isClosed ? (
+                    {isEventCompleted ? (
+                      <Button size="sm" variant="destructive" className="h-8" onClick={() => handleDeleteJob(job.id)}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                      </Button>
+                    ) : isClosed ? (
                       <>
                         <Button size="sm" variant="destructive" className="h-8" onClick={() => handleDeleteJob(job.id)}>
                           <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
@@ -438,6 +497,9 @@ function EmployerEventJobsPage() {
                       </>
                     ) : (
                       <>
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => handleEditClick(job)}>
+                          <Edit className="h-3.5 w-3.5 mr-1.5" /> Edit
+                        </Button>
                         <Button size="sm" variant="destructive" className="h-8" onClick={() => handleDeleteJob(job.id)}>
                           <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
                         </Button>
