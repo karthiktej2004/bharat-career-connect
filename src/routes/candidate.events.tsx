@@ -393,11 +393,13 @@ function Events() {
             const startTime = e.start_time || "09:00 AM";
             const endTime = e.end_time || "05:00 PM";
 
-            // Status Badge Coloring Logic
+            // Status Badge Distinct Coloring Logic
             const statusLower = (e.status || "").toLowerCase();
-            let badgeStyle = "bg-saffron text-navy"; // Default upcoming/other
-            if (statusLower.includes('live') || statusLower.includes('active') || statusLower.includes('upcoming')) {
+            let badgeStyle = "bg-blue-600 text-white"; // Default upcoming/other
+            if (statusLower.includes('live') || statusLower.includes('active')) {
               badgeStyle = "bg-india-green text-white";
+            } else if (statusLower.includes('upcoming')) {
+              badgeStyle = "bg-saffron text-navy font-bold";
             } else if (statusLower.includes('hold') || statusLower.includes('completed') || statusLower.includes('closed')) {
               badgeStyle = "bg-slate-200 text-slate-700 border border-slate-300";
             }
@@ -444,65 +446,12 @@ function Events() {
                     </div>
                   )}
                 </div>
-
-                <div className="mt-6">
-                  <Button onClick={() => handleViewJobs(e)} className="w-full bg-navy text-white hover:bg-navy/90 shadow-sm">
-                    <Unlock className="h-4 w-4 mr-2" /> View Jobs & Companies at this Event
-                  </Button>
-                </div>
               </Card>
             );
           })}
         </div>
       )}
 
-      <Dialog open={!!viewingEvent} onOpenChange={(o) => !o && setViewingEvent(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5 text-saffron" /> Jobs at {viewingEvent?.title || viewingEvent?.name}</DialogTitle>
-            <DialogDescription>Browse participating companies and join live interview queues.</DialogDescription>
-          </DialogHeader>
-          {isLoadingJobs ? (
-            <div className="py-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-saffron" /></div>
-          ) : eventJobs.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground"><Briefcase className="h-10 w-10 mx-auto mb-3 opacity-40" />No jobs posted for this event yet.</div>
-          ) : (
-            <div className="space-y-3 mt-2">
-              {eventJobs.map((j) => {
-                const isAttended = viewingEvent?.attendance_status === 'Attended' || viewingEvent?.attendance_status === 'Present';
-
-                return (
-                  <Card key={j.id} className="p-4 border-border/60 bg-slate-50">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-display font-bold text-navy">{j.title}</h4>
-                          <Badge variant="outline" className="bg-white">{j.job_type}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1 font-medium">{j.company_name} · {j.location}</p>
-                        <div className="flex flex-wrap gap-1.5 mt-2">{(j.skills_required || []).map((s: string) => <span key={s} className="text-[11px] bg-white border px-2 py-0.5 rounded text-navy">{s}</span>)}</div>
-                        <p className="text-xs text-muted-foreground mt-2">{j.qualification_required} · {j.experience_required} · {j.salary_range}</p>
-                      </div>
-
-                      {isAttended ? (
-                        <Button size="sm" onClick={() => setJoiningQueueJob(j)} className="bg-saffron text-navy hover:bg-saffron/90 font-bold shrink-0">
-                          <Ticket className="h-4 w-4 mr-1" /> Join Interview Queue
-                        </Button>
-                      ) : (
-                        <Button size="sm" disabled className="bg-slate-200 text-slate-500 shrink-0">
-                          Scan QR to Unlock Queue
-                        </Button>
-                      )}
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <JoinQueueDialog job={joiningQueueJob} eventId={viewingEvent?.id} onClose={() => setJoiningQueueJob(null)} />
       <EventApplyDialog event={applyingEvent} onClose={() => setApplyingEvent(null)} onSuccess={fetchEvents} />
     </DashShell>
   );
