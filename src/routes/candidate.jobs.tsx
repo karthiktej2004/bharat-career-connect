@@ -505,13 +505,9 @@ function Jobs() {
   // --- DYNAMICALLY CALCULATE FILTER COUNTS DIRECTLY FROM LIVE DB DATA ---
   const filterCounts = useMemo(() => {
     const locs: Record<string, number> = {};
-    const types: Record<string, number> = {};
-    const shifts: Record<string, number> = {};
 
-    // Initialize all standard keys so dropdowns are NEVER empty
+    // Initialize all standard keys for locations
     LOCATIONS.forEach(l => locs[l.toLowerCase()] = 0);
-    JOB_TYPES.forEach(t => types[t.toLowerCase().replace(/[- ]/g, "")] = 0);
-    SHIFTS.forEach(s => shifts[s.toLowerCase().replace(/[- ]/g, "")] = 0);
 
     jobs.forEach(j => {
       // Safely map locations, auto-correcting bangalore spelling
@@ -524,17 +520,9 @@ function Jobs() {
           locs[key] = (locs[key] || 0) + 1;
         });
       }
-      
-      // Job Types
-      const jt = (j.type || j.job_type || j.employmentType || "Full-Time").toLowerCase().replace(/[- ]/g, "");
-      types[jt] = (types[jt] || 0) + 1;
-
-      // Shifts
-      const shift = (j.preferredShift || j.preferred_shift || j.shift || "Day Shift").toLowerCase().replace(/[- ]/g, "");
-      shifts[shift] = (shifts[shift] || 0) + 1;
     });
 
-    return { locs, types, shifts };
+    return { locs };
   }, [jobs]);
 
   // Tolerant filtering logic ensuring old database entries don't break the filters
@@ -606,10 +594,9 @@ function Jobs() {
               <SelectItem value="all">All Types</SelectItem>
               {JOB_TYPES.map(type => {
                 const key = type.toLowerCase().replace(/[- ]/g, "");
-                const count = filterCounts.types[key] || 0;
                 return (
                   <SelectItem key={type} value={key}>
-                    {type} {count >= 0 ? `(${count})` : ""}
+                    {type}
                   </SelectItem>
                 );
               })}
@@ -622,10 +609,9 @@ function Jobs() {
               <SelectItem value="all">All Shifts</SelectItem>
               {SHIFTS.map(shift => {
                 const key = shift.toLowerCase().replace(/[- ]/g, "");
-                const count = filterCounts.shifts[key] || 0;
                 return (
                   <SelectItem key={shift} value={key}>
-                    {shift} {count >= 0 ? `(${count})` : ""}
+                    {shift}
                   </SelectItem>
                 );
               })}
