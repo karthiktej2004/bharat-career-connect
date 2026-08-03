@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, ShieldCheck, Clock, ArrowLeft, Loader2, CheckCircle2, Upload, MapPin, Users, Briefcase, FileText, Eye, EyeOff } from "lucide-react";
+import { Building2, Clock, ArrowLeft, Loader2, CheckCircle2, Upload, MapPin, Users, Briefcase, FileText, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/register-company")({
@@ -19,7 +19,6 @@ export const Route = createFileRoute("/register-company")({
 const ORG_TYPES = ["Employer Primary Category(E)", "Sector Skill Council (SSC)", "Associations / Industry Clusters", "Skill Training Centre", "Others"];
 const LEGAL_STRUCTURES = ["Sole Proprietorship", "Partnership", "Limited Liability Partnership (LLP)", "Private Limited Company", "Public Limited Company", "One-Person Company", "NGO - Section 8 / Trust", "State Public Sector Undertaking", "Central Public Sector Undertaking", "Others"];
 
-// Exactly 52 Sectors from the provided list
 const SECTORS_LIST = [
   "Aerospace and Aviation Sector", "Agriculture Sector", "Apparel Sector", "Automotive Sector",
   "Beauty & Wellness Sector", "BFSI Sector", "Capital Goods Sector", "Construction Sector",
@@ -49,6 +48,7 @@ function RegisterCompany() {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [registeredId, setRegisteredId] = useState("");
   
   // File State
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -64,17 +64,12 @@ function RegisterCompany() {
 
   // Form State
   const [f, setF] = useState({
-    // Step 1: Basic
     gst_number: "", is_gst_verified: false, company_name: "", website: "", org_type: "", legal_structure: "", 
-    selected_sector: "", custom_sector: "", // Updated for single dropdown + custom input
-    // Step 2: Location
+    selected_sector: "", custom_sector: "", 
     pincode: "", state: "", district: "", taluk: "", mla_constituency: "", mp_constituency: "", resident_type: "", local_body_details: "", locality_area: "", current_address: "", map_link: "", org_presence: "", multiple_branches: "false",
-    // Step 3: PoC
     poc1_title: "", poc1_name: "", poc1_designation: "", poc1_email: "", poc1_phone: "", password: "", confirmPassword: "",
     poc2_title: "", poc2_name: "", poc2_designation: "", poc2_email: "", poc2_phone: "",
-    // Step 4: Operations
     employee_strength: "", hiring_for: "", hire_pwds: "", accepted_disabilities: [] as string[],
-    // Step 5: Docs
     digital_onboarding: "true", source_of_discovery: "",
     policy_agreed: false, consent_agreed: false
   });
@@ -89,7 +84,6 @@ function RegisterCompany() {
     });
   };
 
-  // GST Verification
   const handleVerifyGST = () => {
     const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
     const formattedGst = f.gst_number.trim().toUpperCase();
@@ -102,7 +96,6 @@ function RegisterCompany() {
     setF(prev => ({ ...prev, gst_number: formattedGst, is_gst_verified: true, company_name: "Verified Company Pvt Ltd" }));
   };
 
-  // OTP Verification
   const handleSendOTP = () => {
     if (f.poc1_phone.length < 10) return toast.error("Enter a valid phone number.");
     setOtpSent(true);
@@ -119,7 +112,6 @@ function RegisterCompany() {
   };
 
   const handleNextStep = () => {
-    // Step 1 Validation
     if (step === 1) {
       if (!f.company_name || !f.org_type || !f.legal_structure || !f.selected_sector) {
         return toast.error("Please fill all mandatory basic details.");
@@ -129,18 +121,18 @@ function RegisterCompany() {
       }
     }
     
-    // Step 3 (Password & OTP) Validation
     if (step === 3) {
       if (!isOtpVerified || !f.poc1_email || !f.password) {
         return toast.error("Please complete PoC 1 details and verify your phone number.");
       }
-      // Strict Password Regex: At least 1 Uppercase, 1 Special Character
-      const passRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).+$/;
+      
+      // STRICT PASSWORD REGEX: 8 chars, 1 upper, 1 lower, 1 number, 1 special
+      const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
       if (!passRegex.test(f.password)) {
-        return toast.error("Password must contain at least 1 Uppercase letter and 1 Special character.");
+        return toast.error("Password must be at least 8 characters long and contain 1 Uppercase, 1 Lowercase, 1 Number, and 1 Special Character.");
       }
       if (f.password !== f.confirmPassword) {
-        return toast.error("Passwords do not match. Please ensure both fields are identical.");
+        return toast.error("Passwords do not match.");
       }
     }
 
@@ -157,24 +149,20 @@ function RegisterCompany() {
     setIsSubmitting(true);
     try {
       const formData = new FormData();
-      
-      // Fix 400 Bad Request Payload Construction
       const payload: any = { ...f };
       
-      // Format the Sector properly for the backend
       payload.core_sectors = f.selected_sector === "Others" ? [f.custom_sector] : [f.selected_sector];
       
-      // Cleanup unnecessary frontend state fields before sending
       delete payload.selected_sector;
       delete payload.custom_sector;
       delete payload.confirmPassword;
 
       Object.entries(payload).forEach(([key, value]) => {
         if (Array.isArray(value)) {
-          formData.append(key, JSON.stringify(value)); // Safely send arrays
+          formData.append(key, JSON.stringify(value));
         } else if (typeof value === 'boolean') {
-          formData.append(key, value ? "true" : "false"); // Safely send booleans
-        } else {
+          formData.append(key, value ? "true" : "false");
+        } else if (value !== null && value !== undefined) {
           formData.append(key, String(value));
         }
       });
@@ -186,34 +174,48 @@ function RegisterCompany() {
         body: formData 
       });
       
-      const json = await res.json();
-      if (json.success) {
-        setShowSuccess(true);
-        setTimeout(() => navigate({ to: "/for-employers" }), 4000);
-      } else {
-        toast.error(json.message || "Registration failed. Please try again.");
+      let json;
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        throw new Error("Server returned an invalid response.");
       }
-    } catch (err) {
-      toast.error("Database connection failed. Please try again.");
+
+      if (json.success) {
+        setRegisteredId(json.uniqueId || "PENDING-ID");
+        setShowSuccess(true);
+        setTimeout(() => navigate({ to: "/for-employers" }), 6000);
+      } else {
+        toast.error(json.message || "Registration failed. Please check your details and try again.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Database connection failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // SUCCESS SCREEN
+  // --- UPDATED SUCCESS SCREEN ---
   if (showSuccess) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-        <Card className="max-w-lg p-10 text-center border-india-green/40 shadow-xl rounded-2xl bg-white animate-in fade-in zoom-in duration-500">
-          <div className="mx-auto size-20 bg-india-green/10 rounded-full flex items-center justify-center mb-6">
-            <CheckCircle2 className="h-10 w-10 text-india-green" />
+        <Card className="max-w-xl p-10 text-center border-india-green/40 shadow-xl rounded-2xl bg-white animate-in fade-in zoom-in duration-500">
+          <div className="mx-auto size-24 bg-india-green/10 rounded-full flex items-center justify-center mb-6">
+            <CheckCircle2 className="h-12 w-12 text-india-green" />
           </div>
-          <h1 className="text-3xl font-display font-bold text-navy mb-4">Registration Sent!</h1>
-          <p className="text-muted-foreground mb-6">Your comprehensive company profile has been submitted for verification.</p>
-          <div className="inline-flex items-center gap-2 bg-saffron/15 text-saffron font-semibold px-4 py-2 rounded-full mb-6">
-            <Clock className="h-4 w-4" /> Waiting for Admin Approval
+          <h1 className="text-3xl font-display font-bold text-navy mb-2">Registration Successful!</h1>
+          
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6 inline-block mx-auto min-w-[250px]">
+             <p className="text-sm text-slate-500 uppercase tracking-wider font-bold mb-1">Your Employer ID</p>
+             <p className="text-2xl font-mono font-bold text-navy tracking-widest">{registeredId}</p>
           </div>
-          <p className="text-sm text-muted-foreground border-t border-border/60 pt-6">Redirecting to dashboard...</p>
+
+          <p className="text-slate-600 mb-8 max-w-md mx-auto">Your comprehensive company profile has been submitted and is currently under review by our moderation team.</p>
+          
+          <div className="inline-flex items-center gap-2 bg-saffron/15 text-saffron border border-saffron/20 font-semibold px-5 py-3 rounded-full mb-6 text-sm">
+            <Clock className="h-5 w-5 animate-pulse" /> Waiting for Admin Approval from Bharat Career Connect
+          </div>
+          <p className="text-sm text-muted-foreground border-t border-border/60 pt-6 mt-2">Redirecting you back to the home page...</p>
         </Card>
       </div>
     );
@@ -289,7 +291,6 @@ function RegisterCompany() {
                     </Select>
                   </div>
 
-                  {/* UPDATED: DYNAMIC SECTOR DROPDOWN */}
                   <div className="sm:col-span-2">
                     <Label>Core Sector of Operation *</Label>
                     <Select value={f.selected_sector} onValueChange={(v) => handleInputChange('selected_sector', v)}>
@@ -300,7 +301,6 @@ function RegisterCompany() {
                     </Select>
                   </div>
 
-                  {/* DYNAMIC TEXT BOX IF "OTHERS" IS SELECTED */}
                   {f.selected_sector === "Others" && (
                     <div className="sm:col-span-2 mt-1 animate-in slide-in-from-top-2 duration-300">
                       <Label className="text-saffron">Please specify your Sector *</Label>
@@ -417,7 +417,7 @@ function RegisterCompany() {
                     </div>
                   )}
 
-                  {/* UPDATED: PASSWORD FIELDS WITH EYES & VALIDATION */}
+                  {/* STRICT PASSWORD FIELDS */}
                   <div className="grid sm:grid-cols-2 gap-4 pt-2">
                     <div className="relative">
                       <Label>Set Panel Password *</Label>
@@ -431,7 +431,10 @@ function RegisterCompany() {
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[34px] text-slate-400 hover:text-navy transition-colors">
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
-                      <p className="text-[10px] text-slate-500 mt-1.5">Must include 1 Uppercase & 1 Special Character.</p>
+                      <div className="flex items-start gap-1.5 mt-2">
+                        <AlertCircle className="h-3 w-3 text-saffron mt-0.5" />
+                        <p className="text-[10px] text-slate-500 leading-tight">Must be at least 8 characters, include 1 Uppercase, 1 Lowercase, 1 Number, & 1 Special Character.</p>
+                      </div>
                     </div>
                     
                     <div className="relative">
