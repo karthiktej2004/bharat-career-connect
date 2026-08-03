@@ -516,7 +516,7 @@ function Jobs() {
 
   return (
     <DashShell role="candidate" nav={candidateNav}>
-      <PageHeader title="Browse Jobs" description="Roles logically matched based on your profile, skills, education, and location." />
+      <PageHeader title="Browse Jobs" description="Roles mathematically matched based on your profile skills, education, job type, and location." />
 
       <Card className="p-4 mb-6 border-border/60 bg-white">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
