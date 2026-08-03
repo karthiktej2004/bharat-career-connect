@@ -74,8 +74,8 @@ function AdminHome() {
       // Fallback client-side CSV generation if backend endpoint is still pending
       try {
         const csvContent = "data:text/csv;charset=utf-8," 
-          + "Event Name,City,Registrations,Candidates Attendance,Employers Attendance,Interviews,Offers\n"
-          + `"${activeEvent.name}","${activeEvent.location}",${activeEvent.registrations},${activeEvent.attendance.candidates},${activeEvent.attendance.employers},${activeEvent.interviews},${activeEvent.offers}`;
+          + "Event Name,City,Candidate Registrations,Employer Registrations,Candidates Attendance,Employers Attendance,Interviews,Offers\n"
+          + `"${activeEvent.name}","${activeEvent.location}",${activeEvent.registrations.candidates},${activeEvent.registrations.employers},${activeEvent.attendance.candidates},${activeEvent.attendance.employers},${activeEvent.interviews},${activeEvent.offers}`;
         
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -116,6 +116,7 @@ function AdminHome() {
 
   const activeEvent = liveEvents[activeIndex];
   const totalAttendance = activeEvent.attendance.candidates + activeEvent.attendance.employers;
+  const totalRegistrations = activeEvent.registrations.candidates + activeEvent.registrations.employers;
 
   return (
     <DashShell role="admin" nav={adminNav}>
@@ -151,8 +152,20 @@ function AdminHome() {
       )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Registrations" value={(activeEvent.registrations === 0 ? <span className="text-sm font-medium text-muted-foreground tracking-tight leading-tight block mt-1">Not yet registered any candidates</span> : <Counter to={activeEvent.registrations} />) as unknown as string} icon={Users} accent="navy" />
-        <StatCard label="Attendance" value={<Counter to={totalAttendance} /> as unknown as string} icon={QrCode} accent="saffron" trend={`${activeEvent.attendance.candidates} Candidates · ${activeEvent.attendance.employers} Employers`} />
+        <StatCard 
+          label="Registrations" 
+          value={(totalRegistrations === 0 ? <span className="text-sm font-medium text-muted-foreground tracking-tight leading-tight block mt-1">No registrations yet</span> : <Counter to={totalRegistrations} />) as unknown as string} 
+          icon={Users} 
+          accent="navy" 
+          trend={`${activeEvent.registrations.candidates} Candidates · ${activeEvent.registrations.employers} Employers`} 
+        />
+        <StatCard 
+          label="Attendance" 
+          value={<Counter to={totalAttendance} /> as unknown as string} 
+          icon={QrCode} 
+          accent="saffron" 
+          trend={`${activeEvent.attendance.candidates} Candidates · ${activeEvent.attendance.employers} Employers`} 
+        />
         <StatCard label="Interviews" value={<Counter to={activeEvent.interviews} /> as unknown as string} icon={MessageSquareHeart} accent="india-green" />
         <StatCard label="Offers (Hired)" value={<Counter to={activeEvent.offers} /> as unknown as string} icon={Award} accent="india-green" />
       </div>
