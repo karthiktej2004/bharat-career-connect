@@ -5,7 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Star, Video, Loader2, StopCircle, CheckCircle2, Camera } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Star, Video, Loader2, StopCircle, CheckCircle2, Camera, Building2 } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
@@ -15,13 +16,24 @@ export const Route = createFileRoute("/candidate/feedback")({
   component: FeedbackPage,
 });
 
-function FeedbackPage() {
+// Static list of popular companies or fetched mock list
+const COMPANIES = ["accenture", "axiomate", "Infosys", "TCS", "Wipro", "Cognizant", "Other / General Platform"];
+
+export default function FeedbackPage() {
+  // Overall Rating
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   
-  const [registrationExp, setRegistrationExp] = useState("");
-  const [interviewQuality, setInterviewQuality] = useState("");
-  const [eventManagement, setEventManagement] = useState("");
+  // Specific Category Ratings (5-star for all)
+  const [registrationRating, setRegistrationRating] = useState(0);
+  const [interviewRating, setInterviewRating] = useState(0);
+  const [eventRating, setEventRating] = useState(0);
+
+  // Company Selection & Optional Dropdown Message Category
+  const [selectedCompany, setSelectedCompany] = useState("");
+  const [messageCategory, setMessageCategory] = useState("general");
+  const [optionalComments, setOptionalComments] = useState("");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // --- REAL VIDEO RECORDING STATE ---
@@ -87,7 +99,7 @@ function FeedbackPage() {
   // 4. Retake Video
   const handleRetake = () => {
     setVideoUrl(null);
-    handleEnableCamera(); // Immediately turn the camera back on
+    handleEnableCamera(); 
   };
 
   // --- SUBMIT TO BACKEND ---
@@ -96,32 +108,41 @@ function FeedbackPage() {
       toast.error("Please provide an overall rating.");
       return;
     }
+    if (!selectedCompany) {
+      toast.error("Please select a company for your feedback.");
+      return;
+    }
 
     setIsSubmitting(true);
     const session = getSession();
 
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/candidate/feedback", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           candidateId: session?.id,
           rating,
-          registrationExp,
-          interviewQuality,
-          eventManagement,
-          // Sending a string representation of the video file for the backend
+          companyName: selectedCompany,
+          registrationExp: `Rating: ${registrationRating}/5`,
+          interviewQuality: `Rating: ${interviewRating}/5`,
+          eventManagement: `Rating: ${eventRating}/5`,
+          messageCategory,
+          optionalComments,
           videoUrl: videoUrl ? "user_recorded_video_blob" : null 
         })
       });
 
       const json = await res.json();
       if (json.success) {
-        toast.success(json.message);
+        toast.success(json.message || "Feedback submitted successfully!");
         setRating(0);
-        setRegistrationExp("");
-        setInterviewQuality("");
-        setEventManagement("");
+        setRegistrationRating(0);
+        setInterviewRating(0);
+        setEventRating(0);
+        setSelectedCompany("");
+        setMessageCategory("general");
+        setOptionalComments("");
         setVideoUrl(null);
       } else {
         toast.error("Failed to submit feedback.");
@@ -144,69 +165,131 @@ function FeedbackPage() {
     <DashShell role="candidate" nav={candidateNav}>
       <PageHeader 
         title="Your Feedback" 
-        description="Help us improve. Admin reviews and publishes feedback." 
+        description="Help us improve. Rate your experience and target specific companies." 
       />
 
       <div className="grid lg:grid-cols-2 gap-6 items-start">
         
-        {/* LEFT CARD: TEXT FEEDBACK */}
-        <Card className="p-6 border-border/60 bg-white shadow-sm">
-          <h3 className="font-display font-bold text-navy text-lg mb-6">Share your experience</h3>
+        {/* LEFT CARD: DETAILED STRUCTURED FEEDBACK */}
+        <Card className="p-6 border-border/60 bg-white shadow-sm space-y-6">
+          <h3 className="font-display font-bold text-navy text-lg">Share your experience</h3>
           
-          <div className="space-y-6">
+          {/* 1. SELECT COMPANY */}
+          <div>
+            <Label className="text-navy font-bold flex items-center gap-1.5">
+              <Building2 className="h-4 w-4 text-saffron" /> Select Company
+            </Label>
+            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+              <SelectTrigger className="mt-2 bg-slate-50"><SelectValue placeholder="Select company you interviewed with..." /></SelectTrigger>
+              <SelectContent>
+                {COMPANIES.map(comp => (
+                  <SelectItem key={comp} value={comp}>{comp}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 2. OVERALL RATING */}
+          <div>
+            <Label className="text-base text-navy font-bold">Overall Rating</Label>
+            <div className="flex gap-1 mt-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star 
+                  key={star} 
+                  className={`h-7 w-7 cursor-pointer transition-colors ${
+                    (hoverRating || rating) >= star ? "fill-saffron text-saffron" : "text-slate-300"
+                  }`}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  onClick={() => setRating(star)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
+            {/* Registration Experience 5-Star */}
             <div>
-              <Label className="text-base text-navy font-bold">Overall rating</Label>
-              <div className="flex gap-1 mt-2">
+              <Label className="text-xs font-semibold text-slate-700">Registration</Label>
+              <div className="flex gap-0.5 mt-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star 
                     key={star} 
-                    className={`h-8 w-8 cursor-pointer transition-colors ${
-                      (hoverRating || rating) >= star ? "fill-saffron text-saffron" : "text-slate-300"
+                    className={`h-5 w-5 cursor-pointer transition-colors ${
+                      registrationRating >= star ? "fill-saffron text-saffron" : "text-slate-300"
                     }`}
-                    onMouseEnter={() => setHoverRating(star)}
-                    onMouseLeave={() => setHoverRating(0)}
-                    onClick={() => setRating(star)}
+                    onClick={() => setRegistrationRating(star)}
                   />
                 ))}
               </div>
             </div>
 
+            {/* Interview Quality 5-Star */}
             <div>
-              <Label className="text-navy font-medium">Registration experience</Label>
-              <Textarea 
-                value={registrationExp}
-                onChange={(e) => setRegistrationExp(e.target.value)}
-                className="mt-2 bg-slate-50 min-h-[100px]" 
-              />
-            </div>
-            
-            <div>
-              <Label className="text-navy font-medium">Interview quality</Label>
-              <Textarea 
-                value={interviewQuality}
-                onChange={(e) => setInterviewQuality(e.target.value)}
-                className="mt-2 bg-slate-50 min-h-[100px]" 
-              />
-            </div>
-            
-            <div>
-              <Label className="text-navy font-medium">Event management</Label>
-              <Textarea 
-                value={eventManagement}
-                onChange={(e) => setEventManagement(e.target.value)}
-                className="mt-2 bg-slate-50 min-h-[100px]" 
-              />
+              <Label className="text-xs font-semibold text-slate-700">Interview Quality</Label>
+              <div className="flex gap-0.5 mt-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star 
+                    key={star} 
+                    className={`h-5 w-5 cursor-pointer transition-colors ${
+                      interviewRating >= star ? "fill-saffron text-saffron" : "text-slate-300"
+                    }`}
+                    onClick={() => setInterviewRating(star)}
+                  />
+                ))}
+              </div>
             </div>
 
-            <Button 
-              className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold py-6 text-base"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : null}
-              {isSubmitting ? "Submitting..." : "Submit for review"}
-            </Button>
+            {/* Event Management 5-Star */}
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">Event Management</Label>
+              <div className="flex gap-0.5 mt-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star 
+                    key={star} 
+                    className={`h-5 w-5 cursor-pointer transition-colors ${
+                      eventRating >= star ? "fill-saffron text-saffron" : "text-slate-300"
+                    }`}
+                    onClick={() => setEventRating(star)}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
+
+          {/* 3. OPTIONAL MESSAGE CATEGORY DROPDOWN */}
+          <div className="pt-2 border-t border-slate-100">
+            <Label className="text-navy font-medium">Feedback Category (Optional)</Label>
+            <Select value={messageCategory} onValueChange={setMessageCategory}>
+              <SelectTrigger className="mt-2 bg-slate-50"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">General Feedback</SelectItem>
+                <SelectItem value="praise">Praise / Commendation</SelectItem>
+                <SelectItem value="suggestion">Improvement Suggestion</SelectItem>
+                <SelectItem value="complaint">Report an Issue / Complaint</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 4. OPTIONAL COMMENTS TEXTAREA */}
+          <div>
+            <Label className="text-navy font-medium">Additional Comments (Optional)</Label>
+            <Textarea 
+              value={optionalComments}
+              onChange={(e) => setOptionalComments(e.target.value)}
+              placeholder="Provide specific notes or context for this company..."
+              className="mt-2 bg-slate-50 min-h-[90px]" 
+            />
+          </div>
+
+          <Button 
+            className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold py-6 text-base"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : null}
+            {isSubmitting ? "Submitting..." : "Submit for review"}
+          </Button>
         </Card>
 
         {/* RIGHT CARD: REAL VIDEO TESTIMONIAL */}
@@ -233,12 +316,11 @@ function FeedbackPage() {
                 <video 
                   ref={videoRef} 
                   autoPlay 
-                  muted // Muted so you don't hear your own echo!
+                  muted 
                   playsInline 
                   className="absolute inset-0 w-full h-full object-cover"
                 />
                 
-                {/* Recording UI Overlay */}
                 <div className="absolute inset-0 flex flex-col justify-between p-6">
                   <div className="flex justify-end">
                     {isRecording && (
@@ -251,11 +333,11 @@ function FeedbackPage() {
                   
                   <div className="flex justify-center">
                     {isRecording ? (
-                      <Button variant="destructive" size="lg" onClick={handleStopRecording} className="font-bold shadow-xl rounded-full px-8 animate-in slide-in-from-bottom-4">
+                      <Button variant="destructive" size="lg" onClick={handleStopRecording} className="font-bold shadow-xl rounded-full px-8">
                         <StopCircle className="h-5 w-5 mr-2" /> Stop Recording
                       </Button>
                     ) : (
-                      <Button size="lg" onClick={handleStartRecording} className="bg-red-500 hover:bg-red-600 text-white font-bold shadow-xl rounded-full px-8 animate-in slide-in-from-bottom-4">
+                      <Button size="lg" onClick={handleStartRecording} className="bg-red-500 hover:bg-red-600 text-white font-bold shadow-xl rounded-full px-8">
                         <Video className="h-5 w-5 mr-2" /> Start Recording
                       </Button>
                     )}
@@ -272,7 +354,7 @@ function FeedbackPage() {
                 </div>
                 <h4 className="font-display font-bold text-white text-lg">Share your story</h4>
                 <p className="text-slate-400 mt-2 max-w-xs mb-6 text-sm">
-                  Allow camera and microphone access to record a short 60-second video about your hiring journey.
+                  Allow camera and microphone access to record a short 60-second video regarding your experience with the selected company.
                 </p>
                 <Button className="bg-saffron text-navy hover:bg-saffron/90 font-bold px-6" onClick={handleEnableCamera}>
                   Enable Camera
