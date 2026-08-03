@@ -19,7 +19,8 @@ function AdminReports() {
   const [isExportingCsv, setIsExportingCsv] = useState(false);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`)
+    // FIX 1: Use hardcoded IP instead of VITE_API_BASE_URL
+    fetch("http://15.207.249.155:5000/api/admin/events")
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data.length > 0) {
@@ -36,25 +37,40 @@ function AdminReports() {
       toast.error("Please select a specific Job Fair Event to export.");
       return;
     }
+    
     setIsExportingCsv(true);
     try {
+      // FIX 2: Use hardcoded IP
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${selectedEventId}/export`
+        `http://15.207.249.155:5000/api/admin/events/${selectedEventId}/export`
       );
-      if (!response.ok) throw new Error("Export failed");
+      
+      if (!response.ok) {
+        toast.error("Failed to generate report from server.");
+        setIsExportingCsv(false);
+        return;
+      }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
+      a.style.display = "none";
       a.href = url;
       a.download = `BCC_Event_${selectedEventId}_Master_Report.csv`;
+      
+      // FIX 3: Bulletproof browser download logic
       document.body.appendChild(a);
       a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      
+      // Cleanup after a slight delay to ensure browser catches the download
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
 
       toast.success("Excel/CSV Report exported and downloaded successfully!");
     } catch (e) {
+      console.error(e);
       toast.error("Failed to generate CSV export.");
     } finally {
       setIsExportingCsv(false);
