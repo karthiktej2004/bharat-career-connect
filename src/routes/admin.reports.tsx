@@ -4,9 +4,8 @@ import { DashShell, PageHeader } from "@/components/DashShell";
 import { adminNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileSpreadsheet, FileText, Download, Loader2, Calendar } from "lucide-react";
+import { FileSpreadsheet, Loader2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/reports")({
@@ -18,7 +17,6 @@ function AdminReports() {
   const [events, setEvents] = useState<any[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>("all");
   const [isExportingCsv, setIsExportingCsv] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`)
@@ -63,16 +61,6 @@ function AdminReports() {
     }
   };
 
-  // EXPORT PDF SUMMARY REPORT
-  const handleExportPdf = () => {
-    setIsExportingPdf(true);
-    setTimeout(() => {
-      toast.success("PDF Event Summary Report generated and downloaded!");
-      setIsExportingPdf(false);
-      window.print(); // Triggers print-to-PDF layout
-    }, 1000);
-  };
-
   return (
     <DashShell role="admin" nav={adminNav}>
       <PageHeader
@@ -91,19 +79,6 @@ function AdminReports() {
                 <FileSpreadsheet className="h-4 w-4 mr-1.5" />
               )}
               Export Excel / CSV Report
-            </Button>
-            <Button
-              onClick={handleExportPdf}
-              disabled={isExportingPdf}
-              variant="outline"
-              className="border-navy text-navy font-semibold"
-            >
-              {isExportingPdf ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-              ) : (
-                <FileText className="h-4 w-4 mr-1.5 text-red-600" />
-              )}
-              Download PDF
             </Button>
           </div>
         }
