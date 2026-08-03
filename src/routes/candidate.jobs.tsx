@@ -18,10 +18,6 @@ export const Route = createFileRoute("/candidate/jobs")({
   component: Jobs,
 });
 
-const LOCATIONS = ["Bengaluru", "Hyderabad", "Chennai", "Mumbai", "Delhi", "Kolkata", "Vizag", "Kochi", "Pune"];
-const JOB_TYPES = ["Trainee", "Intern", "Apprentice", "Full-Time", "Part-Time", "Contractor", "Freelancer", "Volunteer", "Consultant", "Vendor"];
-const SHIFTS = ["Day Shift", "Night shift", "Remote", "Hybrid", "On-Site", "Rotational"];
-
 // =========================================================
 // 1. INLINED APPLY JOB DIALOG
 // =========================================================
@@ -504,38 +500,77 @@ function Jobs() {
     setShiftFilter("all");
   };
 
-  // Calculate dynamic job counts for locations (Bengaluru (58))
-  const locationCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    LOCATIONS.forEach(loc => counts[loc] = 0);
+  // --- DYNAMICALLY CALCULATE FILTER COUNTS DIRECTLY FROM LIVE DB DATA ---
+  const { locationData, typeData, shiftData } = useMemo(() => {
+    const locCounts: Record<string, number> = {};
+    const typeCounts: Record<string, number> = {};
+    const shiftCounts: Record<string, number> = {};
+
+    const normalizeLoc = (l: string) => {
+      let lower = l.toLowerCase().trim();
+      if (['bangalore', 'bengalore', 'bengaluru'].includes(lower)) return 'Bengaluru';
+      if (['hyderabd', 'hyderabad'].includes(lower)) return 'Hyderabad';
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    };
+
+    const normalizeType = (t: string) => {
+      let lower = t.toLowerCase().trim().replace(/[-_ ]/g, "");
+      if (lower === 'fulltime') return 'Full-Time';
+      if (lower === 'parttime') return 'Part-Time';
+      if (lower === 'internship' || lower === 'intern') return 'Internship';
+      return t.trim().charAt(0).toUpperCase() + t.trim().slice(1).toLowerCase();
+    };
+
     jobs.forEach(j => {
+      // Location Matches
       if (j.location) {
-        const locs = j.location.split(",").map((l: string) => l.trim());
-        locs.forEach((l: string) => {
-          if (counts[l] !== undefined) counts[l]++;
+        const locs = j.location.split(",").map(normalizeLoc);
+        locs.forEach(loc => {
+          if (loc) locCounts[loc] = (locCounts[loc] || 0) + 1;
         });
       }
+      
+      // Job Type Matches
+      const jt = j.type || j.job_type || j.employmentType || "Full-Time";
+      const normalizedJt = normalizeType(jt);
+      typeCounts[normalizedJt] = (typeCounts[normalizedJt] || 0) + 1;
+
+      // Shift Matches
+      const shift = j.preferredShift || j.preferred_shift || j.shift || "Day Shift";
+      const normalizedShift = shift.trim().charAt(0).toUpperCase() + shift.trim().slice(1).toLowerCase();
+      shiftCounts[normalizedShift] = (shiftCounts[normalizedShift] || 0) + 1;
     });
-    return counts;
+
+    return {
+      locationData: Object.entries(locCounts).sort((a, b) => b[1] - a[1]),
+      typeData: Object.entries(typeCounts).sort((a, b) => b[1] - a[1]),
+      shiftData: Object.entries(shiftCounts).sort((a, b) => b[1] - a[1]),
+    };
   }, [jobs]);
 
   // Tolerant filtering logic ensuring old database entries don't break the filters
   const filtered = useMemo(() => jobs.filter((j) => {
     if (locationFilter !== "all") {
-      const loc = (j.location || "").toLowerCase();
-      if (!loc.includes(locationFilter.toLowerCase())) return false;
+      const rawLoc = (j.location || "").toLowerCase();
+      const locs = rawLoc.split(",").map(l => {
+         let lower = l.trim();
+         if (['bangalore', 'bengalore', 'bengaluru'].includes(lower)) return 'bengaluru';
+         if (['hyderabd', 'hyderabad'].includes(lower)) return 'hyderabad';
+         return lower;
+      });
+      if (!locs.some(l => l.includes(locationFilter))) return false;
     }
     
     if (typeFilter !== "all") {
       const jt = (j.type || j.job_type || j.employmentType || "Full-Time").toLowerCase().replace(/[- ]/g, "");
-      const filterFormatted = typeFilter.toLowerCase().replace(/[- ]/g, "");
-      if (!jt.includes(filterFormatted) && !filterFormatted.includes(jt)) return false;
+      const filterFormatted = typeFilter.replace(/[- ]/g, "");
+      if (!jt.includes(filterFormatted)) return false;
     }
     
     if (shiftFilter !== "all") {
       const shift = (j.preferredShift || j.preferred_shift || j.shift || "Day Shift").toLowerCase().replace(/[- ]/g, "");
-      const filterFormatted = shiftFilter.toLowerCase().replace(/[- ]/g, "");
-      if (!shift.includes(filterFormatted) && !filterFormatted.includes(shift)) return false;
+      const filterFormatted = shiftFilter.replace(/[- ]/g, "");
+      if (!shift.includes(filterFormatted)) return false;
     }
     
     if (q) {
@@ -561,9 +596,9 @@ function Jobs() {
             <SelectTrigger><SelectValue placeholder="Location" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Locations</SelectItem>
-              {LOCATIONS.map(loc => (
-                <SelectItem key={loc} value={loc}>
-                  {loc} ({locationCounts[loc] || 0})
+              {locationData.map(([loc, count]) => (
+                <SelectItem key={loc} value={loc.toLowerCase()}>
+                  {loc} ({count})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -573,7 +608,11 @@ function Jobs() {
             <SelectTrigger><SelectValue placeholder="Job Type" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              {JOB_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+              {typeData.map(([type, count]) => (
+                <SelectItem key={type} value={type.toLowerCase()}>
+                  {type} ({count})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -581,7 +620,11 @@ function Jobs() {
             <SelectTrigger><SelectValue placeholder="Preferred Shift" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Shifts</SelectItem>
-              {SHIFTS.map(shift => <SelectItem key={shift} value={shift}>{shift}</SelectItem>)}
+              {shiftData.map(([shift, count]) => (
+                <SelectItem key={shift} value={shift.toLowerCase()}>
+                  {shift} ({count})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -671,6 +714,7 @@ function Jobs() {
                           )}
                         </Button>
                         
+                        {/* Deterministic Match Score Badge */}
                         <div className="size-14 rounded-full bg-gradient-to-br from-india-green/10 to-saffron/10 border border-india-green/20 flex flex-col items-center justify-center" title="Match Score based on Skills, Location, Job Type, & Education">
                           <ListChecks className="h-2.5 w-2.5 text-india-green mb-0.5" />
                           <p className="font-display font-bold text-navy text-xs">{j.matchScore || 50}%</p>
