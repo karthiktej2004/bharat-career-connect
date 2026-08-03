@@ -50,19 +50,18 @@ function RegisterCompany() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [registeredId, setRegisteredId] = useState("");
   
-  // File State
+  // NEW: Robust Server Error State
+  const [serverError, setServerError] = useState("");
+  
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
-  // OTP States
   const [otpSent, setOtpSent] = useState(false);
   const [enteredOtp, setEnteredOtp] = useState("");
   const [isOtpVerified, setIsOtpVerified] = useState(false);
 
-  // Password Visibility States
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Form State
   const [f, setF] = useState({
     gst_number: "", is_gst_verified: false, company_name: "", website: "", org_type: "", legal_structure: "", 
     selected_sector: "", custom_sector: "", 
@@ -112,6 +111,8 @@ function RegisterCompany() {
   };
 
   const handleNextStep = () => {
+    setServerError(""); // Clear any previous errors
+
     if (step === 1) {
       if (!f.company_name || !f.org_type || !f.legal_structure || !f.selected_sector) {
         return toast.error("Please fill all mandatory basic details.");
@@ -126,7 +127,7 @@ function RegisterCompany() {
         return toast.error("Please complete PoC 1 details and verify your phone number.");
       }
       
-      // STRICT PASSWORD REGEX: 8 chars, 1 upper, 1 lower, 1 number, 1 special
+      // STRICT PASSWORD REGEX: Min 8 chars, 1 Uppercase, 1 Lowercase, 1 Number, 1 Special
       const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
       if (!passRegex.test(f.password)) {
         return toast.error("Password must be at least 8 characters long and contain 1 Uppercase, 1 Lowercase, 1 Number, and 1 Special Character.");
@@ -142,6 +143,8 @@ function RegisterCompany() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setServerError(""); // Clear errors before submitting
+
     if (!f.policy_agreed || !f.consent_agreed) {
       return toast.error("You must agree to the declarations to proceed.");
     }
@@ -178,24 +181,28 @@ function RegisterCompany() {
       try {
         json = await res.json();
       } catch (parseErr) {
-        throw new Error("Server returned an invalid response.");
+        setServerError(`Server Connection Error (Status: ${res.status}). The backend may be offline or crashing.`);
+        setIsSubmitting(false);
+        return;
       }
 
       if (json.success) {
         setRegisteredId(json.uniqueId || "PENDING-ID");
         setShowSuccess(true);
-        setTimeout(() => navigate({ to: "/for-employers" }), 6000);
+        setTimeout(() => navigate({ to: "/for-employers" }), 8000);
       } else {
-        toast.error(json.message || "Registration failed. Please check your details and try again.");
+        setServerError(json.message || "Registration failed. Please review your details.");
+        window.scrollTo(0,0); // Scroll to top so they see the error
       }
     } catch (err: any) {
-      toast.error(err.message || "Database connection failed. Please try again.");
+      setServerError(err.message || "Network error. Please check your connection.");
+      window.scrollTo(0,0);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- UPDATED SUCCESS SCREEN ---
+  // --- SUCCESS SCREEN ---
   if (showSuccess) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
@@ -245,6 +252,17 @@ function RegisterCompany() {
             </div>
           ))}
         </div>
+
+        {/* EXPLICIT SERVER ERROR BANNER */}
+        {serverError && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-5 py-4 rounded-lg flex items-start gap-3 mb-6 animate-in fade-in">
+            <AlertCircle className="h-6 w-6 mt-0.5 shrink-0" />
+            <div className="text-sm font-medium">
+              <p className="font-bold text-base mb-1">Registration Failed</p>
+              <p>{serverError}</p>
+            </div>
+          </div>
+        )}
 
         <Card className="p-8 border-border/60 shadow-sm rounded-xl bg-white">
           <form onSubmit={handleRegister} className="space-y-6">
@@ -417,7 +435,6 @@ function RegisterCompany() {
                     </div>
                   )}
 
-                  {/* STRICT PASSWORD FIELDS */}
                   <div className="grid sm:grid-cols-2 gap-4 pt-2">
                     <div className="relative">
                       <Label>Set Panel Password *</Label>
@@ -432,7 +449,7 @@ function RegisterCompany() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                       <div className="flex items-start gap-1.5 mt-2">
-                        <AlertCircle className="h-3 w-3 text-saffron mt-0.5" />
+                        <AlertCircle className="h-3 w-3 text-saffron mt-0.5 shrink-0" />
                         <p className="text-[10px] text-slate-500 leading-tight">Must be at least 8 characters, include 1 Uppercase, 1 Lowercase, 1 Number, & 1 Special Character.</p>
                       </div>
                     </div>
