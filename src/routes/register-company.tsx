@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, ShieldCheck, Clock, ArrowLeft, Loader2, CheckCircle2, Upload, MapPin, Users, Briefcase, FileText } from "lucide-react";
+import { Building2, ShieldCheck, Clock, ArrowLeft, Loader2, CheckCircle2, Upload, MapPin, Users, Briefcase, FileText, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/register-company")({
@@ -15,10 +15,28 @@ export const Route = createFileRoute("/register-company")({
   component: RegisterCompany,
 });
 
-// --- CONSTANTS FROM EXCEL DATA ---
+// --- CONSTANTS ---
 const ORG_TYPES = ["Employer Primary Category(E)", "Sector Skill Council (SSC)", "Associations / Industry Clusters", "Skill Training Centre", "Others"];
 const LEGAL_STRUCTURES = ["Sole Proprietorship", "Partnership", "Limited Liability Partnership (LLP)", "Private Limited Company", "Public Limited Company", "One-Person Company", "NGO - Section 8 / Trust", "State Public Sector Undertaking", "Central Public Sector Undertaking", "Others"];
-const SECTORS = ["IT-ITeS Sector", "Manufacturing Sector", "Healthcare Sector", "Finance Sector", "Education Sector", "Agriculture Sector", "Retail Sector", "Logistics Sector", "Construction Sector", "Tourism & Hospitality", "Telecom Sector", "Others"];
+
+// Exactly 52 Sectors from the provided list
+const SECTORS_LIST = [
+  "Aerospace and Aviation Sector", "Agriculture Sector", "Apparel Sector", "Automotive Sector",
+  "Beauty & Wellness Sector", "BFSI Sector", "Capital Goods Sector", "Construction Sector",
+  "Domestic Workers Sector", "Education Sector", "Electronics Sector", "Food Processing Sector",
+  "Furniture & Fittings Sector", "Gems & Jewellery Sector", "Government Sector", "Green Jobs Sector",
+  "Handicrafts and Carpet Sector", "Healthcare Sector", "HR Consultancy Sector", "Hydrocarbon Sector",
+  "Infrastructure Equipment Sector", "Instrumentation Automation Surveillance", "Iron and Steel Sector",
+  "IT-ITeS Sector", "Leather Sector", "Life Sciences Sector", "Logistics Sector",
+  "Management & Entrepreneurship and", "Manufacturing Sector", "Media & Entertainment Sector",
+  "Mining Sector", "Persons with Disability Sector", "Power Sector", "Retail Sector",
+  "Rubber, Chemical, & Petrochemical", "Service Sector", "Social Sector", "Sports Sector",
+  "Telecom Sector", "Textile Sector", "Tourism & Hospitality Sector", "Water Management & Plumbing Sector",
+  "Paints and Coating Sector", "State Public Sector Undertaking", "Central Public Sector Undertaking",
+  "Space Sector", "Defence Sector", "Nuclear Sector", "Industrial Safety Sector", "Legal Sector",
+  "General Sector", "Spirituality Sector", "Others"
+];
+
 const ORG_PRESENCE = ["Local", "Regional", "State-wide", "Pan-India", "International"];
 const TITLES = ["Mr.", "Mrs.", "Ms.", "Miss.", "Dr.", "Prof."];
 const DESIGNATIONS = ["Founder", "Chairman", "Director", "President", "Vice President", "Secretary", "HR Manager", "Project Manager", "Coordinator", "Others"];
@@ -40,10 +58,15 @@ function RegisterCompany() {
   const [enteredOtp, setEnteredOtp] = useState("");
   const [isOtpVerified, setIsOtpVerified] = useState(false);
 
+  // Password Visibility States
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   // Form State
   const [f, setF] = useState({
     // Step 1: Basic
-    gst_number: "", is_gst_verified: false, company_name: "", website: "", org_type: "", legal_structure: "", core_sectors: [] as string[],
+    gst_number: "", is_gst_verified: false, company_name: "", website: "", org_type: "", legal_structure: "", 
+    selected_sector: "", custom_sector: "", // Updated for single dropdown + custom input
     // Step 2: Location
     pincode: "", state: "", district: "", taluk: "", mla_constituency: "", mp_constituency: "", resident_type: "", local_body_details: "", locality_area: "", current_address: "", map_link: "", org_presence: "", multiple_branches: "false",
     // Step 3: PoC
@@ -58,11 +81,11 @@ function RegisterCompany() {
 
   const handleInputChange = (field: string, value: any) => setF(prev => ({ ...prev, [field]: value }));
 
-  const toggleArrayItem = (field: "core_sectors" | "accepted_disabilities", item: string) => {
+  const toggleDisability = (item: string) => {
     setF(prev => {
-      const array = prev[field];
-      if (array.includes(item)) return { ...prev, [field]: array.filter(i => i !== item) };
-      return { ...prev, [field]: [...array, item] };
+      const array = prev.accepted_disabilities;
+      if (array.includes(item)) return { ...prev, accepted_disabilities: array.filter(i => i !== item) };
+      return { ...prev, accepted_disabilities: [...array, item] };
     });
   };
 
@@ -96,12 +119,31 @@ function RegisterCompany() {
   };
 
   const handleNextStep = () => {
-    if (step === 1 && (!f.company_name || !f.org_type || !f.legal_structure || f.core_sectors.length === 0)) {
-      return toast.error("Please fill all mandatory basic details.");
+    // Step 1 Validation
+    if (step === 1) {
+      if (!f.company_name || !f.org_type || !f.legal_structure || !f.selected_sector) {
+        return toast.error("Please fill all mandatory basic details.");
+      }
+      if (f.selected_sector === "Others" && !f.custom_sector.trim()) {
+        return toast.error("Please specify your sector in the input box.");
+      }
     }
-    if (step === 3 && (!isOtpVerified || !f.poc1_email || !f.password || f.password !== f.confirmPassword)) {
-      return toast.error("Please complete PoC 1 details, verify OTP, and ensure passwords match.");
+    
+    // Step 3 (Password & OTP) Validation
+    if (step === 3) {
+      if (!isOtpVerified || !f.poc1_email || !f.password) {
+        return toast.error("Please complete PoC 1 details and verify your phone number.");
+      }
+      // Strict Password Regex: At least 1 Uppercase, 1 Special Character
+      const passRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).+$/;
+      if (!passRegex.test(f.password)) {
+        return toast.error("Password must contain at least 1 Uppercase letter and 1 Special character.");
+      }
+      if (f.password !== f.confirmPassword) {
+        return toast.error("Passwords do not match. Please ensure both fields are identical.");
+      }
     }
+
     setStep(prev => prev + 1);
     window.scrollTo(0,0);
   };
@@ -114,20 +156,34 @@ function RegisterCompany() {
 
     setIsSubmitting(true);
     try {
-      // Use FormData to send text + file
       const formData = new FormData();
-      Object.entries(f).forEach(([key, value]) => {
+      
+      // Fix 400 Bad Request Payload Construction
+      const payload: any = { ...f };
+      
+      // Format the Sector properly for the backend
+      payload.core_sectors = f.selected_sector === "Others" ? [f.custom_sector] : [f.selected_sector];
+      
+      // Cleanup unnecessary frontend state fields before sending
+      delete payload.selected_sector;
+      delete payload.custom_sector;
+      delete payload.confirmPassword;
+
+      Object.entries(payload).forEach(([key, value]) => {
         if (Array.isArray(value)) {
-          formData.append(key, JSON.stringify(value));
+          formData.append(key, JSON.stringify(value)); // Safely send arrays
+        } else if (typeof value === 'boolean') {
+          formData.append(key, value ? "true" : "false"); // Safely send booleans
         } else {
           formData.append(key, String(value));
         }
       });
+
       if (logoFile) formData.append("org_logo", logoFile);
 
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/employer/register`, {
         method: "POST",
-        body: formData // No Content-Type header needed for FormData
+        body: formData 
       });
       
       const json = await res.json();
@@ -135,7 +191,7 @@ function RegisterCompany() {
         setShowSuccess(true);
         setTimeout(() => navigate({ to: "/for-employers" }), 4000);
       } else {
-        toast.error(json.message);
+        toast.error(json.message || "Registration failed. Please try again.");
       }
     } catch (err) {
       toast.error("Database connection failed. Please try again.");
@@ -233,21 +289,30 @@ function RegisterCompany() {
                     </Select>
                   </div>
 
+                  {/* UPDATED: DYNAMIC SECTOR DROPDOWN */}
                   <div className="sm:col-span-2">
-                    <Label>Core Sectors of Operation (Select multiple) *</Label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {SECTORS.map(s => (
-                        <Badge 
-                          key={s} 
-                          variant={f.core_sectors.includes(s) ? "default" : "outline"}
-                          className={`cursor-pointer px-3 py-1.5 ${f.core_sectors.includes(s) ? "bg-saffron text-navy hover:bg-saffron/90" : "hover:bg-slate-100"}`}
-                          onClick={() => toggleArrayItem("core_sectors", s)}
-                        >
-                          {s}
-                        </Badge>
-                      ))}
-                    </div>
+                    <Label>Core Sector of Operation *</Label>
+                    <Select value={f.selected_sector} onValueChange={(v) => handleInputChange('selected_sector', v)}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select Sector from list..." /></SelectTrigger>
+                      <SelectContent>
+                        {SECTORS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
+
+                  {/* DYNAMIC TEXT BOX IF "OTHERS" IS SELECTED */}
+                  {f.selected_sector === "Others" && (
+                    <div className="sm:col-span-2 mt-1 animate-in slide-in-from-top-2 duration-300">
+                      <Label className="text-saffron">Please specify your Sector *</Label>
+                      <Input 
+                        required 
+                        value={f.custom_sector} 
+                        onChange={(e) => handleInputChange('custom_sector', e.target.value)} 
+                        placeholder="e.g. Artificial Intelligence Research" 
+                        className="mt-1 border-saffron focus-visible:ring-saffron" 
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -352,14 +417,38 @@ function RegisterCompany() {
                     </div>
                   )}
 
+                  {/* UPDATED: PASSWORD FIELDS WITH EYES & VALIDATION */}
                   <div className="grid sm:grid-cols-2 gap-4 pt-2">
-                    <div>
+                    <div className="relative">
                       <Label>Set Panel Password *</Label>
-                      <Input required type="password" value={f.password} onChange={(e) => handleInputChange('password', e.target.value)} className="mt-1" />
+                      <Input 
+                        required 
+                        type={showPassword ? "text" : "password"} 
+                        value={f.password} 
+                        onChange={(e) => handleInputChange('password', e.target.value)} 
+                        className="mt-1 pr-10" 
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[34px] text-slate-400 hover:text-navy transition-colors">
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                      <p className="text-[10px] text-slate-500 mt-1.5">Must include 1 Uppercase & 1 Special Character.</p>
                     </div>
-                    <div>
+                    
+                    <div className="relative">
                       <Label>Confirm Password *</Label>
-                      <Input required type="password" value={f.confirmPassword} onChange={(e) => handleInputChange('confirmPassword', e.target.value)} className="mt-1" />
+                      <Input 
+                        required 
+                        type={showConfirmPassword ? "text" : "password"} 
+                        value={f.confirmPassword} 
+                        onChange={(e) => handleInputChange('confirmPassword', e.target.value)} 
+                        className="mt-1 pr-10" 
+                      />
+                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-[34px] text-slate-400 hover:text-navy transition-colors">
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                      {f.confirmPassword.length > 0 && f.password !== f.confirmPassword && (
+                        <p className="text-[10px] text-red-500 mt-1.5 font-medium">Passwords do not match.</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -426,7 +515,7 @@ function RegisterCompany() {
                             key={d} 
                             variant={f.accepted_disabilities.includes(d) ? "default" : "outline"}
                             className={`cursor-pointer px-3 py-1.5 ${f.accepted_disabilities.includes(d) ? "bg-navy text-white" : "hover:bg-slate-100"}`}
-                            onClick={() => toggleArrayItem("accepted_disabilities", d)}
+                            onClick={() => toggleDisability(d)}
                           >
                             {d}
                           </Badge>
