@@ -2,11 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { DashShell, PageHeader } from "@/components/DashShell";
 import { candidateNav } from "@/lib/dashNav";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, MapPin, Briefcase, Loader2, Video, Clock, MessageSquare, Send, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Briefcase, Loader2, Video, Clock, MessageSquare, Send, ExternalLink, Ticket } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,9 +28,12 @@ function Interviews() {
 
   useEffect(() => {
     async function fetchInterviews() {
-      if (!user || !user.id) return;
+      if (!user || !user.id) {
+        setIsLoading(false);
+        return;
+      }
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${user.id}/interviews`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/${user.id}/interviews`);
         const json = await res.json();
         if (json.success) setInterviews(json.data);
       } catch (err) {
@@ -40,13 +43,13 @@ function Interviews() {
       }
     }
     fetchInterviews();
-  }, []);
+  }, [user]);
 
   const handleSendMessage = async () => {
     if (!messageText.trim()) { toast.error("Please enter a message."); return; }
     setIsSending(true);
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/applications/message", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/applications/message`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ applicationId: messagingApp.application_id, message: messageText, senderType: "candidate" })
       });
@@ -64,7 +67,7 @@ function Interviews() {
     <DashShell role="candidate" nav={candidateNav}>
       <PageHeader 
         title="My Interviews" 
-        description="Interview invites from employers. Use the message box to request a slot change." 
+        description="Interview invites from employers. Track queue tokens, schedules, and request slot changes." 
       />
 
       {isLoading ? (
@@ -75,7 +78,7 @@ function Interviews() {
       ) : interviews.length === 0 ? (
         <Card className="text-center py-20 text-muted-foreground border-border/60 bg-white">
           <p className="text-lg font-medium text-navy">No interviews scheduled yet.</p>
-          <p className="text-sm mt-1">Once an employer schedules one, it appears here.</p>
+          <p className="text-sm mt-1">Once an employer schedules or invites you, it appears here.</p>
         </Card>
       ) : (
         <div className="grid lg:grid-cols-2 gap-6">
@@ -92,20 +95,32 @@ function Interviews() {
                         <Briefcase className="h-4 w-4" /> {intv.company_name}
                       </p>
                     </div>
-                    <Badge className={intv.interview_status === 'Scheduled' ? "bg-india-green text-white" : "bg-slate-200 text-slate-600"}>
+                    <Badge className={intv.interview_status === 'Scheduled' || intv.interview_status === 'Interview' ? "bg-india-green text-white" : "bg-saffron text-navy"}>
                       {intv.interview_status}
                     </Badge>
                   </div>
 
+                  {/* EVENT & TOKEN BADGE IF APPLICABLE */}
+                  {intv.event_name && (
+                    <div className="mb-4 flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      <span className="text-xs font-semibold text-slate-600">Event: {intv.event_name}</span>
+                      {intv.token_number && (
+                        <Badge className="bg-saffron/15 text-navy border-saffron/30 font-bold gap-1">
+                          <Ticket className="h-3 w-3 text-saffron" /> Token #{intv.token_number}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
                   {/* DATE & TIME ROW */}
-                  <div className="flex items-center gap-4 mt-6 mb-4">
+                  <div className="flex items-center gap-4 mt-4 mb-4">
                     <div className="flex items-center gap-1.5 text-sm font-bold text-navy">
                       <Calendar className="h-4 w-4 text-saffron" />
-                      {new Date(intv.interview_date).toLocaleDateString("en-IN", { dateStyle: "medium" })}
+                      {intv.interview_date ? new Date(intv.interview_date).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "TBD"}
                     </div>
                     <div className="flex items-center gap-1.5 text-sm font-bold text-navy border-l border-border pl-4">
                       <Clock className="h-4 w-4 text-saffron" />
-                      {intv.interview_time}
+                      {intv.interview_time || "Time TBD"}
                     </div>
                   </div>
 
@@ -124,12 +139,11 @@ function Interviews() {
                     <div className="p-4 rounded-xl bg-saffron/5 border border-saffron/20 flex items-start gap-3">
                       <div className="p-2 bg-white rounded-lg shadow-sm shrink-0"><MapPin className="h-5 w-5 text-saffron" /></div>
                       <div>
-                        <p className="text-xs font-bold uppercase text-saffron tracking-wider">Walk-in Location</p>
-                        <p className="text-sm font-medium text-navy mt-1">{intv.location_or_link}</p>
+                        <p className="text-xs font-bold uppercase text-saffron tracking-wider">Walk-in Location / Venue</p>
+                        <p className="text-sm font-medium text-navy mt-1">{intv.location_or_link || intv.venue_address || "Venue TBA"}</p>
                         
-                        {/* AUTOMATIC GOOGLE MAPS LINK GENERATOR */}
                         <a 
-                          href={`https://maps.google.com/?q=${encodeURIComponent(intv.location_or_link)}`} 
+                          href={`https://maps.google.com/?q=${encodeURIComponent(intv.location_or_link || intv.venue_address || '')}`} 
                           target="_blank" 
                           rel="noreferrer" 
                           className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 mt-2 w-max"
@@ -173,7 +187,7 @@ function Interviews() {
           <div className="py-4 space-y-2">
             <label className="text-sm font-medium text-navy">Need a slot change? Leave a note:</label>
             <Textarea 
-              placeholder="e.g., I have a university exam during this time. Can we reschedule to 04:00 PM?" 
+              placeholder="e.g., I have a conflict during this time. Can we reschedule?" 
               className="min-h-[120px] bg-slate-50 mt-1"
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
