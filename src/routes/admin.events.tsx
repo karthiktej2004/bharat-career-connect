@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, CalendarDays, MapPin, IndianRupee, Link as LinkIcon, PauseCircle, Trash2, Edit, Download, AlertTriangle, Loader2, PlayCircle, Briefcase } from "lucide-react";
+import { Plus, MoreVertical, CalendarDays, MapPin, IndianRupee, Link as LinkIcon, PauseCircle, Trash2, Edit, Download, AlertTriangle, Loader2, PlayCircle, Briefcase, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -70,6 +70,22 @@ function Events() {
       }
     } catch (error) {
       toast.error("Failed to make event live");
+    }
+  };
+
+  const handleMarkCompleted = async (id: number) => {
+    if (!confirm("Are you sure you want to mark this event as completed?")) return;
+    try {
+      const res = await fetch(`http://15.207.249.155:5000/api/admin/events/${id}/complete`, { method: "PUT" });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Event marked as completed!");
+        fetchEvents();
+      } else {
+        toast.error(json.message || "Failed to update status");
+      }
+    } catch (error) {
+      toast.error("Failed to mark event as completed");
     }
   };
 
@@ -157,6 +173,11 @@ function Events() {
                         <DropdownMenuItem onClick={() => handleHoldEvent(e.id)}>
                           <PauseCircle className="h-4 w-4 mr-2"/> Put on Hold
                         </DropdownMenuItem>
+
+                        <DropdownMenuItem onClick={() => handleMarkCompleted(e.id)}>
+                          <CheckCircle className="h-4 w-4 mr-2 text-slate-700"/> Mark as Completed
+                        </DropdownMenuItem>
+
                         <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteEvent(e)}>
                           <Trash2 className="h-4 w-4 mr-2"/> Delete Event
                         </DropdownMenuItem>
@@ -214,7 +235,7 @@ function Events() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                         EVENT JOBS DIALOG                                  */
+/*                          EVENT JOBS DIALOG                                 */
 /* -------------------------------------------------------------------------- */
 function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }) {
   const [jobs, setJobs] = useState<any[]>([]);
