@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Loader2, Send, MapPin, Building2 } from "lucide-react";
+import { MessageSquare, Loader2, Send, MapPin, Building2, Calendar, Clock } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -22,8 +22,8 @@ const getStatusColors = (status: string) => {
   if (s.includes("applied")) return "bg-blue-50 text-blue-700 border-blue-200";
   if (s.includes("shortlist")) return "bg-amber-50 text-amber-700 border-amber-200";
   if (s.includes("interview")) return "bg-purple-50 text-purple-700 border-purple-200";
-  if (s.includes("hire") || s.includes("select") || s.includes("offer")) return "bg-india-green/10 text-india-green border-india-green/20";
-  if (s.includes("reject")) return "bg-red-50 text-red-700 border-red-200";
+  if (s.includes("hire") || s.includes("select") || s.includes("offer") || s.includes("accept")) return "bg-india-green/10 text-india-green border-india-green/20";
+  if (s.includes("reject") || s.includes("decline")) return "bg-red-50 text-red-700 border-red-200";
   return "bg-slate-50 text-slate-700 border-slate-200"; // default fallback
 };
 
@@ -31,15 +31,18 @@ const getStatusColors = (status: string) => {
 const isMessageAllowed = (status: string) => {
   const s = (status || "").toLowerCase();
   // Allow messaging only if the status implies an interview or beyond
-  return s.includes("interview") || s.includes("hire") || s.includes("select") || s.includes("offer");
+  return s.includes("interview") || s.includes("hire") || s.includes("select") || s.includes("offer") || s.includes("shortlist");
 };
 
 function Applications() {
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
   const [messagingApp, setMessagingApp] = useState<any | null>(null);
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  
+  const [viewEvent, setViewEvent] = useState<any | null>(null);
 
   // 1. FETCH LIVE APPLICATIONS FROM POSTGRESQL
   useEffect(() => {
@@ -51,7 +54,7 @@ function Applications() {
       }
 
       try {
-        const res = await fetch(`http://15.207.249.155:5000/api/candidate/${session.id}/applications`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/${session.id}/applications`);
         const json = await res.json();
         
         if (json.success) {
@@ -77,7 +80,7 @@ function Applications() {
 
     setIsSending(true);
     try {
-      const res = await fetch(`http://15.207.249.155:5000/api/applications/message`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/applications/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -107,7 +110,7 @@ function Applications() {
     <DashShell role="candidate" nav={candidateNav}>
       <PageHeader 
         title="My Applications" 
-        description="Track every application you've submitted — updates as employers shortlist, interview, or reject." 
+        description="Track every application you've submitted — updates instantly as employers shortlist, interview, or hire." 
       />
 
       <Card className="border-border/60 bg-white overflow-hidden">
@@ -115,9 +118,9 @@ function Applications() {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 border-b border-border text-muted-foreground">
               <tr>
-                <th className="px-6 py-4 font-medium">Job</th>
+                <th className="px-6 py-4 font-medium">Job Role</th>
                 <th className="px-6 py-4 font-medium">Company</th>
-                <th className="px-6 py-4 font-medium">Applied</th>
+                <th className="px-6 py-4 font-medium">Applied On</th>
                 <th className="px-6 py-4 font-medium">Status</th>
                 <th className="px-6 py-4 font-medium text-right">Message</th>
               </tr>
@@ -140,10 +143,15 @@ function Applications() {
                 applications.map((app) => (
                   <tr key={app.application_id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-navy">{app.job_title}</div>
-                      <div className="mt-1.5 flex items-center">
+                      <div className="font-medium text-navy text-base">{app.job_title}</div>
+                      <div className="mt-2 flex items-center">
                         {app.event_id ? (
-                          <Badge variant="outline" className="bg-saffron/10 text-saffron border-saffron/20 font-medium">
+                          <Badge 
+                            variant="outline" 
+                            className="bg-saffron/10 text-saffron border-saffron/20 font-medium cursor-pointer hover:bg-saffron/20 transition-colors"
+                            onClick={() => setViewEvent(app)}
+                            title="Click to view event details & venue"
+                          >
                             <MapPin className="h-3 w-3 mr-1" /> Event Walk-in: {app.event_name}
                           </Badge>
                         ) : (
@@ -153,18 +161,17 @@ function Applications() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-muted-foreground">{app.company}</td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {app.applied_at ? new Date(app.applied_at).toLocaleDateString("en-IN") : "—"}
+                    <td className="px-6 py-4 font-medium text-slate-700">{app.company}</td>
+                    <td className="px-6 py-4 text-slate-600">
+                      {app.applied_at ? new Date(app.applied_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : "—"}
                     </td>
                     <td className="px-6 py-4">
-                      {/* Dynamically colored status badge */}
-                      <Badge variant="outline" className={`font-medium capitalize ${getStatusColors(app.status)}`}>
+                      {/* Dynamically colored status badge fetching directly from DB status */}
+                      <Badge variant="outline" className={`font-medium capitalize px-3 py-1 ${getStatusColors(app.status)}`}>
                         {app.status || "Applied"}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {/* Message button visibility conditional logic */}
                       {isMessageAllowed(app.status) ? (
                         <Button 
                           variant="outline" 
@@ -172,11 +179,11 @@ function Applications() {
                           className="text-navy hover:text-navy hover:bg-slate-100"
                           onClick={() => setMessagingApp(app)}
                         >
-                          <MessageSquare className="h-4 w-4 mr-2" /> Open
+                          <MessageSquare className="h-4 w-4 mr-2" /> Chat
                         </Button>
                       ) : (
-                        <span className="text-xs text-muted-foreground italic bg-slate-50 px-2 py-1.5 rounded-md border border-slate-100">
-                          Available after interview
+                        <span className="text-xs text-muted-foreground italic bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">
+                          Unavailable
                         </span>
                       )}
                     </td>
@@ -187,6 +194,53 @@ function Applications() {
           </table>
         </div>
       </Card>
+
+      {/* EVENT DETAILS MODAL */}
+      <Dialog open={!!viewEvent} onOpenChange={(open) => !open && setViewEvent(null)}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-navy font-display text-xl">Job Fair Details</DialogTitle>
+            <DialogDescription>
+              Information for the walk-in event for <strong className="text-navy">{viewEvent?.company}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-5">
+            <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-lg border border-border">
+              <Calendar className="h-5 w-5 text-saffron mt-0.5" />
+              <div>
+                <p className="font-bold text-navy">{viewEvent?.event_name}</p>
+                <p className="text-sm text-slate-600 mt-1 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> 
+                  {viewEvent?.event_date ? new Date(viewEvent.event_date).toLocaleDateString("en-IN", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "Date TBD"}
+                  {viewEvent?.start_time && ` • ${viewEvent.start_time} - ${viewEvent.end_time || ''}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3">
+              <MapPin className="h-5 w-5 text-saffron mt-0.5" />
+              <div>
+                <p className="font-bold text-navy">Venue Address</p>
+                <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+                  {viewEvent?.venue_address || "Exact venue details have not been provided yet."}
+                </p>
+                {viewEvent?.city && (
+                  <p className="text-sm font-medium text-navy mt-2 border-t pt-2 border-slate-100">
+                    City: {viewEvent.city}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button className="w-full bg-navy text-white hover:bg-navy/90" onClick={() => setViewEvent(null)}>
+              Close Details
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* MESSAGING MODAL */}
       <Dialog open={!!messagingApp} onOpenChange={(open) => !open && setMessagingApp(null)}>
