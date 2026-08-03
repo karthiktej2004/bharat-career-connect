@@ -7,15 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Sparkles, Users, Check, Calendar as CalIcon, Download, Mail, Phone, MapPin, GraduationCap, Briefcase, Award, Eye, Pencil, Loader2 } from "lucide-react";
+import { Sparkles, Users, Check, Calendar as CalIcon, Download, Mail, Phone, MapPin, GraduationCap, Briefcase, Award, Eye, Pencil, Loader2, Send, XCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 
 import { getSession } from "@/lib/mockStore";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/employer/candidates")({
@@ -148,7 +146,12 @@ export function CandidatesBody() {
         });
       }
 
-      toast.success(`${a.name} → ${status === "Interview" ? "Interviewed" : status}`);
+      if (status === "Interview") {
+        toast.success(`${a.name} has been added to the Live Queue!`);
+      } else {
+        toast.success(`${a.name} status updated to ${status}`);
+      }
+      
       fetchApplicants(); 
     } catch (error) {
       toast.error("Failed to update status.");
@@ -158,13 +161,13 @@ export function CandidatesBody() {
   return (
     <>
       <PageHeader
-        title="Applications"
-        description="Every candidate who applied to your jobs — view all applications or use AI Smart Matching."
+        title="Event Applications"
+        description="Manage event walk-ins, shortlist candidates, and send them to your Live Interview Queue."
       />
 
-      <Card className="p-4 mb-4 border-border/60 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+      <Card className="p-4 mb-4 border-border/60 flex flex-col sm:flex-row gap-3 sm:items-center justify-between shadow-sm bg-white">
         <div className="flex-1 min-w-0">
-          <label className="text-xs text-muted-foreground">Select a job posting</label>
+          <label className="text-xs font-semibold text-navy mb-1 block">Select an Event Job</label>
           <Select value={selectedId} onValueChange={setSelectedId}>
             <SelectTrigger className="mt-1"><SelectValue placeholder={isLoadingJobs ? "Loading jobs..." : "Choose a job"} /></SelectTrigger>
             <SelectContent>
@@ -175,33 +178,33 @@ export function CandidatesBody() {
           </Select>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 pt-4 sm:pt-0">
           {selectedJob && (
             <div className="text-sm text-muted-foreground sm:text-right hidden sm:block">
-              <div className="flex items-center gap-1 sm:justify-end"><Users className="h-4 w-4" />{applicants.length} applicants</div>
+              <div className="flex items-center gap-1 sm:justify-end font-medium"><Users className="h-4 w-4" />{applicants.length} applicants</div>
             </div>
           )}
-          <Button variant="outline" className="gap-2 border-india-green/30 text-india-green hover:bg-india-green/10" onClick={handleExportExcel}>
+          <Button variant="outline" className="gap-2 border-india-green/30 text-india-green hover:bg-india-green/10 bg-india-green/5" onClick={handleExportExcel}>
             <Download className="h-4 w-4" /> Export Excel
           </Button>
         </div>
       </Card>
 
       <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all" className="gap-1"><Users className="h-3.5 w-3.5" />All Applications ({applicants.length})</TabsTrigger>
-          <TabsTrigger value="smart" className="gap-1"><Sparkles className="h-3.5 w-3.5" />Smart Matching</TabsTrigger>
+        <TabsList className="mb-2">
+          <TabsTrigger value="all" className="gap-1 font-semibold"><Users className="h-3.5 w-3.5" />All Applications ({applicants.length})</TabsTrigger>
+          <TabsTrigger value="smart" className="gap-1 font-semibold"><Sparkles className="h-3.5 w-3.5" />Smart Matching</TabsTrigger>
         </TabsList>
         <TabsContent value="all">
           {isLoadingApps ? (
-            <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>
+            <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>
           ) : (
             <ApplicantList list={allSorted} onStatus={changeStatus} />
           )}
         </TabsContent>
         <TabsContent value="smart">
            {isLoadingApps ? (
-            <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>
+            <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>
           ) : (
             <ApplicantList list={smartSorted} onStatus={changeStatus} />
           )}
@@ -211,72 +214,8 @@ export function CandidatesBody() {
   );
 }
 
-export interface SchedulePayload {
-  mode: "Online" | "Walk-in"; date: string; time: string; meetingLink?: string; venue?: string; locationDetail?: string; mapsLink?: string; description?: string; notifyWhatsapp: boolean; notifyEmail: boolean;
-}
-
-export function ScheduleInterviewDialog({ open, applicant, job, onClose, onConfirm, reschedule }: { open: boolean; applicant: any; job: any; onClose: () => void; onConfirm: (p: SchedulePayload) => void; reschedule?: boolean; }) {
-  const [mode, setMode] = useState<"Online" | "Walk-in">("Online");
-  const [date, setDate] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
-  const [time, setTime] = useState("10:00");
-  const [meetingLink, setMeetingLink] = useState("https://meet.google.com/new");
-  const [venue, setVenue] = useState(job.company ? `${job.company}, ${job.location}` : job.location);
-  const [locationDetail, setLocationDetail] = useState("");
-  const [mapsLink, setMapsLink] = useState("");
-  const [description, setDescription] = useState("");
-  const [notifyWhatsapp, setNotifyWhatsapp] = useState(true);
-  const [notifyEmail, setNotifyEmail] = useState(true);
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    onConfirm({ mode, date, time, description, notifyWhatsapp, notifyEmail, meetingLink: mode === "Online" ? meetingLink : undefined, venue: mode === "Walk-in" ? venue : undefined, locationDetail: mode === "Walk-in" ? locationDetail : undefined, mapsLink: mode === "Walk-in" ? mapsLink : undefined });
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{reschedule ? "Change interview slot" : "Schedule interview"} — {applicant.name}</DialogTitle>
-          <DialogDescription>{job.title} · {job.location} {reschedule && <span className="block text-saffron mt-1">A new interview slot will be added for this candidate.</span>}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <Label className="mb-2 block">Interview mode</Label>
-            <RadioGroup value={mode} onValueChange={(v) => setMode(v as "Online" | "Walk-in")} className="grid grid-cols-2 gap-2">
-              <label className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${mode === "Online" ? "border-saffron bg-saffron/5" : "border-border"}`}><RadioGroupItem value="Online" /><span className="text-sm font-medium">Online</span></label>
-              <label className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${mode === "Walk-in" ? "border-saffron bg-saffron/5" : "border-border"}`}><RadioGroupItem value="Walk-in" /><span className="text-sm font-medium">Walk-in</span></label>
-            </RadioGroup>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1" required /></div>
-            <div><Label>Time</Label><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="mt-1" required /></div>
-          </div>
-          {mode === "Online" ? (
-            <div><Label>Meeting link</Label><Input value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} className="mt-1" placeholder="https://meet.google.com/..." required /></div>
-          ) : (
-            <>
-              <div><Label>Company location</Label><Input value={venue} onChange={(e) => setVenue(e.target.value)} className="mt-1" placeholder="Company name, city" required /></div>
-              <div><Label>Google Maps link</Label><Input value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} className="mt-1" placeholder="https://maps.google.com/?q=..." /><p className="text-[11px] text-muted-foreground mt-1">Paste the Google Maps link — the candidate can tap it to navigate.</p></div>
-              <div><Label>Location details (manual)</Label><textarea value={locationDetail} onChange={(e) => setLocationDetail(e.target.value)} className="mt-1 w-full min-h-[64px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="e.g. 3rd floor, opposite XYZ Mall, near the metro station" /></div>
-            </>
-          )}
-          <div><Label>Description & documents required</Label><textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Round details, documents to bring (resume, ID proof, marksheets), dress code, etc." /></div>
-          <div className="rounded-md border border-border/60 p-3 space-y-2 bg-muted/30">
-            <p className="text-xs font-medium text-navy">Send invite via</p>
-            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={notifyWhatsapp} onChange={(e) => setNotifyWhatsapp(e.target.checked)} />WhatsApp message to candidate</label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />Email to candidate</label>
-            <p className="text-[11px] text-muted-foreground">One combined message with details is sent — and saved in the candidate's message box.</p>
-          </div>
-          <DialogFooter><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit" className="bg-saffron text-navy hover:bg-saffron/90">{reschedule ? "Add changed slot" : "Schedule Meeting"}</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function ApplicantDetailDialog({ a, open, onOpenChange, onStatus }: { a: any; open: boolean; onOpenChange: (o: boolean) => void; onStatus: (a: any, s: string) => void }) {
   const d = useMemo(() => buildDetail(a), [a]);
-  const statusLabel = a.status === "Interview" ? "Interviewed" : a.status;
 
   function downloadResume() {
     const lines = [`RESUME — ${a.name}`, `Candidate ID: ${d.uniqueId}`, ``, `CONTACT`, `Email: ${d.email}`, `Phone: ${d.phone}`, `Location: ${d.district}, ${d.state} — ${d.pincode}`, ``, `PROFILE`, d.about, ``, `EDUCATION`, `${a.qualification} — ${d.specialization}`, `${d.institution}`, `Year of Passing: ${d.yearOfPassing} · Score: ${d.percentage}`, ``, `EXPERIENCE`, `${d.currentRole} @ ${d.currentCompany} (${a.experience})`, ``, `SKILLS`, a.skills.join(", "), ``, `CERTIFICATIONS`, d.certifications.join(", "), ``, `LANGUAGES`, d.languages.join(" · "), ``, `PREFERENCES`, `Roles: ${d.preferredRoles.join(", ")}`, `Locations: ${d.preferredLocations.join(", ")}`, `Job Type: ${d.preferredJobType} · Expected: ${d.expectedSalary}`].join("\n");
@@ -294,37 +233,38 @@ export function ApplicantDetailDialog({ a, open, onOpenChange, onStatus }: { a: 
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-4">
-            <div className="size-16 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold text-2xl shrink-0">{a.name ? a.name.charAt(0) : "U"}</div>
+            <div className="size-16 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold text-2xl shrink-0 border border-slate-100 shadow-sm">{a.name ? a.name.charAt(0) : "U"}</div>
             <div className="min-w-0">
-              <DialogTitle className="text-xl">{a.name}</DialogTitle>
-              <DialogDescription className="flex flex-wrap items-center gap-2 mt-1">
-                <span className="font-mono text-xs">{d.uniqueId}</span>
-                <Badge className="bg-india-green/15 text-india-green gap-1"><Sparkles className="h-3 w-3" />{a.matchScore}% match</Badge>
-                <Badge variant="outline">{statusLabel}</Badge>
+              <DialogTitle className="text-xl font-display text-navy">{a.name}</DialogTitle>
+              <DialogDescription className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200">ID: {d.uniqueId}</span>
+                <Badge className="bg-india-green/15 text-india-green gap-1 border-0"><Sparkles className="h-3 w-3" />{a.matchScore}% match</Badge>
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
-        <div className="grid sm:grid-cols-2 gap-3 mt-2">
+        <div className="grid sm:grid-cols-2 gap-3 mt-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
           <InfoRow icon={Mail} label="Email" value={d.email} />
           <InfoRow icon={Phone} label="Phone" value={d.phone} />
           <InfoRow icon={MapPin} label="Location" value={`${d.district}, ${d.state} — ${d.pincode}`} />
           <InfoRow icon={CalIcon} label="Applied on" value={new Date(a.appliedAt).toLocaleDateString("en-IN")} />
         </div>
-        <Separator className="my-2" />
-        <Section icon={Users} title="About"><p className="text-sm text-muted-foreground">{d.about}</p></Section>
-        <Section icon={GraduationCap} title="Education"><div className="text-sm"><p className="font-medium text-navy">{a.qualification} — {d.specialization}</p><p className="text-muted-foreground">{d.institution}</p><p className="text-muted-foreground text-xs mt-0.5">Year of Passing: {d.yearOfPassing} · Score: {d.percentage}</p></div></Section>
-        <Section icon={Briefcase} title="Experience"><p className="text-sm"><span className="font-medium text-navy">{d.currentRole}</span>{d.currentCompany !== "—" && <> @ <span className="text-muted-foreground">{d.currentCompany}</span></>}<span className="text-muted-foreground"> · {a.experience}</span></p></Section>
-        <Section icon={Sparkles} title="Skills"><div className="flex flex-wrap gap-1.5">{a.skills && a.skills.map((s: string) => <Badge key={s} variant="outline">{s}</Badge>)}</div></Section>
-        <Section icon={Award} title="Certifications"><div className="flex flex-wrap gap-1.5">{d.certifications.map((c) => <Badge key={c} className="bg-saffron/15 text-saffron">{c}</Badge>)}</div></Section>
-        <Section icon={Users} title="Languages"><p className="text-sm text-muted-foreground">{d.languages.join(" · ")}</p></Section>
-        <Section icon={Briefcase} title="Job Preferences"><div className="grid sm:grid-cols-2 gap-2 text-sm"><div><span className="text-muted-foreground">Roles:</span> {d.preferredRoles.join(", ")}</div><div><span className="text-muted-foreground">Locations:</span> {d.preferredLocations.join(", ")}</div><div><span className="text-muted-foreground">Job Type:</span> {d.preferredJobType}</div><div><span className="text-muted-foreground">Expected Salary:</span> {d.expectedSalary}</div></div></Section>
-        <DialogFooter className="mt-4 flex-wrap gap-2">
-          <Button variant="outline" onClick={downloadResume}><Download className="h-4 w-4 mr-1" />Download Resume</Button>
+        
+        <div className="space-y-6 mt-6">
+          <Section icon={Users} title="About Candidate"><p className="text-sm text-muted-foreground leading-relaxed">{d.about}</p></Section>
+          <Separator className="bg-slate-100" />
+          <Section icon={GraduationCap} title="Education"><div className="text-sm"><p className="font-medium text-navy">{a.qualification} — {d.specialization}</p><p className="text-muted-foreground mt-0.5">{d.institution}</p><p className="text-muted-foreground text-xs mt-1">Year of Passing: {d.yearOfPassing} · Score: {d.percentage}</p></div></Section>
+          <Separator className="bg-slate-100" />
+          <Section icon={Briefcase} title="Experience"><p className="text-sm"><span className="font-medium text-navy">{d.currentRole}</span>{d.currentCompany !== "—" && <> @ <span className="text-muted-foreground">{d.currentCompany}</span></>}<span className="text-muted-foreground"> · {a.experience}</span></p></Section>
+          <Separator className="bg-slate-100" />
+          <Section icon={Sparkles} title="Skills"><div className="flex flex-wrap gap-2">{a.skills && a.skills.map((s: string) => <Badge key={s} variant="secondary" className="font-medium text-slate-700 bg-slate-100 hover:bg-slate-200">{s}</Badge>)}</div></Section>
+        </div>
+
+        <DialogFooter className="mt-8 flex-wrap gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <Button variant="outline" onClick={downloadResume} className="bg-white"><Download className="h-4 w-4 mr-1.5" />Download CV</Button>
           <div className="flex-1" />
-          <Button variant="outline" onClick={() => { onStatus(a, "Shortlisted"); onOpenChange(false); }}>Shortlist</Button>
-          <Button variant="outline" onClick={() => { onStatus(a, "Interview"); onOpenChange(false); }}>Mark Interviewed</Button>
-          <Button className="bg-india-green text-white hover:bg-india-green/90" onClick={() => { onStatus(a, "Hired"); onOpenChange(false); }}><Check className="h-4 w-4 mr-1" />Hire</Button>
+          <Button variant="outline" onClick={() => { onStatus(a, "Rejected"); onOpenChange(false); }} className="text-red-600 border-red-200 hover:bg-red-50 bg-white"><XCircle className="h-4 w-4 mr-1.5"/> Reject</Button>
+          <Button className="bg-saffron text-navy hover:bg-saffron/90 font-semibold" onClick={() => { onStatus(a, "Interview"); onOpenChange(false); }}><Send className="h-4 w-4 mr-1.5" />Send to Live Queue</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -335,7 +275,7 @@ function ApplicantList({ list, onStatus }: { list: any[]; onStatus: (a: any, s: 
   return (
     <div className="grid gap-3 mt-4">
       {list.map((a) => <ApplicantCard key={a.applicationId} a={a} onStatus={onStatus} />)}
-      {list.length === 0 && <Card className="p-6 text-center text-muted-foreground border-border/60">No applications yet for this job.</Card>}
+      {list.length === 0 && <Card className="p-12 text-center text-muted-foreground border-dashed border-border/60 bg-slate-50">No applications found for this event job.</Card>}
     </div>
   );
 }
@@ -343,31 +283,71 @@ function ApplicantList({ list, onStatus }: { list: any[]; onStatus: (a: any, s: 
 function ApplicantCard({ a, onStatus }: { a: any; onStatus: (a: any, s: string) => void }) {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const statusColor: Record<string, string> = { Applied: "bg-muted text-navy", Shortlisted: "bg-saffron/20 text-saffron", Interview: "bg-blue-100 text-blue-700", Hired: "bg-india-green/15 text-india-green", Rejected: "bg-red-100 text-red-700", "Interview Scheduled": "bg-blue-100 text-blue-700" };
+  
+  // Custom Status Badges for Job Fair
+  const statusColor: Record<string, string> = { 
+    Applied: "bg-slate-100 text-slate-700 border-slate-200", 
+    Shortlisted: "bg-amber-100 text-amber-800 border-amber-200", 
+    Interview: "bg-blue-100 text-blue-700 border-blue-200", 
+    Interviewed: "bg-purple-100 text-purple-700 border-purple-200", 
+    Offer: "bg-teal-100 text-teal-800 border-teal-200", 
+    Hired: "bg-india-green/15 text-india-green border-india-green/20", 
+    Rejected: "bg-red-100 text-red-700 border-red-200" 
+  };
   
   return (
     <>
-      <Card className="p-5 border-border/60 flex flex-col md:flex-row md:items-center gap-4 card-hover cursor-pointer hover:border-saffron/60 transition" onClick={() => setOpen(true)}>
-        <div className="size-12 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold text-lg shrink-0">{a.name ? a.name.charAt(0) : "U"}</div>
+      <Card className="p-5 border-border/60 flex flex-col md:flex-row md:items-center gap-4 hover:border-saffron/60 transition-colors bg-white shadow-sm cursor-pointer group" onClick={() => setOpen(true)}>
+        <div className="size-14 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-sm border border-slate-100">
+          {a.name ? a.name.charAt(0) : "U"}
+        </div>
+        
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-display font-bold text-navy">{a.name}</p>
-            <Badge className={statusColor[a.status] || "bg-muted"}>{a.status}</Badge>
+          <div className="flex items-center gap-3 flex-wrap mb-1">
+            <p className="font-display font-bold text-lg text-navy group-hover:text-saffron transition-colors">{a.name}</p>
+            <Badge className={`border ${statusColor[a.status] || "bg-slate-100 text-slate-700"}`}>
+              {a.status === 'Interview' ? 'Waiting in Queue' : a.status}
+            </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{a.qualification} · {a.experience} · {a.location}</p>
-          <div className="flex flex-wrap gap-1 mt-2">{a.skills && a.skills.map((s: string) => <span key={s} className="text-xs bg-muted px-2 py-0.5 rounded">{s}</span>)}</div>
-          <p className="text-[11px] text-saffron mt-2 flex items-center gap-1"><Eye className="h-3 w-3" />Click to view full details</p>
+          <p className="text-sm text-muted-foreground font-medium">{a.qualification} · {a.experience} · {a.location}</p>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {a.skills && a.skills.slice(0, 4).map((s: string) => <Badge key={s} variant="secondary" className="font-medium text-slate-600 bg-slate-100">{s}</Badge>)}
+            {a.skills && a.skills.length > 4 && <Badge variant="secondary" className="bg-slate-100 text-slate-500">+{a.skills.length - 4}</Badge>}
+          </div>
         </div>
-        <div className="text-center shrink-0">
-          <div className="flex items-center gap-1 text-india-green font-bold"><Sparkles className="h-3 w-3" />{a.matchScore}%</div><p className="text-xs text-muted-foreground mt-1">Match</p>
+        
+        <div className="text-center shrink-0 hidden lg:block px-6 border-l border-slate-100">
+          <div className="flex items-center gap-1.5 text-india-green font-bold text-lg justify-center"><Sparkles className="h-4 w-4" />{a.matchScore}%</div>
+          <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">Match</p>
         </div>
-        <div className="flex md:flex-col gap-2 shrink-0 flex-wrap" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="outline" onClick={() => onStatus(a, "Shortlisted")}>Shortlist</Button>
-          <Button size="sm" className="bg-india-green text-white hover:bg-india-green/90" onClick={() => onStatus(a, "Hired")}><Check className="h-3.5 w-3.5 mr-1" />Hire</Button>
-          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
+        
+        {/* DYNAMIC PIPELINE BUTTONS */}
+        <div className="flex md:flex-col gap-2 shrink-0 flex-wrap border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0 md:pl-4" onClick={(e) => e.stopPropagation()}>
+          
+          {a.status === "Applied" && (
+            <Button size="sm" variant="outline" className="font-semibold text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-200" onClick={() => onStatus(a, "Shortlisted")}>Shortlist</Button>
+          )}
+          
+          {(a.status === "Applied" || a.status === "Shortlisted") && (
+            <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold" onClick={() => onStatus(a, "Interview")}><Send className="h-3.5 w-3.5 mr-1.5" /> Send to Queue</Button>
+          )}
+          
+          {a.status === "Interview" && (
+            <Button size="sm" variant="outline" disabled className="bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed font-medium">In Live Queue...</Button>
+          )}
+          
+          {a.status === "Interviewed" && (
+            <Button size="sm" className="bg-teal-600 text-white hover:bg-teal-700 font-semibold" onClick={() => onStatus(a, "Offer")}>Make Offer</Button>
+          )}
+          
+          {(a.status === "Offer" || a.status === "Interviewed") && (
+             <Button size="sm" className="bg-india-green text-white hover:bg-india-green/90 font-semibold" onClick={() => onStatus(a, "Hired")}><Check className="h-3.5 w-3.5 mr-1.5" />Hire</Button>
+          )}
+
+          <Button size="sm" variant="ghost" className="text-slate-500 hover:bg-slate-100" onClick={() => setEditOpen(true)}><Pencil className="h-3.5 w-3.5" /></Button>
         </div>
       </Card>
-      <ApplicantDetailDialog a={a} open={open} onOpenChange={setOpen} onStatus={onStatus} />
+
       <EditStatusDialog a={a} open={editOpen} onOpenChange={setEditOpen} onStatus={onStatus} />
     </>
   );
@@ -377,7 +357,9 @@ function EditStatusDialog({ a, open, onOpenChange, onStatus }: { a: any; open: b
   const [status, setStatus] = useState<string>(a.status);
   const [note, setNote] = useState("");
   useEffect(() => { if (open) { setStatus(a.status); setNote(""); } }, [open, a.status]);
-  const options = ["Applied", "Shortlisted", "Interview", "Hired", "Rejected"];
+  
+  // Updated statuses for physical job fair flow
+  const options = ["Applied", "Shortlisted", "Interview", "Interviewed", "Offer", "Hired", "Rejected"];
 
   function update() {
     onStatus(a, status, note);
@@ -387,45 +369,68 @@ function EditStatusDialog({ a, open, onOpenChange, onStatus }: { a: any; open: b
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Edit status — {a.name}</DialogTitle><DialogDescription>Change this candidate's application stage and share a short note.</DialogDescription></DialogHeader>
-        <div className="space-y-4">
+        <DialogHeader>
+          <DialogTitle className="font-display text-navy">Edit Status — {a.name}</DialogTitle>
+          <DialogDescription>Manually update this candidate's stage in the hiring process.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-5 py-2">
           <div>
-            <Label className="mb-2 block">New status</Label>
-            <div className="grid grid-cols-2 gap-2">{options.map((s) => (<button key={s} type="button" onClick={() => setStatus(s)} className={`border rounded-md px-3 py-2 text-sm font-medium transition ${status === s ? "border-saffron bg-saffron/10 text-navy" : "border-border hover:border-saffron/60"}`}>{s}</button>))}</div>
+            <Label className="mb-2 block font-semibold text-navy">New Status Stage</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {options.map((s) => (
+                <button 
+                  key={s} 
+                  type="button" 
+                  onClick={() => setStatus(s)} 
+                  className={`border rounded-lg px-3 py-2.5 text-sm font-semibold transition-all ${
+                    status === s 
+                      ? "border-saffron bg-saffron text-navy shadow-sm" 
+                      : "border-slate-200 bg-white text-slate-600 hover:border-saffron/40 hover:bg-slate-50"
+                  }`}
+                >
+                  {s === 'Interview' ? 'In Queue' : s}
+                </button>
+              ))}
+            </div>
           </div>
-          <div><Label>Description / reason (optional)</Label><textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 w-full min-h-[90px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="e.g. Moved back to Shortlist." /></div>
+          <div>
+            <Label className="font-semibold text-navy">Private Note (optional)</Label>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1.5 w-full min-h-[90px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:border-saffron/60 focus:bg-white transition-colors" placeholder="e.g. Candidate answered technical questions well, moving to offer stage." />
+          </div>
         </div>
-        <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button className="bg-saffron text-navy hover:bg-s#%%/90" onClick={update}>Update</Button></DialogFooter>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="font-semibold">Cancel</Button>
+          <Button className="bg-saffron text-navy hover:bg-saffron/90 font-bold" onClick={update}>Update Status</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
 function buildDetail(a: any) {
-  const nameParts = a.name ? a.name.split(" ") : ["Candidate"];
   const phoneSeed = a.id ? a.id.split("").reduce((s: number, c: string) => s + c.charCodeAt(0), 0) : 123;
   const phone = `+91 9${(80000000 + (phoneSeed % 20000000)).toString().slice(0, 9)}`;
   return {
-    uniqueId: a.id, email: a.email, phone: a.phone || phone, dob: "1999-04-12", gender: "Prefer not to say", category: "General", state: "Karnataka", district: "Bengaluru", pincode: "560001",
+    uniqueId: a.id, email: a.email, phone: a.phone || phone, district: "Bengaluru", state: "Karnataka", pincode: "560001",
     institution: `Institute of Technology`, yearOfPassing: "2024", percentage: `${70 + (phoneSeed % 25)}%`, specialization: a.qualification.includes("BE") ? "Computer Science" : "General", languages: ["English", "Hindi", "Kannada"],
     certifications: ["NSDC Skill Certificate", "NSQF Level 5"], preferredRoles: ["Software Engineer", "Data Analyst"], preferredLocations: ["Bengaluru", "Mysuru"], preferredJobType: "Full-time", expectedSalary: "₹4 – 6 LPA",
     currentRole: a.experience === "Fresher" ? "—" : "Junior Developer", currentCompany: a.experience === "Fresher" ? "—" : "Previous Employer", resumeFileName: a.resumeFileName,
-    about: `${a.name} is a ${a.experience.toLowerCase()} candidate based with a ${a.qualification} qualification. Actively looking for opportunities.`,
+    about: `${a.name} is a ${a.experience.toLowerCase()} candidate based with a ${a.qualification} qualification. Actively looking for opportunities at Job Fairs.`,
   };
 }
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
-  return <div className="flex items-center gap-2 text-sm"><Icon className="h-4 w-4 text-saffron shrink-0" /><span className="text-muted-foreground">{label}:</span> <span className="font-medium text-navy">{value}</span></div>;
+  return <div className="flex items-center gap-2 text-sm"><Icon className="h-4 w-4 text-saffron shrink-0" /><span className="text-slate-500 font-medium">{label}:</span> <span className="font-bold text-navy">{value}</span></div>;
 }
 
 function Section({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 text-navy font-semibold text-sm">
-        <Icon className="h-4 w-4 text-saffron" />
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-navy font-bold text-base">
+        <Icon className="h-5 w-5 text-saffron" />
         {title}
       </div>
-      <div className="pl-6 text-sm">{children}</div>
+      <div className="pl-7">{children}</div>
     </div>
   );
 }
