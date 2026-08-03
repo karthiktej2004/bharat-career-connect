@@ -123,7 +123,6 @@ export function EmployerEventsBody() {
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/event-stalls/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Passing the extra data to backend to prepare for tomorrow's Razorpay integration
         body: JSON.stringify({ 
           employerId: userId, 
           eventId: selectedEvent.id,
@@ -147,18 +146,20 @@ export function EmployerEventsBody() {
     }
   };
 
-  // Filter events into Active/Upcoming and Past/Completed
-  const now = new Date();
-  today.setHours(0,0,0,0);
+  // Filter events into Active/Upcoming and Past/Completed (FIXED THIS LOGIC)
+  const todayDate = new Date();
+  todayDate.setHours(0,0,0,0);
   
   const activeEvents = events.filter(e => {
     const eDate = new Date(e.event_date);
-    return e.status !== 'completed' && e.status !== 'closed' && eDate >= now;
+    eDate.setHours(0,0,0,0);
+    return e.status !== 'completed' && e.status !== 'closed' && eDate >= todayDate;
   });
 
   const pastEvents = events.filter(e => {
     const eDate = new Date(e.event_date);
-    return e.status === 'completed' || e.status === 'closed' || eDate < now;
+    eDate.setHours(0,0,0,0);
+    return e.status === 'completed' || e.status === 'closed' || eDate < todayDate;
   });
 
   return (
