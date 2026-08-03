@@ -88,6 +88,7 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
       const json = await res.json();
 
       if (json.success) {
+        alert("🎉 Application submitted successfully!");
         toast.success("Successfully applied!");
         onSuccess(job.id);
         onClose();
