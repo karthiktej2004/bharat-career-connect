@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Star, Video, Loader2, StopCircle, CheckCircle2, Camera, Building2 } from "lucide-react";
+import { Star, Video, Loader2, StopCircle, Camera, Building2 } from "lucide-react";
 import { getSession } from "@/lib/mockStore";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
@@ -104,24 +104,33 @@ export function FeedbackPage() {
     setIsSubmitting(true);
     const session = getSession();
 
+    if (!session || !session.id) {
+      toast.error("Session missing. Please log in again.");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
+      const payload = {
+        candidateId: session.id,
+        rating,
+        companyName: selectedCompany,
+        registrationExp: `Rating: ${registrationRating}/5`,
+        interviewQuality: `Rating: ${interviewRating}/5`,
+        eventManagement: `Rating: ${eventRating}/5`,
+        messageCategory,
+        optionalComments,
+        videoUrl: videoUrl ? "user_recorded_video_blob" : null 
+      };
+
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          candidateId: session?.id,
-          rating,
-          companyName: selectedCompany,
-          registrationExp: `Rating: ${registrationRating}/5`,
-          interviewQuality: `Rating: ${interviewRating}/5`,
-          eventManagement: `Rating: ${eventRating}/5`,
-          messageCategory,
-          optionalComments,
-          videoUrl: videoUrl ? "user_recorded_video_blob" : null 
-        })
+        body: JSON.stringify(payload)
       });
 
       const json = await res.json();
+      
       if (json.success) {
         toast.success(json.message || "Feedback submitted successfully!");
         setRating(0);
@@ -133,9 +142,10 @@ export function FeedbackPage() {
         setOptionalComments("");
         setVideoUrl(null);
       } else {
-        toast.error("Failed to submit feedback.");
+        toast.error(json.message || "Failed to submit feedback.");
       }
     } catch (err) {
+      console.error("Feedback submit error:", err);
       toast.error("Server connection failed.");
     } finally {
       setIsSubmitting(false);
@@ -262,7 +272,6 @@ export function FeedbackPage() {
             />
           </div>
 
-          {/* FIXED BUTTON WITH TYPE AND CURSOR POINTER */}
           <Button 
             type="button"
             className="w-full bg-saffron text-navy hover:bg-saffron/90 font-bold py-6 text-base cursor-pointer relative z-10"
