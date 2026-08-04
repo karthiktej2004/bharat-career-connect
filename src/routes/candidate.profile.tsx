@@ -18,18 +18,16 @@ export const Route = createFileRoute("/candidate/profile")({
   component: Profile,
 });
 
-// --- CONSTANTS FROM EXCEL FILE ---
 const INDIAN_STATES = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep", "Delhi", "Puducherry", "Ladakh", "Jammu and Kashmir"];
 const RELIGIONS = ["Hinduism", "Islam", "Christianity", "Sikhism", "Buddhism", "Jainism", "Zoroastrianism (Parsis)", "Judaism", "Others", "Not interested to disclose"];
 const SOCIAL_CATEGORIES = ["General / Unreserved (GEN/UR)", "Scheduled Caste (SC)", "Scheduled Tribe (ST)", "Other Backward Classes – Non-Creamy Layer (OBC-NCL)", "Other Backward Classes – Creamy Layer (OBC-CL)", "Economically Weaker Section (EWS)", "Not interested to disclose"];
 const DISABILITY_LIST = ["Blindness", "Low-vision", "Leprosy Cured persons", "Hearing Impairment", "Locomotor Disability", "Dwarfism", "Intellectual Disability", "Mental Illness", "Autism Spectrum Disorder", "Cerebral Palsy", "Muscular Dystrophy", "Chronic Neurological conditions", "Specific Learning Disabilities", "Multiple Sclerosis", "Speech and Language disability", "Thalassemia", "Hemophilia", "Sickle cell disease", "Multiple Disabilities including deaf-blindness", "Acid Attack victims", "Parkinson’s disease", "All the above", "Others"];
-const QUALIFICATIONS = ["Below 10th / SSLC", "10th / SSLC", "ITI", "12th STD / 2nd PUC / Intermidate", "Diploma", "UG Degree", "PG Degree", "B.E / B.Tech", "M.E / M. Tech", "PhD", "Short Term Training (STT)", "Others"];
+const QUALIFICATIONS = ["Below 10th / SSLC", "10th / SSLC", "ITI", "12th STD / 2nd PUC / Intermediate", "Diploma", "UG Degree", "PG Degree", "B.E / B.Tech", "M.E / M.Tech", "PhD", "Short Term Training (STT)", "Others"];
 const OPPORTUNITIES_LIST = ["Skill Training Opportunities", "Internship Opportunities", "Apprenticeship Opportunities", "Job Opportunities", "No Preference - Open for all"];
 const ASPIRANT_TYPES = ["Skill Aspirant", "Internship Aspirant", "Apprenticeship Aspirant", "Job Aspirant", "No Preference - Open for all"];
 const SECTORS = ["IT/ITeS", "Banking & Finance", "Retail", "Healthcare", "Hospitality", "Manufacturing", "Construction", "Agriculture", "Logistics", "Telecom", "Others", "No Preference - Open for all"];
 const PROFICIENCY_LEVELS = ["Beginner", "Intermediate", "Expert"];
 
-// Helper: Auto-Capitalize Names
 const formatName = (val: string) => {
   return val.replace(/[^a-zA-Z\s]/g, "").split(" ").map(w => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : "").join(" ");
 };
@@ -50,7 +48,7 @@ function Profile() {
       const session = getSession();
       if (!session || !session.id) return setIsLoading(false);
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/${session.id}`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/profile/${session.id}`);
         const json = await res.json();
         if (json.success) setProfile(json.data);
       } catch (err) {
@@ -65,7 +63,7 @@ function Profile() {
   const saveToDatabase = async (mergedData: any) => {
     setIsSaving(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/update`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/profile/update`, {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mergedData)
       });
       const json = await res.json();
@@ -78,24 +76,19 @@ function Profile() {
     }
   };
 
-  // --- PROFILE COMPLETION % CALCULATION ---
   const completion = useMemo(() => {
     if (!profile) return 0;
     const p = profile;
     
-    // Check if complex objects actually have data
     const hasAddress = p.currentAddress && Object.keys(p.currentAddress).length > 0 && !!p.currentAddress.pincode;
-    const hasSkills = (p.technicalSkills?.length || 0) > 0 || (p.nonTechnicalSkills?.length || 0) > 0;
+    const hasSkills = (p.technicalSkills?.length || 0) > 0 || (p.nonTechnicalSkills?.length || 0) > 0 || (p.skills?.length || 0) > 0;
     
-    // Check languages (handles both the new JSON object format and fallback to old arrays)
     let hasLanguages = false;
     if (p.languagesFluent) {
       if (Array.isArray(p.languagesFluent)) {
         hasLanguages = p.languagesFluent.length > 0;
       } else {
-        hasLanguages = (p.languagesFluent.read?.length || 0) > 0 || 
-                       (p.languagesFluent.write?.length || 0) > 0 || 
-                       (p.languagesFluent.speak?.length || 0) > 0;
+        hasLanguages = true;
       }
     }
 
@@ -103,8 +96,7 @@ function Profile() {
       p.fullName, p.email, p.phone, p.dob, p.gender, p.category, 
       hasAddress, p.qualification, p.institution, p.yearOfPassing, 
       hasSkills, hasLanguages, p.experienceType, p.resumeFileName, 
-      (p.preferredLocations?.length || 0) > 0, 
-      (p.opportunities?.length || 0) > 0
+      (p.preferredLocations?.length || 0) > 0
     ];
 
     const filled = fields.filter(Boolean).length;
@@ -126,7 +118,6 @@ function Profile() {
     setDraft((d: any) => ({ ...d, [type]: { ...(d[type] || {}), [key]: val } }));
   };
 
-  // Skill Management
   const addArr = (arrName: string, val: string, inputSetter: any) => {
     const v = val.trim(); if (!v) return;
     const existing = draft[arrName] || [];
@@ -144,31 +135,31 @@ function Profile() {
     const addr = draft[type] || {};
     return (
       <div className="grid md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border mt-3">
-        <FieldInput label="Country" value={addr.country || "India"} onChange={(v) => setAddr(type, "country", v)} />
-        <FieldInput label="Pincode" value={addr.pincode} onChange={(v) => setAddr(type, "pincode", v.replace(/\D/g, "").slice(0,6))} />
-        <FieldSelect label="State / UT" value={addr.state} onChange={(v) => setAddr(type, "state", v)} options={INDIAN_STATES} />
-        <FieldInput label="District" value={addr.district} onChange={(v) => setAddr(type, "district", v)} />
-        <FieldInput label="Taluk" value={addr.taluk} onChange={(v) => setAddr(type, "taluk", v)} />
-        <FieldInput label="MLA Constituency" value={addr.mla} onChange={(v) => setAddr(type, "mla", v)} />
-        <FieldInput label="MP Constituency" value={addr.mp} onChange={(v) => setAddr(type, "mp", v)} />
+        <FieldInput label="Country" value={addr.country || "India"} onChange={(v: string) => setAddr(type, "country", v)} />
+        <FieldInput label="Pincode" value={addr.pincode} onChange={(v: string) => setAddr(type, "pincode", v.replace(/\D/g, "").slice(0,6))} />
+        <FieldSelect label="State / UT" value={addr.state} onChange={(v: string) => setAddr(type, "state", v)} options={INDIAN_STATES} />
+        <FieldInput label="District" value={addr.district} onChange={(v: string) => setAddr(type, "district", v)} />
+        <FieldInput label="Taluk" value={addr.taluk} onChange={(v: string) => setAddr(type, "taluk", v)} />
+        <FieldInput label="MLA Constituency" value={addr.mla} onChange={(v: string) => setAddr(type, "mla", v)} />
+        <FieldInput label="MP Constituency" value={addr.mp} onChange={(v: string) => setAddr(type, "mp", v)} />
         
-        <FieldSelect label="Resident Type" value={addr.residentType} onChange={(v) => setAddr(type, "residentType", v)} options={["Urban Resident", "Rural Resident"]} />
+        <FieldSelect label="Resident Type" value={addr.residentType} onChange={(v: string) => setAddr(type, "residentType", v)} options={["Urban Resident", "Rural Resident"]} />
         
         {addr.residentType === "Urban Resident" && (
           <>
-            <FieldInput label="ULB List" value={addr.ulb} onChange={(v) => setAddr(type, "ulb", v)} />
-            <FieldInput label="Wards List" value={addr.ward} onChange={(v) => setAddr(type, "ward", v)} />
+            <FieldInput label="ULB List" value={addr.ulb} onChange={(v: string) => setAddr(type, "ulb", v)} />
+            <FieldInput label="Wards List" value={addr.ward} onChange={(v: string) => setAddr(type, "ward", v)} />
           </>
         )}
         {addr.residentType === "Rural Resident" && (
           <>
-            <FieldInput label="Grampanchayats List" value={addr.grampanchayat} onChange={(v) => setAddr(type, "grampanchayat", v)} />
-            <FieldInput label="Villages List" value={addr.village} onChange={(v) => setAddr(type, "village", v)} />
+            <FieldInput label="Grampanchayats List" value={addr.grampanchayat} onChange={(v: string) => setAddr(type, "grampanchayat", v)} />
+            <FieldInput label="Villages List" value={addr.village} onChange={(v: string) => setAddr(type, "village", v)} />
           </>
         )}
         
         <div className="md:col-span-3">
-          <FieldInput label="Locality / Area Name" value={addr.locality} onChange={(v) => setAddr(type, "locality", v)} />
+          <FieldInput label="Locality / Area Name" value={addr.locality} onChange={(v: string) => setAddr(type, "locality", v)} />
         </div>
       </div>
     );
@@ -196,63 +187,32 @@ function Profile() {
             style={{ width: `${completion}%` }} 
           />
         </div>
-        {completion < 100 && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Click "Edit" on the sections below to add missing details and reach 100%.
-          </p>
-        )}
       </Card>
-
-      {/* BRANDING (Auto-saves immediately) */}
-      <Section title="Profile Images" icon={ImageIcon}>
-        <div className="grid md:grid-cols-2 gap-4">
-          <label className="block border-2 border-dashed border-navy/30 rounded-xl p-6 text-center cursor-pointer hover:bg-slate-50 transition">
-            <Upload className="h-6 w-6 mx-auto mb-2 text-navy" />
-            <div className="font-medium text-navy">{profile.profilePhoto || "Upload Profile Photo (≤5MB)"}</div>
-            <input type="file" accept=".jpg,.png" className="hidden" onChange={(e) => {
-              if (e.target.files?.[0]) {
-                const merged = { ...profile, profilePhoto: e.target.files[0].name };
-                setProfile(merged); saveToDatabase(merged);
-              }
-            }} />
-          </label>
-          <label className="block border-2 border-dashed border-navy/30 rounded-xl p-6 text-center cursor-pointer hover:bg-slate-50 transition">
-            <Upload className="h-6 w-6 mx-auto mb-2 text-navy" />
-            <div className="font-medium text-navy">{profile.backgroundImage || "Upload Background (≤5MB)"}</div>
-            <input type="file" accept=".jpg,.png" className="hidden" onChange={(e) => {
-              if (e.target.files?.[0]) {
-                const merged = { ...profile, backgroundImage: e.target.files[0].name };
-                setProfile(merged); saveToDatabase(merged);
-              }
-            }} />
-          </label>
-        </div>
-      </Section>
 
       {/* PERSONAL DETAILS */}
       <Section title="Personal Details" icon={UserIcon} editing={editing === "personal"} onEdit={() => startEdit("personal")} onSave={saveEdit} onCancel={cancelEdit} isSaving={isSaving}>
         {editing === "personal" ? (
           <div className="grid md:grid-cols-2 gap-4">
-            <FieldInput label="Name (First / Middle / Last)" value={draft.fullName} onChange={(v) => setD("fullName", formatName(v))} />
-            <FieldInput label="Father Name" value={draft.fatherName} onChange={(v) => setD("fatherName", formatName(v))} />
-            <FieldInput label="Mother Name" value={draft.motherName} onChange={(v) => setD("motherName", formatName(v))} />
-            <FieldInput label="Mobile Number" value={draft.phone} onChange={(v) => setD("phone", v.replace(/\D/g, "").slice(0,10))} />
-            <FieldInput label="Email ID" value={draft.email} onChange={(v) => setD("email", v)} type="email" />
-            <FieldInput label="Aadhaar Number" value={draft.aadhaar} onChange={(v) => setD("aadhaar", v.replace(/\D/g, "").slice(0,12))} />
-            <FieldInput label="Date of Birth" value={draft.dob} onChange={(v) => setD("dob", v)} type="date" />
-            <FieldSelect label="Gender" value={draft.gender} onChange={(v) => setD("gender", v)} options={["Male", "Female", "Others"]} />
+            <FieldInput label="Name (First / Middle / Last)" value={draft.fullName} onChange={(v: string) => setD("fullName", formatName(v))} />
+            <FieldInput label="Father Name" value={draft.fatherName} onChange={(v: string) => setD("fatherName", formatName(v))} />
+            <FieldInput label="Mother Name" value={draft.motherName} onChange={(v: string) => setD("motherName", formatName(v))} />
+            <FieldInput label="Mobile Number" value={draft.phone} onChange={(v: string) => setD("phone", v.replace(/\D/g, "").slice(0,10))} />
+            <FieldInput label="Email ID" value={draft.email} onChange={(v: string) => setD("email", v)} type="email" />
+            <FieldInput label="Aadhaar Number" value={draft.aadhaar} onChange={(v: string) => setD("aadhaar", v.replace(/\D/g, "").slice(0,12))} />
+            <FieldInput label="Date of Birth" value={draft.dob} onChange={(v: string) => setD("dob", v)} type="date" />
+            <FieldSelect label="Gender" value={draft.gender} onChange={(v: string) => setD("gender", v)} options={["Male", "Female", "Others"]} />
             
-            <FieldSelect label="Religion" value={draft.religion} onChange={(v) => setD("religion", v)} options={RELIGIONS} />
-            <FieldSelect label="Social Category" value={draft.category} onChange={(v) => setD("category", v)} options={SOCIAL_CATEGORIES} />
+            <FieldSelect label="Religion" value={draft.religion} onChange={(v: string) => setD("religion", v)} options={RELIGIONS} />
+            <FieldSelect label="Social Category" value={draft.category} onChange={(v: string) => setD("category", v)} options={SOCIAL_CATEGORIES} />
             
-            <FieldInput label="LinkedIn URL" value={draft.linkedinUrl} onChange={(v) => setD("linkedinUrl", v)} />
-            <FieldInput label="GitHub/Portfolio URL" value={draft.githubUrl} onChange={(v) => setD("githubUrl", v)} />
+            <FieldInput label="LinkedIn URL" value={draft.linkedinUrl} onChange={(v: string) => setD("linkedinUrl", v)} />
+            <FieldInput label="GitHub/Portfolio URL" value={draft.githubUrl} onChange={(v: string) => setD("githubUrl", v)} />
 
             <div className="md:col-span-2 p-4 border rounded-xl bg-slate-50 mt-2">
-              <FieldSelect label="Disability?" value={draft.hasDisability} onChange={(v) => { setD("hasDisability", v); if(v==="No") { setD("disabilities", []); setD("udid", ""); } }} options={["Yes", "No"]} />
+              <FieldSelect label="Disability?" value={draft.hasDisability} onChange={(v: string) => { setD("hasDisability", v); if(v==="No") { setD("disabilities", []); setD("udid", ""); } }} options={["Yes", "No"]} />
               {draft.hasDisability === "Yes" && (
                 <div className="mt-3 space-y-3">
-                  <FieldInput label="Mention Unique Disability ID (UDID)" value={draft.udid} onChange={(v) => setD("udid", v.slice(0,18))} placeholder="18 Digits Alpha-Numeric" />
+                  <FieldInput label="Mention Unique Disability ID (UDID)" value={draft.udid} onChange={(v: string) => setD("udid", v.slice(0,18))} placeholder="18 Digits Alpha-Numeric" />
                   <Label>Disability Types</Label>
                   <div className="flex flex-wrap gap-2">
                     {DISABILITY_LIST.map((d) => (
@@ -322,11 +282,11 @@ function Profile() {
       <Section title="Education" icon={GraduationCap} editing={editing === "edu"} onEdit={() => startEdit("edu")} onSave={saveEdit} onCancel={cancelEdit} isSaving={isSaving}>
         {editing === "edu" ? (
           <div className="grid md:grid-cols-2 gap-4">
-            <FieldSelect label="Educational Qualification" value={draft.qualification} onChange={(v) => setD("qualification", v)} options={QUALIFICATIONS} />
-            <FieldInput label="Educational Institution" value={draft.institution} onChange={(v) => setD("institution", v)} />
-            <FieldInput label="Board / University" value={draft.boardUniversity} onChange={(v) => setD("boardUniversity", v)} />
-            <FieldInput label="Year of Passing / Completion" type="number" value={draft.yearOfPassing} onChange={(v) => setD("yearOfPassing", v)} placeholder="YYYY" />
-            <FieldInput label="Percentage / CGPA" value={draft.percentage} onChange={(v) => setD("percentage", v)} />
+            <FieldSelect label="Educational Qualification" value={draft.qualification} onChange={(v: string) => setD("qualification", v)} options={QUALIFICATIONS} />
+            <FieldInput label="Educational Institution" value={draft.institution} onChange={(v: string) => setD("institution", v)} />
+            <FieldInput label="Board / University" value={draft.boardUniversity} onChange={(v: string) => setD("boardUniversity", v)} />
+            <FieldInput label="Year of Passing / Completion" type="number" value={draft.yearOfPassing} onChange={(v: string) => setD("yearOfPassing", v)} placeholder="YYYY" />
+            <FieldInput label="Percentage / CGPA" value={draft.percentage} onChange={(v: string) => setD("percentage", v)} />
           </div>
         ) : (
           <ReviewGrid>
@@ -344,7 +304,7 @@ function Profile() {
         {editing === "skills" ? (
           <div className="space-y-6">
             <div>
-              <Label className="block mb-2">Technical Skills</Label>
+              <Label className="block mb-2 font-bold text-navy">Technical Skills</Label>
               <div className="flex gap-2">
                 <Input value={techInput} onChange={(e) => setTechInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addArr("technicalSkills", techInput, setTechInput); }} placeholder="Java, Python, SQL..." />
                 <Button type="button" onClick={() => addArr("technicalSkills", techInput, setTechInput)}>Add</Button>
@@ -366,7 +326,7 @@ function Profile() {
             </div>
             
             <div className="pt-4 border-t">
-              <Label className="block mb-2">Non-Technical Skills</Label>
+              <Label className="block mb-2 font-bold text-navy">Non-Technical Skills</Label>
               <div className="flex gap-2">
                 <Input value={nonTechInput} onChange={(e) => setNonTechInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addArr("nonTechnicalSkills", nonTechInput, setNonTechInput); }} placeholder="Leadership, Communication..." />
                 <Button type="button" onClick={() => addArr("nonTechnicalSkills", nonTechInput, setNonTechInput)}>Add</Button>
@@ -390,15 +350,19 @@ function Profile() {
         ) : (
           <div className="space-y-4">
             <div>
-              <Label className="text-xs text-muted-foreground">Technical Skills</Label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {profile.technicalSkills?.map((s: string) => <Badge key={s} className="bg-navy">{s} ({profile.skillProficiencies?.[s] || "N/A"})</Badge>)}
+              <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Technical Skills</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {profile.technicalSkills?.length > 0 ? profile.technicalSkills.map((s: string) => (
+                  <Badge key={s} className="bg-navy text-white px-3 py-1">{s} ({profile.skillProficiencies?.[s] || "Intermediate"})</Badge>
+                )) : <p className="text-sm italic text-muted-foreground mt-1">No technical skills added yet.</p>}
               </div>
             </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Non-Technical Skills</Label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {profile.nonTechnicalSkills?.map((s: string) => <Badge key={s} variant="outline">{s} ({profile.skillProficiencies?.[s] || "N/A"})</Badge>)}
+            <div className="pt-3 border-t">
+              <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Non-Technical Skills</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {profile.nonTechnicalSkills?.length > 0 ? profile.nonTechnicalSkills.map((s: string) => (
+                  <Badge key={s} variant="outline" className="px-3 py-1">{s} ({profile.skillProficiencies?.[s] || "Intermediate"})</Badge>
+                )) : <p className="text-sm italic text-muted-foreground mt-1">No non-technical skills added yet.</p>}
               </div>
             </div>
           </div>
@@ -409,8 +373,8 @@ function Profile() {
       <Section title="Profile Type & Preferences" icon={Target} editing={editing === "pref"} onEdit={() => startEdit("pref")} onSave={saveEdit} onCancel={cancelEdit} isSaving={isSaving}>
         {editing === "pref" ? (
           <div className="grid md:grid-cols-2 gap-4">
-            <FieldSelect label="Opportunities Looking For" value={draft.opportunities?.[0]} onChange={(v) => setD("opportunities", [v])} options={OPPORTUNITIES_LIST} />
-            <FieldSelect label="Aspirant Type" value={draft.aspirantType} onChange={(v) => setD("aspirantType", v)} options={ASPIRANT_TYPES} />
+            <FieldSelect label="Opportunities Looking For" value={draft.opportunities?.[0]} onChange={(v: string) => setD("opportunities", [v])} options={OPPORTUNITIES_LIST} />
+            <FieldSelect label="Aspirant Type" value={draft.aspirantType} onChange={(v: string) => setD("aspirantType", v)} options={ASPIRANT_TYPES} />
             
             <div className="md:col-span-2 pt-4 border-t">
               <Label className="block mb-2">Need Skilling in which Sector (Multi-select)</Label>
@@ -465,32 +429,14 @@ function Profile() {
           </ReviewGrid>
         )}
       </Section>
-
-      {/* RESUME UPLOAD */}
-      <Section title="Resume Upload" icon={FileText}>
-        <label className="block border-2 border-dashed border-navy/30 rounded-xl p-8 hover:bg-slate-50 cursor-pointer transition text-center">
-          <Upload className="h-8 w-8 mx-auto text-navy mb-2" />
-          <div className="font-medium text-navy">{profile.resumeFileName || "Upload PDF/DOC (≤ 2MB)"}</div>
-          <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) {
-              if (f.size > 2 * 1024 * 1024) return toast.error("File exceeds 2MB");
-              const merged = { ...profile, resumeFileName: f.name };
-              setProfile(merged); saveToDatabase(merged);
-            }
-          }} />
-        </label>
-      </Section>
-
     </DashShell>
   );
 }
 
-// Reusable Subcomponents
 function Section({ title, icon: Icon, editing, onEdit, onSave, onCancel, isSaving, children }: any) {
   return (
     <Card className="p-6 border-border/60 mb-4 bg-white shadow-sm">
-      <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+      <div className="flex items-center justify-between mb-4 pb-3 border-border">
         <div className="flex items-center gap-2">
           <div className="size-8 rounded-lg bg-saffron/15 text-saffron grid place-items-center"><Icon className="h-4 w-4" /></div>
           <h2 className="font-display font-bold text-navy">{title}</h2>
@@ -533,7 +479,7 @@ function FieldSelect({ label, value, onChange, options }: any) {
   return (
     <div>
       <Label className="text-xs text-navy font-semibold">{label}</Label>
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value || ""} onValueChange={onChange}>
         <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select..." /></SelectTrigger>
         <SelectContent>{options.map((o:string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
       </Select>
