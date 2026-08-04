@@ -13,7 +13,6 @@ export const Route = createFileRoute("/candidate/")({
   component: CandidateHome,
 });
 
-// Profile completion calculator matching database fields
 function computeCompletion(p: any): number {
   if (!p) return 0;
   
@@ -46,7 +45,6 @@ function CandidateHome() {
   const [slide, setSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Real database states
   const [jobs, setJobs] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
@@ -105,25 +103,16 @@ function CandidateHome() {
 
   const profileCompletion = computeCompletion(profile);
   
-  // 🚀 FIXED: Safely extract skills matching backend database column structure
+  // Extract and combine all skills cleanly from technical, non-technical, and general arrays
   const userSkills: string[] = [];
-  if (profile?.skills) {
-    if (Array.isArray(profile.skills)) {
-      userSkills.push(...profile.skills);
-    } else if (typeof profile.skills === 'string') {
-      try {
-        const parsed = JSON.parse(profile.skills);
-        if (Array.isArray(parsed)) userSkills.push(...parsed);
-      } catch (e) {
-        userSkills.push(...profile.skills.split(",").map((s: string) => s.trim()));
-      }
-    }
-  }
   if (profile?.technicalSkills && Array.isArray(profile.technicalSkills)) {
     userSkills.push(...profile.technicalSkills);
   }
   if (profile?.nonTechnicalSkills && Array.isArray(profile.nonTechnicalSkills)) {
     userSkills.push(...profile.nonTechnicalSkills);
+  }
+  if (profile?.skills && Array.isArray(profile.skills)) {
+    userSkills.push(...profile.skills);
   }
 
   return (
@@ -277,10 +266,10 @@ function CandidateHome() {
                   <div className="min-w-0">
                     <h3 className="font-semibold text-navy truncate">{e.title || e.event_name}</h3>
                     <p className="text-xs text-muted-foreground mt-1 truncate">
-                      {e.event_date ? new Date(e.event_date).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "Date TBD"} · {e.venue || e.venue_address || e.location}
+                      {e.event_date ? new Date(e.event_date).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "Date TBD"} · {e.venue}
                     </p>
                   </div>
-                  <Badge variant="outline" className="shrink-0">{e.type || e.event_type || "Fair"}</Badge>
+                  <Badge variant="outline" className="shrink-0">{e.type || "Fair"}</Badge>
                 </div>
                 <Button asChild size="sm" variant="outline" className="w-full mt-3">
                   <Link to="/candidate/events"><QrCode className="h-4 w-4 mr-1" /> View pass</Link>
