@@ -23,7 +23,7 @@ interface Props {
 const roleColors = {
   candidate: { accent: "bg-saffron text-navy", label: "Candidate" },
   employer: { accent: "bg-india-green text-white", label: "Employer" },
-  exhibitor: { accent: "bg-india-green text-white", label: "Exhibitor" }, // Added Exhibitor with Green Accent
+  exhibitor: { accent: "bg-purple-600 text-white", label: "Exhibitor" }, // <-- Updated to Purple!
   companyadmin: { accent: "bg-navy text-white", label: "Admin" },
   admin: { accent: "bg-navy text-white", label: "Admin" },
 };
@@ -34,18 +34,12 @@ export function DashShell({ role, nav, children }: Props) {
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // ==========================================
-  // 🚀 SMART ROUTE PROTECTION LOGIC
-  // ==========================================
   useEffect(() => {
     const u: any = getSession(); 
     
     if (!u) {
-      // 1. Not logged in? Kick them to the login page.
       navigate({ to: "/" }); 
     } else if (u.role !== role) {
-      // 2. Wrong dashboard? DO NOT destroy the session! 
-      // Just safely redirect them back to their correct home.
       if (u.role === 'admin') {
         navigate({ to: "/admin" });
       } else if (u.role === 'employer') {
@@ -56,7 +50,6 @@ export function DashShell({ role, nav, children }: Props) {
         navigate({ to: "/candidate" });
       }
     } else {
-      // 3. Valid session and correct role! Let them in.
       setUser(u);
     }
   }, [role, navigate]);
@@ -72,7 +65,6 @@ export function DashShell({ role, nav, children }: Props) {
 
   return (
     <div className="min-h-screen bg-muted/30 flex">
-      {/* Sidebar — desktop sticky, mobile drawer */}
       <aside className={`fixed lg:sticky top-0 z-40 h-screen w-72 lg:w-64 bg-background border-r border-border flex flex-col transition-transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <TricolorBar />
         <div className="p-4 border-b border-border"><Logo /></div>
@@ -92,8 +84,8 @@ export function DashShell({ role, nav, children }: Props) {
         </nav>
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-full bg-gradient-to-br from-saffron to-india-green flex items-center justify-center text-white font-bold text-sm shrink-0">
-              {user?.name?.charAt(0) ?? "U"}
+            <div className="size-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+              {user?.name?.charAt(0) ?? "E"}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate text-navy">{user?.name}</p>
@@ -106,10 +98,7 @@ export function DashShell({ role, nav, children }: Props) {
 
       {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* MOBILE ONLY HEADER */}
         <header className="lg:hidden sticky top-0 z-20 bg-background/90 backdrop-blur border-b border-border h-14 flex items-center px-3 sm:px-4 gap-2">
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}><Menu /></Button>
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -138,8 +127,8 @@ export function PageHeader({ title, description, action }: { title: string; desc
   );
 }
 
-export function StatCard({ label, value, icon: Icon, trend, accent = "saffron" }: { label: string; value: string | number; icon: LucideIcon; trend?: string; accent?: "saffron" | "navy" | "india-green" }) {
-  const accentClass = accent === "navy" ? "bg-navy/10 text-navy" : accent === "india-green" ? "bg-india-green/15 text-india-green" : "bg-saffron/15 text-saffron";
+export function StatCard({ label, value, icon: Icon, trend, accent = "saffron" }: { label: string; value: string | number; icon: LucideIcon; trend?: string; accent?: "saffron" | "navy" | "india-green" | "purple" }) {
+  const accentClass = accent === "navy" ? "bg-navy/10 text-navy" : accent === "india-green" ? "bg-india-green/15 text-india-green" : accent === "purple" ? "bg-purple-100 text-purple-700" : "bg-saffron/15 text-saffron";
   return (
     <div className="rounded-xl bg-background border border-border/60 p-4 sm:p-5 card-hover">
       <div className="flex items-start justify-between gap-3">
