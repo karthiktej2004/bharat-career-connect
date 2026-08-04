@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Briefcase, Users, Building2, Award, QrCode, Sparkles, MapPin, Calendar, ShieldCheck, Languages, BarChart3 } from "lucide-react";
+import { ArrowRight, Briefcase, Users, Building2, Award, QrCode, Sparkles, MapPin, Calendar, ShieldCheck, Languages, BarChart3, Store } from "lucide-react";
 import { SiteHeader, SiteFooter } from "@/components/SiteChrome";
 import { Counter } from "@/components/Counter";
 import { TricolorBar } from "@/components/Brand";
@@ -59,8 +59,12 @@ function HomePage() {
                 <Button asChild size="lg" className="bg-saffron text-navy hover:bg-saffron/90 shadow-soft">
                   <Link to="/auth/signup">Register as Candidate <ArrowRight className="ml-1" /></Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="border-navy text-navy hover:bg-navy hover:text-white">
+                <Button asChild size="lg" variant="outline" className="border-navy text-navy hover:bg-navy hover:text-white shadow-sm">
                   <Link to="/register-company">Register as Employer</Link>
+                </Button>
+                {/* --- NEW EXHIBITOR BUTTON --- */}
+                <Button asChild size="lg" className="bg-india-green text-white hover:bg-india-green/90 shadow-soft">
+                  <Link to="/register-exhibitor"><Store className="h-4 w-4 mr-2" /> Register as Exhibitor</Link>
                 </Button>
               </div>
               <div className="mt-8 flex items-center gap-6 text-xs text-muted-foreground">
