@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Star, CheckCircle2, XCircle, Trash2, Loader2, Download } from "lucide-react";
+import { CheckCircle2, XCircle, Trash2, Loader2, Download, RefreshCcw, Mail, Phone } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/employers")({
@@ -19,10 +19,12 @@ interface Employer {
   id: string;
   dbId: number;
   name: string;
+  email?: string;
+  phone?: string;
+  pocs?: { email: string; phone: string }[];
   gst: string;
   jobs: number;
-  rating: number;
-  status: "Active" | "Pending" | "Blacklisted";
+  status: string;
 }
 
 function Employers() {
@@ -54,12 +56,10 @@ function Employers() {
   }, []);
 
   // Update employer status dynamically with zero-flicker optimistic update
-  const handleStatusUpdate = async (dbId: number, status: "approved" | "rejected" | "blacklisted") => {
+  const handleStatusUpdate = async (dbId: number, status: string) => {
     // 1. Optimistically update local state immediately so UI changes instantly
-    const targetStatusMapped = status === "approved" ? "Active" : status === "blacklisted" ? "Blacklisted" : "Pending";
-    
     setEmployers((prev) =>
-      prev.map((e) => (e.dbId === dbId ? { ...e, status: targetStatusMapped as any } : e))
+      prev.map((e) => (e.dbId === dbId ? { ...e, status: status } : e))
     );
 
     try {
@@ -70,7 +70,7 @@ function Employers() {
       });
       const json = await response.json();
       if (json.success) {
-        toast.success(`Employer successfully marked as ${status === 'blacklisted' ? 'deleted' : status}!`);
+        toast.success(`Employer successfully marked as ${status}!`);
       } else {
         toast.error(json.message || "Failed to update status.");
         fetchEmployers(); // Roll back if backend rejected it
@@ -112,11 +112,11 @@ function Employers() {
       return;
     }
 
-    const csvRows = ["ID,Company,GST,Active Jobs,Rating,Status"];
+    const csvRows = ["ID,Company,Main Email,Main Phone,GST,Active Jobs,Status"];
     dataToExport.forEach((e) => {
       // Escape quotes in name to prevent CSV breaking
       const safeName = e.name.replace(/"/g, '""');
-      csvRows.push(`"${e.id}","${safeName}","${e.gst}",${e.jobs},${e.rating},"${e.status}"`);
+      csvRows.push(`"${e.id}","${safeName}","${e.email || ''}","${e.phone || ''}","${e.gst}",${e.jobs},"${e.status}"`);
     });
 
     const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
@@ -134,7 +134,7 @@ function Employers() {
     <DashShell role="admin" nav={adminNav}>
       <PageHeader 
         title="Employer Management" 
-        description="Approve, verify and rate employer participation." 
+        description="Approve, verify, and track participating companies and their points of contact." 
         action={
           <Button variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
@@ -142,98 +142,117 @@ function Employers() {
           </Button>
         }
       />
-      <Card className="border-border/60">
+      <Card className="border-border/60 overflow-hidden">
         {loading ? (
           <div className="flex justify-center items-center p-8 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading employers...
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox 
-                    checked={employers.length > 0 && selectedIds.size === employers.length}
-                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-                  />
-                </TableHead>
-                <TableHead>ID</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>GST</TableHead>
-                <TableHead>Active Jobs</TableHead>
-                <TableHead>Rating</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {employers.length === 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
-                    No employers found.
-                  </TableCell>
+                  <TableHead className="w-10">
+                    <Checkbox 
+                      checked={employers.length > 0 && selectedIds.size === employers.length}
+                      onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                    />
+                  </TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Main Contact</TableHead>
+                  <TableHead>PoC Details</TableHead>
+                  <TableHead className="text-center">Active Jobs</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ) : (
-                employers.map((e) => (
-                  <TableRow key={e.id}>
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedIds.has(e.dbId)}
-                        onCheckedChange={(checked) => handleSelectOne(e.dbId, checked as boolean)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{e.id}</TableCell>
-                    <TableCell className="font-medium text-navy">{e.name}</TableCell>
-                    <TableCell>
-                      <Badge className={e.gst === "Verified" ? "bg-india-green/15 text-india-green" : "bg-saffron/15 text-saffron"}>
-                        {e.gst}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{e.jobs}</TableCell>
-                    <TableCell>
-                      <span className="flex items-center gap-1">
-                        <Star className="h-3.5 w-3.5 fill-saffron text-saffron" />
-                        {e.rating}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={e.status === "Active" ? "bg-india-green/15 text-india-green" : e.status === "Pending" ? "bg-saffron/15 text-saffron" : "bg-destructive/15 text-destructive"}>
-                        {e.status === "Blacklisted" ? "Deleted" : e.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="h-8 border-india-green/40 text-india-green hover:bg-india-green/10" 
-                          onClick={() => handleStatusUpdate(e.dbId, "approved")}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="h-8 border-amber-500/40 text-amber-600 hover:bg-amber-500/10" 
-                          onClick={() => handleStatusUpdate(e.dbId, "rejected")}
-                        >
-                          <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="h-8 border-destructive/40 text-destructive hover:bg-destructive/10" 
-                          onClick={() => handleStatusUpdate(e.dbId, "blacklisted")}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
-                        </Button>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {employers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
+                      No employers found.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  employers.map((e) => (
+                    <TableRow key={e.id} className={e.status === 'deleted' || e.status === 'Blacklisted' ? 'bg-slate-50/50 opacity-75' : ''}>
+                      <TableCell>
+                        <Checkbox 
+                          checked={selectedIds.has(e.dbId)}
+                          onCheckedChange={(checked) => handleSelectOne(e.dbId, checked as boolean)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs font-medium text-navy">{e.id}</TableCell>
+                      <TableCell>
+                        <div className="font-semibold text-navy mb-1">{e.name}</div>
+                        <Badge variant="outline" className={e.gst === "Verified" ? "border-india-green text-india-green text-[10px]" : "border-saffron text-saffron text-[10px]"}>
+                          GST: {e.gst}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-navy mb-1">
+                          <Mail className="h-3 w-3 text-muted-foreground" /> {e.email || 'N/A'}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3 text-muted-foreground" /> {e.phone || 'N/A'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {e.pocs && e.pocs.length > 0 ? (
+                          <div className="space-y-1.5">
+                            <Badge variant="secondary" className="text-[10px]">{e.pocs.length} Active PoC(s)</Badge>
+                            <div className="max-h-[60px] overflow-y-auto pr-2 space-y-1">
+                              {e.pocs.map((poc, idx) => (
+                                <div key={idx} className="text-[10px] leading-tight border-l-2 border-navy/20 pl-2">
+                                  <div className="font-semibold text-navy truncate max-w-[120px]">{poc.email}</div>
+                                  <div className="text-muted-foreground">{poc.phone}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">No extra PoCs</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-navy">{e.jobs}</TableCell>
+                      <TableCell>
+                        <Badge className={
+                          e.status === 'approved' || e.status === 'Active' || e.status === 'active' ? "bg-india-green/15 text-india-green" : 
+                          e.status === 'deleted' || e.status === 'Blacklisted' ? "bg-slate-200 text-slate-600" :
+                          e.status === 'rejected' ? "bg-orange-500/15 text-orange-600" :
+                          "bg-saffron/15 text-saffron"
+                        }>
+                          {e.status === 'approved' ? 'Active' : e.status === 'Blacklisted' ? 'Deleted' : e.status.charAt(0).toUpperCase() + e.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="w-[140px]">
+                        <div className="flex flex-col gap-2 w-full">
+                          {e.status === 'deleted' || e.status === 'Blacklisted' ? (
+                            <Button size="sm" variant="outline" className="text-blue-600 border-blue-300 hover:bg-blue-50 w-full justify-start h-8" onClick={() => handleStatusUpdate(e.dbId, 'approved')}>
+                              <RefreshCcw className="h-3.5 w-3.5 mr-2" /> Reactivate
+                            </Button>
+                          ) : (
+                            <>
+                              <Button size="sm" variant="outline" className="text-india-green border-india-green hover:bg-india-green/10 w-full justify-start h-8" onClick={() => handleStatusUpdate(e.dbId, 'approved')}>
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Approve
+                              </Button>
+                              <Button size="sm" variant="outline" className="text-orange-500 border-orange-200 hover:bg-orange-50 w-full justify-start h-8" onClick={() => handleStatusUpdate(e.dbId, 'rejected')}>
+                                <XCircle className="h-3.5 w-3.5 mr-2" /> Reject
+                              </Button>
+                              <Button size="sm" variant="outline" className="text-slate-500 border-slate-300 hover:bg-slate-100 w-full justify-start h-8" onClick={() => handleStatusUpdate(e.dbId, 'deleted')}>
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </Card>
     </DashShell>
