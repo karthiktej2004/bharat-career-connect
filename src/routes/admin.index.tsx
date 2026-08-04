@@ -6,9 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Users, QrCode, MessageSquareHeart, Award, Activity, AlertTriangle, Loader2, Download, PowerOff } from "lucide-react";
+import { Users, QrCode, MessageSquareHeart, Award, Activity, AlertTriangle, Loader2, Download, PowerOff, CheckCircle2 } from "lucide-react";
 import { Counter } from "@/components/Counter";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/")({
@@ -16,34 +16,56 @@ export const Route = createFileRoute("/admin/")({
   component: AdminHome,
 });
 
-const liveData = Array.from({ length: 12 }, (_, i) => ({ t: `${9 + i}:00`, reg: Math.floor(200 + Math.random() * 300 + i * 50), iv: Math.floor(50 + Math.random() * 100 + i * 20) }));
-
 function AdminHome() {
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
+  const [crowdData, setCrowdData] = useState<any[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   
   // States for End Event flow
   const [isEndModalOpen, setIsEndModalOpen] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const [hasDownloaded, setHasDownloaded] = useState(false);
 
+  // 1. Fetch Master Live Events
+  const fetchLiveEvents = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/live-events`);
+      const json = await res.json();
+      if (json.success) setLiveEvents(json.data);
+    } catch (err) {
+      console.error("Failed to fetch live events:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchLiveEvents = async () => {
-      try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/live-events`);
-        const json = await res.json();
-        if (json.success) setLiveEvents(json.data);
-      } catch (err) {
-        console.error("Failed to fetch live events:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchLiveEvents();
-    const interval = setInterval(fetchLiveEvents, 30000);
+    const interval = setInterval(fetchLiveEvents, 30000); // refresh every 30s
     return () => clearInterval(interval);
   }, []);
+
+  // 2. Fetch Crowd Monitoring Data for the Graph & Alerts
+  useEffect(() => {
+    const activeEvent = liveEvents[activeIndex];
+    if (!activeEvent) return;
+
+    const fetchCrowd = async () => {
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${activeEvent.id}/crowd-monitoring`);
+            const json = await res.json();
+            if (json.success) setCrowdData(json.data);
+        } catch (err) {
+            console.error("Failed to fetch crowd data:", err);
+        }
+    };
+
+    fetchCrowd();
+    const crowdInterval = setInterval(fetchCrowd, 15000); // refresh crowd data every 15s
+    return () => clearInterval(crowdInterval);
+  }, [activeIndex, liveEvents]);
 
   // --- FULL WORKING DOWNLOAD DATA LOGIC ---
   const handleDownloadData = async () => {
@@ -52,17 +74,15 @@ function AdminHome() {
 
     setIsDownloading(true);
     try {
-      // Direct fetch to backend export endpoint
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${activeEvent.id}/export`);
       
       if (!response.ok) throw new Error("Failed to generate report from server.");
 
-      // Convert response stream to a downloadable blob file (CSV / Excel format)
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${activeEvent.name.replace(/\s+/g, "_")}_Event_Report.csv`;
+      a.download = `${activeEvent.name.replace(/\s+/g, "_")}_Master_Report.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -71,48 +91,50 @@ function AdminHome() {
       toast.success("Event Data Report downloaded successfully!");
       setHasDownloaded(true); // Unlocks the End Event button confirmation
     } catch (error) {
-      // Fallback client-side CSV generation if backend endpoint is still pending
-      try {
-        const csvContent = "data:text/csv;charset=utf-8," 
-          + "Event Name,City,Candidate Registrations,Employer Registrations,Candidates Attendance,Employers Attendance,Interviews,Offers\n"
-          + `"${activeEvent.name}","${activeEvent.location}",${activeEvent.registrations.candidates},${activeEvent.registrations.employers},${activeEvent.attendance.candidates},${activeEvent.attendance.employers},${activeEvent.interviews},${activeEvent.offers}`;
-        
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `${activeEvent.name}_report.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        toast.success("Event report downloaded successfully!");
-        setHasDownloaded(true);
-      } catch (fallbackErr) {
-        toast.error("Download failed. Please check network connection.");
-      }
+      toast.error("Download failed. Please check your database connection.");
     } finally {
       setIsDownloading(false);
     }
   };
 
-  // --- End Event Logic ---
+  // --- FULL WORKING END EVENT LOGIC ---
   const handleEndEvent = async () => {
     const activeEvent = liveEvents[activeIndex];
+    setIsEnding(true);
     try {
-      toast.success(`${activeEvent.name} has been officially ended and moved to history.`);
-      setIsEndModalOpen(false);
-      
-      const updatedEvents = liveEvents.filter((_, idx) => idx !== activeIndex);
-      setLiveEvents(updatedEvents);
-      setActiveIndex(0);
-      setHasDownloaded(false);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${activeEvent.id}/complete`, {
+          method: "PUT"
+      });
+      const json = await res.json();
+
+      if (json.success) {
+          toast.success(`${activeEvent.name} has been officially ended and moved to history.`);
+          setIsEndModalOpen(false);
+          
+          // Remove from local state
+          const updatedEvents = liveEvents.filter((_, idx) => idx !== activeIndex);
+          setLiveEvents(updatedEvents);
+          setActiveIndex(0);
+          setHasDownloaded(false);
+          setCrowdData([]);
+      } else {
+          toast.error(json.message || "Failed to end event.");
+      }
     } catch (error) {
-      toast.error("Failed to end event.");
+      toast.error("Network error while trying to end event.");
+    } finally {
+      setIsEnding(false);
     }
   };
 
+  // --- DYNAMIC ALERTS CALCULATION ---
+  const alerts = crowdData
+    .filter(c => parseInt(c.waitingCount) >= 3) // Alert triggers if 3 or more candidates are waiting
+    .sort((a, b) => parseInt(b.waitingCount) - parseInt(a.waitingCount))
+    .slice(0, 5); // Show top 5 worst queues
+
   if (isLoading) return <DashShell role="admin" nav={adminNav}><div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-navy" /><span className="ml-2 text-navy font-medium">Syncing live data...</span></div></DashShell>;
-  if (liveEvents.length === 0) return <DashShell role="admin" nav={adminNav}><PageHeader title="Live Event Monitoring" description="No events are currently live." /><Card className="p-12 text-center border-border/60"><Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" /><h2 className="text-xl font-display font-bold text-navy">System Standby</h2><p className="text-muted-foreground mt-2">Create and activate an event from the Event Management tab to see live analytics here.</p></Card></DashShell>;
+  if (liveEvents.length === 0) return <DashShell role="admin" nav={adminNav}><PageHeader title="Live Event Monitoring" description="No events are currently live." /><Card className="p-12 text-center border-border/60"><Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" /><h2 className="text-xl font-display font-bold text-navy">System Standby</h2><p className="text-muted-foreground mt-2">Activate an event from the Event Approvals tab to see live analytics here.</p></Card></DashShell>;
 
   const activeEvent = liveEvents[activeIndex];
   const totalAttendance = activeEvent.attendance.candidates + activeEvent.attendance.employers;
@@ -160,39 +182,59 @@ function AdminHome() {
           trend={`${activeEvent.registrations.candidates} Candidates · ${activeEvent.registrations.employers} Employers`} 
         />
         <StatCard 
-          label="Attendance" 
+          label="Attendance Check-ins" 
           value={<Counter to={totalAttendance} /> as unknown as string} 
           icon={QrCode} 
           accent="saffron" 
           trend={`${activeEvent.attendance.candidates} Candidates · ${activeEvent.attendance.employers} Employers`} 
         />
-        <StatCard label="Interviews" value={<Counter to={activeEvent.interviews} /> as unknown as string} icon={MessageSquareHeart} accent="india-green" />
+        <StatCard label="Interviews Conducted" value={<Counter to={activeEvent.interviews} /> as unknown as string} icon={MessageSquareHeart} accent="india-green" />
         <StatCard label="Offers (Hired)" value={<Counter to={activeEvent.offers} /> as unknown as string} icon={Award} accent="india-green" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="p-6 border-border/60 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4"><h2 className="font-display font-bold text-navy">Activity by hour</h2><Activity className="h-5 w-5 text-india-green" /></div>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={liveData}>
-              <defs>
-                <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--saffron)" stopOpacity={0.7} /><stop offset="100%" stopColor="var(--saffron)" stopOpacity={0} /></linearGradient>
-                <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--india-green)" stopOpacity={0.7} /><stop offset="100%" stopColor="var(--india-green)" stopOpacity={0} /></linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis dataKey="t" axisLine={false} tickLine={false} />
-              <YAxis axisLine={false} tickLine={false} />
-              <Tooltip />
-              <Area type="monotone" dataKey="reg" stroke="var(--saffron)" fill="url(#g1)" name="Registrations" />
-              <Area type="monotone" dataKey="iv" stroke="var(--india-green)" fill="url(#g2)" name="Interviews" />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display font-bold text-navy">Live Stall Activity</h2>
+              <Activity className="h-5 w-5 text-india-green animate-pulse" />
+          </div>
+          {crowdData.length === 0 ? (
+              <div className="flex items-center justify-center h-[260px] text-muted-foreground">Waiting for stall activity data...</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={crowdData.slice(0, 10)}>
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
+                <XAxis dataKey="companyName" axisLine={false} tickLine={false} tick={{fontSize: 11}} width={100} />
+                <YAxis axisLine={false} tickLine={false} />
+                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '8px', border: '1px solid #e2e8f0'}} />
+                <Legend iconType="circle" />
+                <Bar dataKey="waitingCount" name="Candidates Waiting" fill="var(--saffron)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="completedCount" name="Interviews Completed" fill="var(--india-green)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+            </ResponsiveContainer>
+          )}
         </Card>
+        
         <Card className="p-6 border-border/60">
-          <div className="flex items-center justify-between mb-4"><h2 className="font-display font-bold text-navy">Alerts</h2><AlertTriangle className="h-5 w-5 text-destructive" /></div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-bold text-navy">Queue Alerts</h2>
+            <AlertTriangle className={alerts.length > 0 ? "h-5 w-5 text-destructive" : "h-5 w-5 text-slate-300"} />
+          </div>
           <div className="space-y-3 text-sm">
-            <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20"><p className="font-semibold text-destructive">High queue at Stall A-18</p><p className="text-xs text-muted-foreground mt-0.5">24 waiting · avg 18 min wait</p></div>
-            <div className="p-3 rounded-lg bg-saffron/5 border border-saffron/30"><p className="font-semibold text-navy">2 panellists delayed</p><p className="text-xs text-muted-foreground mt-0.5">Bosch · CNC Operator stall</p></div>
+            {alerts.length === 0 ? (
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-100 flex flex-col items-center text-center">
+                    <CheckCircle2 className="h-8 w-8 text-india-green/50 mb-2" />
+                    <p className="font-medium text-slate-600">All Clear</p>
+                    <p className="text-xs text-slate-500 mt-1">No major bottlenecks reported at any stalls currently.</p>
+                </div>
+            ) : (
+                alerts.map((alert, idx) => (
+                    <div key={idx} className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                        <p className="font-semibold text-destructive">High Queue: {alert.companyName}</p>
+                        <p className="text-xs text-slate-600 mt-0.5">{alert.waitingCount} candidates currently waiting.</p>
+                    </div>
+                ))
+            )}
           </div>
         </Card>
       </div>
@@ -221,7 +263,10 @@ function AdminHome() {
                  <Download className="h-4 w-4 mr-2" /> Download Data Now
                </Button>
             ) : (
-              <Button variant="destructive" onClick={handleEndEvent}>Confirm End Event</Button>
+              <Button variant="destructive" onClick={handleEndEvent} disabled={isEnding}>
+                  {isEnding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PowerOff className="h-4 w-4 mr-2" />}
+                  Confirm End Event
+              </Button>
             )}
           </DialogFooter>
         </DialogContent>
