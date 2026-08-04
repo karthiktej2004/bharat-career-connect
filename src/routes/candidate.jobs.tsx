@@ -265,8 +265,11 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
 function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onClose: () => void; onApply: () => void; onWithdraw: (id: number) => void }) {
   if (!job) return null;
 
-  const isApplied = job.hasApplied || job.has_applied || job.status?.toLowerCase() === "applied" || job.application_status?.toLowerCase() === "applied";
-  const isEventCompleted = job.event_status && job.event_status.toLowerCase() === "completed";
+  const isApplied = job.hasApplied || job.has_applied || job.application_status?.toLowerCase() === "applied";
+  const isEventCompleted = job.event_status && ["completed", "closed", "ended", "past", "finished"].includes(job.event_status.toLowerCase());
+  const isJobClosed = (job.job_status && ["closed", "inactive", "filled", "expired", "disabled"].includes(job.job_status.toLowerCase())) ||
+                      (job.status && ["closed", "inactive", "filled", "expired", "disabled"].includes(job.status.toLowerCase()));
+  const isClosedOrCompleted = isEventCompleted || isJobClosed;
 
   return (
     <Dialog open={!!job} onOpenChange={(open) => !open && onClose()}>
@@ -279,8 +282,10 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
             
-            {isEventCompleted ? (
-              <Button size="sm" disabled className="bg-red-50 text-red-600 border border-red-200 cursor-not-allowed">Event Completed</Button>
+            {isClosedOrCompleted ? (
+              <Button size="sm" disabled className="bg-red-50 text-red-600 border border-red-200 cursor-not-allowed font-medium">
+                {isJobClosed ? "Job Closed" : "Event Completed"}
+              </Button>
             ) : isApplied ? (
               <>
                 <Button variant="destructive" size="sm" onClick={() => onWithdraw(job.id)}>Withdraw Application</Button>
@@ -312,12 +317,17 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
               <h1 className="text-3xl font-display font-bold text-navy">{job.title}</h1>
               <p className="text-lg text-muted-foreground font-medium mt-1">{job.company || job.company_name} {job.recruiter ? `· Recruiter: ${job.recruiter}` : ""}</p>
               
-              {/* Event Connection Badge */}
-              {job.event_name && (
-                <Badge className={`mt-2 gap-1.5 px-2.5 py-1 ${isEventCompleted ? 'bg-red-50 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
-                  <CalendarDays className="h-3.5 w-3.5" /> Published via: {job.event_name} {isEventCompleted && "(Completed)"}
-                </Badge>
-              )}
+              {/* Event / Status Badges */}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {isJobClosed && (
+                  <Badge className="bg-red-100 text-red-700 border-red-200">Job Closed</Badge>
+                )}
+                {job.event_name && (
+                  <Badge className={`gap-1.5 px-2.5 py-1 ${isEventCompleted ? 'bg-red-50 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
+                    <CalendarDays className="h-3.5 w-3.5" /> Published via: {job.event_name} {isEventCompleted && "(Completed)"}
+                  </Badge>
+                )}
+              </div>
 
               <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-600">
                 <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-saffron" /> {job.location}</span>
@@ -646,13 +656,16 @@ function Jobs() {
       ) : (
         <div className="grid gap-4">
           {filtered.map((j) => {
-            const isApplied = j.hasApplied || j.has_applied || j.status?.toLowerCase() === "applied" || j.application_status?.toLowerCase() === "applied";
-            const isEventCompleted = j.event_status && j.event_status.toLowerCase() === "completed";
+            const isApplied = j.hasApplied || j.has_applied || j.application_status?.toLowerCase() === "applied";
+            const isEventCompleted = j.event_status && ["completed", "closed", "ended", "past", "finished"].includes(j.event_status.toLowerCase());
+            const isJobClosed = (j.job_status && ["closed", "inactive", "filled", "expired", "disabled"].includes(j.job_status.toLowerCase())) ||
+                                (j.status && ["closed", "inactive", "filled", "expired", "disabled"].includes(j.status.toLowerCase()));
+            const isClosedOrCompleted = isEventCompleted || isJobClosed;
 
             return (
               <Card 
                 key={j.id} 
-                className={`overflow-hidden card-hover border-border/60 cursor-pointer transition-shadow relative ${isEventCompleted ? 'bg-slate-50 opacity-75' : 'bg-white hover:shadow-md'}`}
+                className={`overflow-hidden card-hover border-border/60 cursor-pointer transition-shadow relative ${isClosedOrCompleted ? 'bg-slate-50 opacity-75' : 'bg-white hover:shadow-md'}`}
                 onClick={() => setViewingJob(j)}
               >
                 <div className="flex gap-4 flex-wrap md:flex-nowrap">
@@ -672,6 +685,11 @@ function Jobs() {
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="font-display font-bold text-navy text-lg group-hover:text-saffron transition-colors">{j.title}</h3>
                         <Badge variant="outline" className="bg-slate-50">{j.type || j.job_type || "Full-Time"}</Badge>
+                        
+                        {isJobClosed && (
+                          <Badge className="bg-red-100 text-red-700 border-red-200">Job Closed</Badge>
+                        )}
+                        
                         {j.event_name && (
                            <Badge className={`gap-1 rounded-sm ${isEventCompleted ? 'bg-red-50 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
                              <CalendarDays className="h-3 w-3"/> Event: {j.event_name} {isEventCompleted && "(Completed)"}
@@ -717,14 +735,14 @@ function Jobs() {
 
                       <Button 
                         size="sm" 
-                        className={`mt-1 w-full ${isEventCompleted ? "bg-slate-200 text-slate-500 hover:bg-slate-200 cursor-not-allowed" : isApplied ? "bg-slate-100 text-slate-500 hover:bg-slate-100 cursor-not-allowed" : "bg-navy text-white hover:bg-navy/90"}`} 
-                        disabled={isApplied || isEventCompleted}
+                        className={`mt-1 w-full ${isClosedOrCompleted ? "bg-slate-200 text-slate-500 hover:bg-slate-200 cursor-not-allowed font-medium" : isApplied ? "bg-slate-100 text-slate-500 hover:bg-slate-100 cursor-not-allowed" : "bg-navy text-white hover:bg-navy/90"}`} 
+                        disabled={isApplied || isClosedOrCompleted}
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          if (!isApplied && !isEventCompleted) setApplying(j); 
+                          if (!isApplied && !isClosedOrCompleted) setApplying(j); 
                         }}
                       >
-                        {isEventCompleted ? "Closed" : isApplied ? "Applied" : "Apply"}
+                        {isClosedOrCompleted ? (isJobClosed ? "Job Closed" : "Event Completed") : isApplied ? "Applied" : "Apply"}
                       </Button>
                     </div>
                   </div>
