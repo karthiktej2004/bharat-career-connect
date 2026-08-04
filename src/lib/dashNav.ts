@@ -69,7 +69,6 @@ export const adminNav: NavItem[] = [
   { to: "/admin/interviews", label: "Interview Control", icon: ClipboardList },
   { to: "/admin/qr", label: "QR & Entry", icon: QrCode },
   { to: "/admin/notifications", label: "Notifications", icon: Megaphone },
-  { to: "/admin/reports", label: "Reports & Analytics", icon: FileBarChart2 },
   { to: "/admin/feedback", label: "Feedback & Grievance", icon: ShieldCheck },
   { to: "/admin/payments", label: "Payments & Billing", icon: Wallet },
   { to: "/admin/roles", label: "Roles & Access", icon: KeyRound },
