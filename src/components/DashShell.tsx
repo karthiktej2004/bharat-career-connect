@@ -15,7 +15,7 @@ export interface NavItem {
 }
 
 interface Props {
-  role: "candidate" | "employer" | "companyadmin" | "admin";
+  role: "candidate" | "employer" | "exhibitor" | "companyadmin" | "admin";
   nav: NavItem[];
   children: ReactNode;
 }
@@ -23,6 +23,7 @@ interface Props {
 const roleColors = {
   candidate: { accent: "bg-saffron text-navy", label: "Candidate" },
   employer: { accent: "bg-india-green text-white", label: "Employer" },
+  exhibitor: { accent: "bg-india-green text-white", label: "Exhibitor" }, // Added Exhibitor with Green Accent
   companyadmin: { accent: "bg-navy text-white", label: "Admin" },
   admin: { accent: "bg-navy text-white", label: "Admin" },
 };
@@ -34,10 +35,9 @@ export function DashShell({ role, nav, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ==========================================
-  // 🚀 SMART ROUTE PROTECTION LOGIC (Fixes the 'role' error)
+  // 🚀 SMART ROUTE PROTECTION LOGIC
   // ==========================================
   useEffect(() => {
-    // We use 'any' here to stop TypeScript from throwing a strict type error on the 'role' word
     const u: any = getSession(); 
     
     if (!u) {
@@ -50,6 +50,8 @@ export function DashShell({ role, nav, children }: Props) {
         navigate({ to: "/admin" });
       } else if (u.role === 'employer') {
         navigate({ to: "/employer" });
+      } else if (u.role === 'exhibitor') {
+        navigate({ to: "/exhibitor" });
       } else {
         navigate({ to: "/candidate" });
       }
