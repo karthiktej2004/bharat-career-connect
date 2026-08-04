@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Menu, X, Globe, GraduationCap, Building2 } from "lucide-react";
+import { Menu, X, Globe, GraduationCap, Building2, Store } from "lucide-react";
 import { Logo, TricolorBar } from "./Brand";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -11,6 +11,7 @@ const nav = [
   { to: "/about", label: "About" },
   { to: "/for-candidates", label: "For Candidates" },
   { to: "/for-employers", label: "For Employers" },
+  { to: "/for-exhibitors", label: "For Exhibitors" }, // <-- Added For Exhibitors
   { to: "/events", label: "Events" },
   { to: "/contact", label: "Contact" },
 ];
@@ -37,8 +38,9 @@ export function SiteHeader() {
 
   const dashHref =
     user?.role === "superadmin" ? "/admin"
-    : user?.role === "admin" ? "/company-admin"
-    : user?.role === "employer" ? "/company-admin"
+    : user?.role === "admin" ? "/admin"
+    : user?.role === "employer" ? "/employer"
+    : user?.role === "exhibitor" ? "/exhibitor"
     : user?.role === "candidate" ? "/candidate"
     : "/auth/login";
 
@@ -130,6 +132,14 @@ export function SiteHeader() {
               <p className="text-xs text-navy/70 font-normal">Hiring talent for your organization</p>
             </div>
           </Button>
+          {/* --- NEW EXHIBITOR BUTTON --- */}
+          <Button onClick={() => { setRegisterOpen(false); navigate({ to: "/register-exhibitor" }); }} className="h-auto py-4 bg-india-green text-white hover:bg-india-green/90 justify-start gap-3 px-4">
+            <Store className="h-6 w-6 shrink-0" />
+            <div className="text-left">
+              <p className="font-semibold">Exhibitor</p>
+              <p className="text-xs text-white/90 font-normal">Showcase your brand and products</p>
+            </div>
+          </Button>
         </div>
         <p className="text-xs text-center text-muted-foreground mt-1">
           Already have an account? <button onClick={() => { setRegisterOpen(false); navigate({ to: "/auth/login" }); }} className="text-saffron font-medium underline">Sign in</button>
@@ -162,6 +172,7 @@ export function SiteFooter() {
           <ul className="space-y-2 text-sm text-white/70">
             <li><Link to="/for-candidates" className="hover:text-saffron">For Candidates</Link></li>
             <li><Link to="/for-employers" className="hover:text-saffron">For Employers</Link></li>
+            <li><Link to="/for-exhibitors" className="hover:text-saffron">For Exhibitors</Link></li> {/* <-- Added For Exhibitors */}
             <li><Link to="/events" className="hover:text-saffron">Events</Link></li>
             <li><Link to="/about" className="hover:text-saffron">About</Link></li>
           </ul>
