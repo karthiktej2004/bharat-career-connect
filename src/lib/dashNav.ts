@@ -32,7 +32,8 @@ import {
   Ticket,
   CalendarDays,
   UsersRound,
-  Store // <-- Added for Exhibitors
+  Store,
+  Bell
 } from "lucide-react";
 import type { NavItem } from "@/components/DashShell";
 
@@ -57,6 +58,17 @@ export const employerNav: NavItem[] = [
   { to: "/employer/event-queue", label: "Live Queue", icon: Ticket },
   { to: "/employer/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/employer/feedback", label: "Feedback", icon: MessageSquare },
+];
+
+// --- NEW EXHIBITOR PANEL NAV ---
+export const exhibitorNav: NavItem[] = [
+  { to: "/exhibitor", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/exhibitor/profile", label: "Profile", icon: Store },
+  { to: "/exhibitor/events", label: "Events", icon: CalendarRange },
+  { to: "/exhibitor/representatives", label: "Representatives", icon: UsersRound },
+  { to: "/exhibitor/branding", label: "Branding & Promotion", icon: Megaphone },
+  { to: "/exhibitor/leads", label: "Visitor Leads", icon: QrCode },
+  { to: "/exhibitor/notifications", label: "Notifications", icon: Bell },
 ];
 
 export const adminNav: NavItem[] = [
