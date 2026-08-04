@@ -22,7 +22,7 @@ function EventApprovals() {
   const fetchData = async () => {
     try {
       const [appsRes, eventsRes] = await Promise.all([
-        fetch("http://15.207.249.155:5000/api/admin/stall-applications"),
+        fetch("http://15.207.249.155:5000/api/admin/stall_applications"),
         fetch("http://15.207.249.155:5000/api/admin/events")
       ]);
       const appsJson = await appsRes.json();
@@ -43,10 +43,12 @@ function EventApprovals() {
 
   const handleApprove = async (id: number, employerName: string) => {
     try {
-      const res = await fetch(`http://15.207.249.155:5000/api/admin/stall-applications/${id}/approve`, { method: "PUT" });
+      const res = await fetch(`http://15.207.249.155:5000/api/admin/stall_applications/${id}/approve`, { method: "PUT" });
       if (res.ok) {
         toast.success(`${employerName} approved successfully.`);
         fetchData();
+      } else {
+        toast.error(`Backend returned ${res.status}: Endpoint is missing on the server.`);
       }
     } catch (e) {
       toast.error("Approval transition failed");
@@ -56,10 +58,12 @@ function EventApprovals() {
   const handleReject = async (id: number, employerName: string) => {
     if (!confirm(`Reject ${employerName}?`)) return;
     try {
-      const res = await fetch(`http://15.207.249.155:5000/api/admin/stall-applications/${id}/reject`, { method: "PUT" });
+      const res = await fetch(`http://15.207.249.155:5000/api/admin/stall_applications/${id}/reject`, { method: "PUT" });
       if (res.ok) {
         toast.success(`${employerName} application marked as rejected`);
         fetchData();
+      } else {
+        toast.error(`Backend returned ${res.status}: Endpoint is missing on the server.`);
       }
     } catch (e) {
       toast.error("Rejection step failed");
