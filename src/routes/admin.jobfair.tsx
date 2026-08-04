@@ -22,7 +22,8 @@ function EventApprovals() {
   const fetchData = async () => {
     try {
       const [appsRes, eventsRes] = await Promise.all([
-        fetch("http://15.207.249.155:5000/api/admin/stall_applications"),
+        // FIXED: Reverted back to hyphen so it matches the backend route
+        fetch("http://15.207.249.155:5000/api/admin/stall-applications"),
         fetch("http://15.207.249.155:5000/api/admin/events")
       ]);
       const appsJson = await appsRes.json();
@@ -70,7 +71,7 @@ function EventApprovals() {
     }
   };
 
-  // 1. Filter out applications where the associated event is marked as "completed"
+  // Filter out applications where the associated event is marked as "completed"
   const filteredApps = apps.filter((a) => {
     const relatedEvent = events.find((ev) => ev.id === a.eventId);
     return relatedEvent && relatedEvent.status?.toLowerCase() !== 'completed';
@@ -97,7 +98,6 @@ function EventApprovals() {
             <Card className="p-4 mb-6 border-border/60">
               <h3 className="font-display font-bold text-navy text-sm mb-2">Stall Allocation Shortcuts</h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {/* We also filter out completed events from the shortcuts */}
                 {events.filter(ev => ev.status?.toLowerCase() !== 'completed').map((ev) => (
                   <Link key={ev.id} to="/admin/allocation/$eventId" params={{ eventId: ev.id.toString() }} search={{ tab: "company" }} className="p-3 rounded-lg border border-border hover:border-navy hover:bg-navy/5 transition flex items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -158,7 +158,6 @@ function EventApprovals() {
                     <TableCell>
                       {a.status === "pending" ? (
                         <div className="flex gap-2">
-                          {/* 2. Text buttons instead of icons */}
                           <Button 
                             size="sm" 
                             className="bg-india-green text-white hover:bg-india-green/90 font-medium" 
