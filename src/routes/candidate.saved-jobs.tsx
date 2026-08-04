@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { getSession, getCompanyLogo } from "@/lib/mockStore";
-import { BookmarkMinus, MapPin, Briefcase, Banknote, ArrowRight, Loader2, Bookmark, Check, FileText, CheckCircle2, Building2, CalendarDays, Clock, Sparkles, ListChecks } from "lucide-react";
+import { getSession } from "@/lib/mockStore";
+import { BookmarkMinus, MapPin, Briefcase, Banknote, ArrowRight, Loader2, Bookmark, Check, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/candidate/saved-jobs")({
@@ -145,6 +145,10 @@ function LiveApplyDialog({ job, onClose, onSuccess }: { job: any; onClose: () =>
                       <p className="font-bold text-navy">{newResume?.name || profile?.resumeFileName || "Generated_Profile_Resume.pdf"}</p>
                     </div>
                   </div>
+                  <Label className="cursor-pointer shrink-0 border border-border bg-white hover:bg-slate-100 text-navy px-3 py-1.5 rounded-md text-xs font-medium transition-colors">
+                    Change Resume
+                    <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => { if(e.target.files?.[0]) { setNewResume(e.target.files[0]); toast.success("Resume updated."); } }} />
+                  </Label>
                 </div>
               </div>
             )}
@@ -229,6 +233,18 @@ function SavedJobs() {
     );
   };
 
+  // 🚨 AGGRESSIVE FRONTEND FILTER 🚨
+  // Even if the backend sends a closed job, the frontend will forcefully delete it here!
+  const activeSavedJobs = savedJobs.filter((job) => {
+    const jbStat = String(job.job_status || "").toLowerCase().replace(/[^a-z]/g, '');
+    const evStat = String(job.event_status || "").toLowerCase().replace(/[^a-z]/g, '');
+
+    if (jbStat && ['closed', 'inactive', 'deleted', 'filled', 'expired'].includes(jbStat)) return false;
+    if (evStat && ['completed', 'closed', 'past', 'ended'].includes(evStat)) return false;
+    
+    return true;
+  });
+
   return (
     <DashShell role="candidate" nav={candidateNav}>
       <PageHeader 
@@ -240,19 +256,19 @@ function SavedJobs() {
         <h2 className="text-lg font-bold text-navy flex items-center gap-2">
           <Bookmark className="h-5 w-5 text-saffron fill-saffron/20" /> Bookmarked Positions
         </h2>
-        <Badge variant="outline" className="bg-white">{savedJobs.length} Job{savedJobs.length !== 1 ? 's' : ''} Saved</Badge>
+        <Badge variant="outline" className="bg-white">{activeSavedJobs.length} Job{activeSavedJobs.length !== 1 ? 's' : ''} Saved</Badge>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-saffron" /></div>
-      ) : savedJobs.length === 0 ? (
+      ) : activeSavedJobs.length === 0 ? (
         <Card className="flex flex-col items-center justify-center py-20 px-4 text-center border-dashed border-2">
           <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
             <BookmarkMinus className="h-8 w-8 text-slate-400" />
           </div>
-          <h3 className="text-xl font-bold text-navy mb-2">No jobs saved yet</h3>
+          <h3 className="text-xl font-bold text-navy mb-2">No active jobs saved</h3>
           <p className="text-muted-foreground mb-6 max-w-md">
-            You haven't bookmarked any opportunities. Browse available roles and click the save icon to keep track of jobs you're interested in.
+            Any jobs you previously saved might have been closed by the employer. Browse new active roles!
           </p>
           <Button asChild className="bg-navy hover:bg-navy/90 text-white">
             <Link to="/candidate/jobs">Explore Jobs</Link>
@@ -260,7 +276,7 @@ function SavedJobs() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {savedJobs.map((job) => {
+          {activeSavedJobs.map((job) => {
             const isApplied = job.has_applied === true;
             
             return (
