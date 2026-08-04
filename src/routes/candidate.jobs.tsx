@@ -266,6 +266,7 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
   if (!job) return null;
 
   const isApplied = job.hasApplied || job.has_applied || job.status?.toLowerCase() === "applied" || job.application_status?.toLowerCase() === "applied";
+  const isEventCompleted = job.event_status && job.event_status.toLowerCase() === "completed";
 
   return (
     <Dialog open={!!job} onOpenChange={(open) => !open && onClose()}>
@@ -278,7 +279,9 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
             
-            {isApplied ? (
+            {isEventCompleted ? (
+              <Button size="sm" disabled className="bg-red-50 text-red-600 border border-red-200 cursor-not-allowed">Event Completed</Button>
+            ) : isApplied ? (
               <>
                 <Button variant="destructive" size="sm" onClick={() => onWithdraw(job.id)}>Withdraw Application</Button>
                 <Button size="sm" disabled className="bg-slate-100 text-slate-500 cursor-not-allowed">Applied</Button>
@@ -311,8 +314,8 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
               
               {/* Event Connection Badge */}
               {job.event_name && (
-                <Badge className="mt-2 bg-indigo-50 text-indigo-700 border-indigo-200 gap-1.5 px-2.5 py-1">
-                  <CalendarDays className="h-3.5 w-3.5" /> Published via: {job.event_name}
+                <Badge className={`mt-2 gap-1.5 px-2.5 py-1 ${isEventCompleted ? 'bg-red-50 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
+                  <CalendarDays className="h-3.5 w-3.5" /> Published via: {job.event_name} {isEventCompleted && "(Completed)"}
                 </Badge>
               )}
 
@@ -644,11 +647,12 @@ function Jobs() {
         <div className="grid gap-4">
           {filtered.map((j) => {
             const isApplied = j.hasApplied || j.has_applied || j.status?.toLowerCase() === "applied" || j.application_status?.toLowerCase() === "applied";
+            const isEventCompleted = j.event_status && j.event_status.toLowerCase() === "completed";
 
             return (
               <Card 
                 key={j.id} 
-                className="overflow-hidden card-hover border-border/60 bg-white cursor-pointer transition-shadow hover:shadow-md relative"
+                className={`overflow-hidden card-hover border-border/60 cursor-pointer transition-shadow relative ${isEventCompleted ? 'bg-slate-50 opacity-75' : 'bg-white hover:shadow-md'}`}
                 onClick={() => setViewingJob(j)}
               >
                 <div className="flex gap-4 flex-wrap md:flex-nowrap">
@@ -669,7 +673,9 @@ function Jobs() {
                         <h3 className="font-display font-bold text-navy text-lg group-hover:text-saffron transition-colors">{j.title}</h3>
                         <Badge variant="outline" className="bg-slate-50">{j.type || j.job_type || "Full-Time"}</Badge>
                         {j.event_name && (
-                           <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 gap-1 rounded-sm"><CalendarDays className="h-3 w-3"/> Event: {j.event_name}</Badge>
+                           <Badge className={`gap-1 rounded-sm ${isEventCompleted ? 'bg-red-50 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
+                             <CalendarDays className="h-3 w-3"/> Event: {j.event_name} {isEventCompleted && "(Completed)"}
+                           </Badge>
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3">
@@ -711,14 +717,14 @@ function Jobs() {
 
                       <Button 
                         size="sm" 
-                        className={`mt-1 w-full ${isApplied ? "bg-slate-100 text-slate-500 hover:bg-slate-100 cursor-not-allowed" : "bg-navy text-white hover:bg-navy/90"}`} 
-                        disabled={isApplied}
+                        className={`mt-1 w-full ${isEventCompleted ? "bg-slate-200 text-slate-500 hover:bg-slate-200 cursor-not-allowed" : isApplied ? "bg-slate-100 text-slate-500 hover:bg-slate-100 cursor-not-allowed" : "bg-navy text-white hover:bg-navy/90"}`} 
+                        disabled={isApplied || isEventCompleted}
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          if (!isApplied) setApplying(j); 
+                          if (!isApplied && !isEventCompleted) setApplying(j); 
                         }}
                       >
-                        {isApplied ? "Applied" : "Apply"}
+                        {isEventCompleted ? "Closed" : isApplied ? "Applied" : "Apply"}
                       </Button>
                     </div>
                   </div>
