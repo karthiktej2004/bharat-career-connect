@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Briefcase, Users, CalendarCheck, Award, ArrowRight, TrendingUp, ShieldCheck, IdCard, Loader2 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { useEffect, useState } from "react";
+import { getSession } from "@/lib/mockStore";
 
 export const Route = createFileRoute("/employer/")({
   head: () => ({ meta: [{ title: "Employer Dashboard — Bharat Career Connect" }] }),
@@ -21,36 +22,22 @@ function EmployerHome() {
 
   useEffect(() => {
     try {
-      const keys = ["bcc_user", "user", "employer", "bcc_employer"];
-      let foundUser: any = null;
+      // Use the standard session utility to match the sidebar's accuracy
+      const user = getSession();
 
-      for (const key of keys) {
-        const item = localStorage.getItem(key);
-        if (item) {
-          try {
-            const parsed = JSON.parse(item);
-            const userData = parsed.data || parsed.user || parsed;
-            if (userData && (userData.id || userData.email)) {
-              foundUser = userData;
-              break;
-            }
-          } catch (e) {}
-        }
-      }
-
-      if (foundUser && foundUser.role === "candidate") {
+      if (!user) {
         navigate({ to: "/auth/login" });
         return;
       }
 
-      if (!foundUser) {
+      if (user.role === "candidate") {
         navigate({ to: "/auth/login" });
         return;
       }
 
-      setEmployerUser(foundUser);
+      setEmployerUser(user);
 
-      const activeId = foundUser.id ? foundUser.id.toString() : foundUser.email;
+      const activeId = user.id ? user.id.toString() : user.email;
       
       fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${activeId}/dashboard`)
         .then((res) => res.json())
@@ -98,8 +85,9 @@ function EmployerHome() {
     );
   }
 
-  const companyName = data?.profile?.company_name || employerUser?.company_name || employerUser?.name || "Company Profile Pending";
-  const contactEmail = data?.profile?.email || employerUser?.email || "N/A";
+  // PRIORITIZE THE LOCAL SESSION OVER THE DUMMY API DATA
+  const companyName = employerUser?.name || employerUser?.company_name || data?.profile?.company_name || "Company Profile Pending";
+  const contactEmail = employerUser?.email || data?.profile?.email || "N/A";
   const displayId = formatEmployerId(employerUser?.id);
 
   return (
