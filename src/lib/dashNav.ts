@@ -31,7 +31,8 @@ import {
   Bookmark,
   Ticket,
   CalendarDays,
-  UsersRound
+  UsersRound,
+  Store // <-- Added for Exhibitors
 } from "lucide-react";
 import type { NavItem } from "@/components/DashShell";
 
@@ -65,6 +66,7 @@ export const adminNav: NavItem[] = [
   { to: "/admin/candidates", label: "Candidate Management", icon: UserCog },
   { to: "/admin/event-candidates", label: "Event Candidates", icon: UsersRound },
   { to: "/admin/employers", label: "Employer Management", icon: BuildingIcon },
+  { to: "/admin/exhibitors", label: "Exhibitor Management", icon: Store },
   { to: "/admin/jobs", label: "Job Approvals", icon: Briefcase },
   { to: "/admin/interviews", label: "Interview Control", icon: ClipboardList },
   { to: "/admin/qr", label: "QR & Entry", icon: QrCode },
