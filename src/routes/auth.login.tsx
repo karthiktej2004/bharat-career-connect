@@ -8,16 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { setSession } from "@/lib/mockStore";
 import { toast } from "sonner";
-import { GraduationCap, Building2, ShieldCheck, ArrowLeft, AlertCircle, KeyRound, Eye, EyeOff } from "lucide-react";
+import { GraduationCap, Building2, ShieldCheck, ArrowLeft, AlertCircle, KeyRound, Eye, EyeOff, Store } from "lucide-react";
 
 export const Route = createFileRoute("/auth/login")({
-  head: () => ({ meta: [{ title: "Sign In — Bharat Career Connect" }, { name: "description", content: "Sign in as candidate or employer." }] }),
+  head: () => ({ meta: [{ title: "Sign In — Bharat Career Connect" }, { name: "description", content: "Sign in as candidate, employer, or exhibitor." }] }),
   component: LoginPage,
 });
 
 const ROLES = [
   { id: "candidate", label: "Candidate", icon: GraduationCap },
   { id: "employer", label: "Employer", icon: Building2 },
+  { id: "exhibitor", label: "Exhibitor", icon: Store },
 ] as const;
 
 type RoleId = (typeof ROLES)[number]["id"];
@@ -45,7 +46,9 @@ function LoginPage() {
     try {
       const baseUrl = import.meta.env.VITE_API_BASE_URL || "${import.meta.env.VITE_API_BASE_URL}"; 
       
-      const payload = role === "employer" 
+      const isCorporate = role === "employer" || role === "exhibitor";
+
+      const payload = isCorporate 
         ? { role, company_name: companyName, email: identifier.trim(), identifier: identifier.trim(), password }
         : { role, email: identifier.trim(), identifier: identifier.trim(), password };
 
@@ -78,11 +81,13 @@ function LoginPage() {
           window.location.href = "/candidate";
         } else if (json.data.role === 'employer') {
           window.location.href = "/employer"; 
+        } else if (json.data.role === 'exhibitor') {
+          window.location.href = "/exhibitor";
         }
       } else {
         setError(json.message);
       }
-    } catch (err) { // <-- This catch block was missing in the broken build
+    } catch (err) { 
       console.error("Login error:", err);
       setError("Server connection failed. Is the backend running?");
     } finally {
@@ -90,7 +95,7 @@ function LoginPage() {
     }
   };
 
-  const isEmployer = role === "employer";
+  const needsCompany = role === "employer" || role === "exhibitor";
 
   return (
     <div className="min-h-screen flex flex-col hero-gradient">
@@ -106,7 +111,8 @@ function LoginPage() {
           <h1 className="text-2xl font-display font-bold text-navy text-center">Welcome back</h1>
           <p className="text-sm text-muted-foreground text-center mt-1">Sign in to continue</p>
 
-          <div className="grid grid-cols-2 gap-2 mt-6">
+          {/* 3-Column Grid for Roles */}
+          <div className="grid grid-cols-3 gap-2 mt-6">
             {ROLES.map((r) => (
               <button
                 key={r.id}
@@ -127,7 +133,7 @@ function LoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="mt-6 space-y-4">
-            {isEmployer && (
+            {needsCompany && (
               <div>
                 <Label>Company Name</Label>
                 <Input required value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. Tata Consultancy Services" className="mt-1" />
@@ -135,8 +141,8 @@ function LoginPage() {
             )}
 
             <div>
-              <Label>{isEmployer ? "Work Email" : "Email or Mobile Number"}</Label>
-              <Input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={isEmployer ? "hr@company.com" : "you@email.com or 98xxxxxxxx"} className="mt-1" />
+              <Label>{needsCompany ? "Work Email" : "Email or Mobile Number"}</Label>
+              <Input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={needsCompany ? "contact@company.com" : "you@email.com or 98xxxxxxxx"} className="mt-1" />
             </div>
             
             <div>
@@ -167,10 +173,14 @@ function LoginPage() {
           </form>
 
           <div className="mt-6 text-sm text-center text-muted-foreground">
-            {role === "candidate" ? (
+            {role === "candidate" && (
               <p>New here? <Link to="/auth/signup" className="text-saffron font-medium hover:underline">Register as Candidate</Link></p>
-            ) : (
+            )}
+            {role === "employer" && (
               <p>New here? <Link to="/register-company" className="text-saffron font-medium hover:underline">Register as Employer</Link></p>
+            )}
+            {role === "exhibitor" && (
+              <p>New here? <Link to="/register-exhibitor" className="text-saffron font-medium hover:underline">Register as Exhibitor</Link></p>
             )}
           </div>
 
@@ -199,6 +209,7 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
   const [isLoading, setIsLoading] = useState(false);
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "${import.meta.env.VITE_API_BASE_URL}";
+  const isCorporate = currentRole === 'employer' || currentRole === 'exhibitor';
 
   function reset() {
     setStep("identify"); 
@@ -281,7 +292,7 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
             <KeyRound className="h-4 w-4" /> Reset your password
           </DialogTitle>
           <DialogDescription>
-            {step === "identify" && `Enter your registered ${currentRole === 'employer' ? 'Work Email' : 'Email or Mobile Number'} to receive an OTP.`}
+            {step === "identify" && `Enter your registered ${isCorporate ? 'Work Email' : 'Email or Mobile Number'} to receive an OTP.`}
             {step === "verify" && "Enter the OTP sent to your contact details (use 1234 for testing)."}
             {step === "reset" && "Create a new password for your account."}
           </DialogDescription>
@@ -289,8 +300,8 @@ function ForgotPasswordDialog({ currentRole, defaultIdentifier }: { currentRole:
 
         {step === "identify" && (
           <div className="space-y-3">
-            <Label>Registered {currentRole === 'employer' ? 'Email' : 'Email or Phone'}</Label>
-            <Input value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={currentRole === 'employer' ? "hr@company.com" : "you@email.com or 98xxxxxxxx"} />
+            <Label>Registered {isCorporate ? 'Email' : 'Email or Phone'}</Label>
+            <Input value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={isCorporate ? "contact@company.com" : "you@email.com or 98xxxxxxxx"} />
           </div>
         )}
 
