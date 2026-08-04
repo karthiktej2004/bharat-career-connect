@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, CalendarDays, MapPin, IndianRupee, Link as LinkIcon, PauseCircle, Trash2, Edit, Download, AlertTriangle, Loader2, PlayCircle, Briefcase, CheckCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Plus, MoreVertical, CalendarDays, MapPin, IndianRupee, Link as LinkIcon, PauseCircle, Trash2, Edit, Download, AlertTriangle, Loader2, PlayCircle, Briefcase, CheckCircle, Image as ImageIcon, Clock } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/events")({
@@ -33,7 +33,7 @@ function Events() {
 
   const fetchEvents = async () => {
     try {
-      const res = await fetch("http://15.207.249.155:5000/api/admin/events");
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`);
       const json = await res.json();
       if (json.success) setEvents(json.data);
     } catch (error) {
@@ -47,9 +47,18 @@ function Events() {
     fetchEvents();
   }, []);
 
+  // Sort events: Put completed at the bottom, otherwise sort by newest date
+  const sortedEvents = useMemo(() => {
+    return [...events].sort((a, b) => {
+      if (a.status === 'completed' && b.status !== 'completed') return 1;
+      if (a.status !== 'completed' && b.status === 'completed') return -1;
+      return new Date(b.event_date).getTime() - new Date(a.event_date).getTime();
+    });
+  }, [events]);
+
   const handleHoldEvent = async (id: number) => {
     try {
-      await fetch(`http://15.207.249.155:5000/api/admin/events/${id}/hold`, { method: "PUT" });
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${id}/hold`, { method: "PUT" });
       toast.warning("Event placed on Hold. Portal registration is now closed.");
       fetchEvents();
     } catch (error) {
@@ -60,7 +69,7 @@ function Events() {
   const handleMakeLive = async (id: number) => {
     if (!confirm("Are you sure you want to make this event live? It will become visible to candidates.")) return;
     try {
-      const res = await fetch(`http://15.207.249.155:5000/api/admin/events/${id}/live`, { method: "PUT" });
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${id}/live`, { method: "PUT" });
       const json = await res.json();
       if (json.success) {
         toast.success("Event is now live!");
@@ -76,7 +85,7 @@ function Events() {
   const handleMarkCompleted = async (id: number) => {
     if (!confirm("Are you sure you want to mark this event as completed?")) return;
     try {
-      const res = await fetch(`http://15.207.249.155:5000/api/admin/events/${id}/complete`, { method: "PUT" });
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${id}/complete`, { method: "PUT" });
       const json = await res.json();
       if (json.success) {
         toast.success("Event marked as completed!");
@@ -92,7 +101,7 @@ function Events() {
   const executeDelete = async () => {
     if (!deleteEvent) return;
     try {
-      await fetch(`http://15.207.249.155:5000/api/admin/events/${deleteEvent.id}`, { method: "DELETE" });
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${deleteEvent.id}`, { method: "DELETE" });
       toast.success(`${deleteEvent.name} has been deleted. Employers notified of 24-hour refund.`);
       setDeleteEvent(null);
       setHasDownloadedRefunds(false);
@@ -116,8 +125,8 @@ function Events() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Event</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead>Event Details</TableHead>
+              <TableHead>Date & Time</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Capacity</TableHead>
               <TableHead>Status</TableHead>
@@ -127,65 +136,91 @@ function Events() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto text-navy"/></TableCell></TableRow>
-            ) : events.length === 0 ? (
+            ) : sortedEvents.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">No events found.</TableCell></TableRow>
             ) : (
-              events.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell><p className="font-medium text-navy">{e.name}</p><p className="text-xs text-muted-foreground">{e.city}</p></TableCell>
-                  <TableCell className="text-sm">{e.event_date ? new Date(e.event_date).toLocaleDateString("en-IN") : "—"}</TableCell>
-                  <TableCell><Badge variant="outline">{e.event_type}</Badge></TableCell>
-                  <TableCell>
-                    <span className="font-medium">{e.registered_count || 0}</span>
-                    <span className="text-muted-foreground">/{e.employer_capacity}</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={
-                      e.status === "live" ? "bg-india-green text-white" : 
-                      e.status === "upcoming" ? "bg-saffron text-navy" : 
-                      e.status === "hold" ? "bg-amber-500 text-white" : 
-                      e.status === "completed" ? "bg-slate-700 text-white font-semibold" : 
-                      "bg-muted text-foreground"
-                    }>
-                      {e.status.toUpperCase()}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setJobsEvent(e)}>
-                          <Briefcase className="h-4 w-4 mr-2 text-blue-600"/> View Jobs
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem onClick={() => setEditingEvent(e)}>
-                          <Edit className="h-4 w-4 mr-2"/> Edit
-                        </DropdownMenuItem>
-                        
-                        {e.status !== 'live' && (
-                          <DropdownMenuItem onClick={() => handleMakeLive(e.id)}>
-                            <PlayCircle className="h-4 w-4 mr-2 text-india-green"/> Make Live
-                          </DropdownMenuItem>
+              sortedEvents.map((e) => {
+                const isCompleted = e.status === "completed";
+                return (
+                  <TableRow key={e.id} className={`transition-all ${isCompleted ? 'opacity-60 bg-slate-50 hover:bg-slate-100 grayscale-[30%]' : ''}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        {e.poster ? (
+                          <img src={e.poster} alt="Poster" className="w-12 h-12 rounded-md object-cover border border-border" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center border border-border">
+                            <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
+                          </div>
                         )}
+                        <div>
+                          <p className={`font-medium ${isCompleted ? 'text-slate-700' : 'text-navy'}`}>{e.name}</p>
+                          <p className="text-xs text-muted-foreground">{e.city}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <div className="font-medium">{e.event_date ? new Date(e.event_date).toLocaleDateString("en-IN") : "—"}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Clock className="h-3 w-3" /> {e.event_time || "TBD"}
+                      </div>
+                    </TableCell>
+                    <TableCell><Badge variant="outline">{e.event_type}</Badge></TableCell>
+                    <TableCell>
+                      <span className="font-medium">{e.registered_count || 0}</span>
+                      <span className="text-muted-foreground">/{e.employer_capacity}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={
+                        e.status === "live" ? "bg-india-green text-white" : 
+                        e.status === "upcoming" ? "bg-saffron text-navy" : 
+                        e.status === "hold" ? "bg-amber-500 text-white" : 
+                        isCompleted ? "bg-slate-700 text-white font-semibold" : 
+                        "bg-muted text-foreground"
+                      }>
+                        {e.status.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setJobsEvent(e)}>
+                            <Briefcase className="h-4 w-4 mr-2 text-blue-600"/> View Jobs
+                          </DropdownMenuItem>
 
-                        <DropdownMenuItem onClick={() => handleHoldEvent(e.id)}>
-                          <PauseCircle className="h-4 w-4 mr-2"/> Put on Hold
-                        </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditingEvent(e)}>
+                            <Edit className="h-4 w-4 mr-2"/> Edit
+                          </DropdownMenuItem>
+                          
+                          {e.status !== 'live' && e.status !== 'completed' && (
+                            <DropdownMenuItem onClick={() => handleMakeLive(e.id)}>
+                              <PlayCircle className="h-4 w-4 mr-2 text-india-green"/> Make Live
+                            </DropdownMenuItem>
+                          )}
 
-                        <DropdownMenuItem onClick={() => handleMarkCompleted(e.id)}>
-                          <CheckCircle className="h-4 w-4 mr-2 text-slate-700"/> Mark as Completed
-                        </DropdownMenuItem>
+                          {e.status !== 'completed' && (
+                              <DropdownMenuItem onClick={() => handleHoldEvent(e.id)}>
+                                <PauseCircle className="h-4 w-4 mr-2"/> Put on Hold
+                              </DropdownMenuItem>
+                          )}
 
-                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteEvent(e)}>
-                          <Trash2 className="h-4 w-4 mr-2"/> Delete Event
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                          {e.status !== 'completed' && (
+                              <DropdownMenuItem onClick={() => handleMarkCompleted(e.id)}>
+                                <CheckCircle className="h-4 w-4 mr-2 text-slate-700"/> Mark as Completed
+                              </DropdownMenuItem>
+                          )}
+
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteEvent(e)}>
+                            <Trash2 className="h-4 w-4 mr-2"/> Delete Event
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -235,7 +270,7 @@ function Events() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                          EVENT JOBS DIALOG                                 */
+/*                        EVENT JOBS DIALOG                                 */
 /* -------------------------------------------------------------------------- */
 function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }) {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -248,7 +283,7 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
   const fetchJobs = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://15.207.249.155:5000/api/admin/events/${event.id}/jobs`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${event.id}/jobs`);
       const json = await res.json();
       if (json.success) setJobs(json.data || json.jobs);
     } catch (error) {
@@ -267,7 +302,7 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
     if (!confirm(confirmMessage)) return;
 
     try {
-      const res = await fetch(`http://15.207.249.155:5000/api/admin/jobs/${jobId}/status`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/jobs/${jobId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
@@ -355,6 +390,19 @@ function EventJobsDialog({ event, onClose }: { event: any; onClose: () => void }
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*                        SHARED IMAGE UPLOAD HANDLER                       */
+/* -------------------------------------------------------------------------- */
+const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, upd: Function) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    if (file.size > 2 * 1024 * 1024) return toast.error("Image must be less than 2MB");
+    const reader = new FileReader();
+    reader.onloadend = () => upd("poster", reader.result as string);
+    reader.readAsDataURL(file);
+  }
+};
+
 /* EDIT EVENT DIALOG */
 function EditEventDialog({ event, onClose, refreshEvents }: { event: any; onClose: () => void; refreshEvents: () => void }) {
   const formatBackendDate = (dateStr: string) => {
@@ -365,19 +413,20 @@ function EditEventDialog({ event, onClose, refreshEvents }: { event: any; onClos
   const [f, setF] = useState({
     name: event.name || "",
     date: formatBackendDate(event.event_date),
+    time: event.event_time || "",
     type: event.event_type || "Physical",
     city: event.city || "",
     venue: event.venue_address || "",
     maps_link: event.google_maps_link || "",
     capacity: String(event.employer_capacity || ""),
     price: String(event.stall_price || ""),
+    poster: event.poster || "",
     desc: event.description || ""
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
   const upd = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
-  const isFormValid = Object.values(f).every(val => val.trim() !== "");
+  const isFormValid = f.name && f.date && f.time && f.city && f.venue;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -385,18 +434,20 @@ function EditEventDialog({ event, onClose, refreshEvents }: { event: any; onClos
     setIsSubmitting(true);
     
     try {
-      const res = await fetch(`http://15.207.249.155:5000/api/admin/events/${event.id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${event.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: f.name, 
           event_date: f.date, 
+          event_time: f.time,
           event_type: f.type, 
           city: f.city,
           venue_address: f.venue, 
           google_maps_link: f.maps_link,
           employer_capacity: f.capacity, 
           stall_price: f.price, 
+          poster: f.poster,
           description: f.desc
         })
       });
@@ -427,6 +478,7 @@ function EditEventDialog({ event, onClose, refreshEvents }: { event: any; onClos
           <div className="sm:col-span-2"><Label>Event Name *</Label><Input required value={f.name} onChange={(e) => upd("name", e.target.value)} className="mt-1" /></div>
           
           <div><Label>Date *</Label><Input required type="date" value={f.date} onChange={(e) => upd("date", e.target.value)} className="mt-1" /></div>
+          <div><Label>Time *</Label><Input required type="time" value={f.time} onChange={(e) => upd("time", e.target.value)} className="mt-1" /></div>
           
           <div><Label>Type *</Label>
             <Select value={f.type} onValueChange={(v) => upd("type", v)}>
@@ -442,10 +494,10 @@ function EditEventDialog({ event, onClose, refreshEvents }: { event: any; onClos
           <div><Label>City *</Label><Input required value={f.city} onChange={(e) => upd("city", e.target.value)} className="mt-1" /></div>
           
           <div>
-            <Label>Google Maps Link *</Label>
+            <Label>Google Maps Link</Label>
             <div className="relative">
               <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input required className="pl-9 mt-1" value={f.maps_link} onChange={(e) => upd("maps_link", e.target.value)} />
+              <Input className="pl-9 mt-1" value={f.maps_link} onChange={(e) => upd("maps_link", e.target.value)} />
             </div>
           </div>
           
@@ -457,14 +509,20 @@ function EditEventDialog({ event, onClose, refreshEvents }: { event: any; onClos
             </div>
           </div>
           
-          <div><Label>Employer Capacity (Stalls) *</Label><Input required type="number" min="1" value={f.capacity} onChange={(e) => upd("capacity", e.target.value)} className="mt-1" /></div>
+          <div><Label>Employer Capacity (Stalls)</Label><Input type="number" min="1" value={f.capacity} onChange={(e) => upd("capacity", e.target.value)} className="mt-1" /></div>
           
           <div>
-            <Label>Stall Price (₹) *</Label>
+            <Label>Stall Price (₹)</Label>
             <div className="relative">
               <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input required type="number" min="0" className="pl-9 mt-1" value={f.price} onChange={(e) => upd("price", e.target.value)} />
+              <Input type="number" min="0" className="pl-9 mt-1" value={f.price} onChange={(e) => upd("price", e.target.value)} />
             </div>
+          </div>
+
+          <div className="sm:col-span-2">
+            <Label>Event Poster (Max 2MB)</Label>
+            <Input type="file" accept="image/*" className="mt-1 cursor-pointer" onChange={(e) => handleImageUpload(e, upd)} />
+            {f.poster && <div className="mt-2 p-2 border rounded-md bg-muted/30 w-max"><img src={f.poster} alt="Preview" className="h-24 w-auto rounded object-cover" /></div>}
           </div>
           
           <div className="sm:col-span-2"><Label>Description *</Label><Textarea required rows={3} value={f.desc} onChange={(e) => upd("desc", e.target.value)} className="mt-1" /></div>
@@ -483,11 +541,11 @@ function EditEventDialog({ event, onClose, refreshEvents }: { event: any; onClos
 
 /* CREATE EVENT DIALOG */
 function CreateEventDialog({ open, onOpenChange, refreshEvents }: { open: boolean; onOpenChange: (o: boolean) => void, refreshEvents: () => void }) {
-  const [f, setF] = useState({ name: "", date: "", type: "Physical", city: "", venue: "", maps_link: "", capacity: "", price: "", desc: "" });
+  const [f, setF] = useState({ name: "", date: "", time: "09:00", type: "Physical", city: "", venue: "", maps_link: "", capacity: "", price: "", poster: "", desc: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const upd = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
-  const isFormValid = Object.values(f).every(val => val.trim() !== "");
+  const isFormValid = f.name && f.date && f.time && f.city && f.venue;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -495,17 +553,29 @@ function CreateEventDialog({ open, onOpenChange, refreshEvents }: { open: boolea
     
     setIsSubmitting(true);
     try {
-      const res = await fetch("http://15.207.249.155:5000/api/admin/events", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(f)
+        body: JSON.stringify({
+          name: f.name, 
+          event_date: f.date, 
+          event_time: f.time,
+          event_type: f.type, 
+          city: f.city,
+          venue_address: f.venue, 
+          google_maps_link: f.maps_link,
+          employer_capacity: f.capacity, 
+          stall_price: f.price, 
+          poster: f.poster,
+          description: f.desc
+        })
       });
       
       const json = await res.json();
       if (json.success) {
         toast.success(`"${f.name}" successfully created!`);
         onOpenChange(false);
-        setF({ name: "", date: "", type: "Physical", city: "", venue: "", maps_link: "", capacity: "", price: "", desc: "" });
+        setF({ name: "", date: "", time: "09:00", type: "Physical", city: "", venue: "", maps_link: "", capacity: "", price: "", poster: "", desc: "" });
         refreshEvents();
       } else {
         toast.error(json.message || "Failed to create event");
@@ -522,12 +592,13 @@ function CreateEventDialog({ open, onOpenChange, refreshEvents }: { open: boolea
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-saffron" /> Create new event</DialogTitle>
-          <DialogDescription>Set up a new Udyoga Mela. Fill all details to activate the creation process.</DialogDescription>
+          <DialogDescription>Set up a new Udyoga Mela with date, time, and poster details.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid sm:grid-cols-2 gap-4 mt-4">
           <div className="sm:col-span-2"><Label>Event Name *</Label><Input required value={f.name} onChange={(e) => upd("name", e.target.value)} placeholder="Bengaluru Udyoga Mela 2026" className="mt-1" /></div>
           
           <div><Label>Date *</Label><Input required type="date" value={f.date} onChange={(e) => upd("date", e.target.value)} className="mt-1" /></div>
+          <div><Label>Time *</Label><Input required type="time" value={f.time} onChange={(e) => upd("time", e.target.value)} className="mt-1" /></div>
           
           <div><Label>Type *</Label>
             <Select value={f.type} onValueChange={(v) => upd("type", v)}>
@@ -543,10 +614,10 @@ function CreateEventDialog({ open, onOpenChange, refreshEvents }: { open: boolea
           <div><Label>City *</Label><Input required value={f.city} onChange={(e) => upd("city", e.target.value)} placeholder="Bengaluru" className="mt-1" /></div>
           
           <div>
-            <Label>Google Maps Link *</Label>
+            <Label>Google Maps Link</Label>
             <div className="relative">
               <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input required className="pl-9 mt-1" value={f.maps_link} onChange={(e) => upd("maps_link", e.target.value)} placeholder="https://maps.google.com/..." />
+              <Input className="pl-9 mt-1" value={f.maps_link} onChange={(e) => upd("maps_link", e.target.value)} placeholder="https://maps.google.com/..." />
             </div>
           </div>
           
@@ -558,14 +629,20 @@ function CreateEventDialog({ open, onOpenChange, refreshEvents }: { open: boolea
             </div>
           </div>
           
-          <div><Label>Employer Capacity (Stalls) *</Label><Input required type="number" min="1" value={f.capacity} onChange={(e) => upd("capacity", e.target.value)} placeholder="e.g. 50" className="mt-1" /></div>
+          <div><Label>Employer Capacity (Stalls)</Label><Input type="number" min="1" value={f.capacity} onChange={(e) => upd("capacity", e.target.value)} placeholder="e.g. 50" className="mt-1" /></div>
           
           <div>
-            <Label>Stall Price (₹) *</Label>
+            <Label>Stall Price (₹)</Label>
             <div className="relative">
               <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input required type="number" min="0" className="pl-9 mt-1" value={f.price} onChange={(e) => upd("price", e.target.value)} placeholder="15000" />
+              <Input type="number" min="0" className="pl-9 mt-1" value={f.price} onChange={(e) => upd("price", e.target.value)} placeholder="15000" />
             </div>
+          </div>
+
+          <div className="sm:col-span-2">
+            <Label>Event Poster (Max 2MB)</Label>
+            <Input type="file" accept="image/*" className="mt-1 cursor-pointer" onChange={(e) => handleImageUpload(e, upd)} />
+            {f.poster && <div className="mt-2 p-2 border rounded-md bg-muted/30 w-max"><img src={f.poster} alt="Preview" className="h-24 w-auto rounded object-cover" /></div>}
           </div>
           
           <div className="sm:col-span-2"><Label>Description *</Label><Textarea required rows={3} value={f.desc} onChange={(e) => upd("desc", e.target.value)} placeholder="Highlights, sponsors, participating sectors…" className="mt-1" /></div>
