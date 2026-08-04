@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Briefcase, Users, CalendarCheck, Award, ArrowRight, TrendingUp, ShieldCheck, IdCard, Loader2 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { useEffect, useState } from "react";
-import { getSession } from "@/lib/mockStore";
 
 export const Route = createFileRoute("/employer/")({
   head: () => ({ meta: [{ title: "Employer Dashboard — Bharat Career Connect" }] }),
@@ -22,22 +21,33 @@ function EmployerHome() {
 
   useEffect(() => {
     try {
-      // Use the standard session utility to match the sidebar's accuracy
-      const user = getSession();
+      // READ SECURELY DIRECTLY FROM LOCAL STORAGE (Bypassing all Mock Stores)
+      const keys = ["user", "bcc_user", "employer", "bcc_employer"];
+      let realUser: any = null;
 
-      if (!user) {
+      for (const key of keys) {
+        const item = localStorage.getItem(key);
+        if (item) {
+          try {
+            const parsed = JSON.parse(item);
+            const userData = parsed.data || parsed.user || parsed;
+            // Ensure this is an employer account before accepting it
+            if (userData && (userData.id || userData.email) && userData.role !== "candidate") {
+              realUser = userData;
+              break;
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (!realUser) {
         navigate({ to: "/auth/login" });
         return;
       }
 
-      if (user.role === "candidate") {
-        navigate({ to: "/auth/login" });
-        return;
-      }
+      setEmployerUser(realUser);
 
-      setEmployerUser(user);
-
-      const activeId = user.id ? user.id.toString() : user.email;
+      const activeId = realUser.id ? realUser.id.toString() : realUser.email;
       
       fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${activeId}/dashboard`)
         .then((res) => res.json())
@@ -54,13 +64,6 @@ function EmployerHome() {
       setIsLoading(false);
     }
   }, [navigate]);
-
-  const formatEmployerId = (id: string | number) => {
-    if (!id) return "N/A";
-    const numMatch = String(id).match(/\d+/);
-    const num = numMatch ? numMatch[0] : "1";
-    return `BCC-UMP-EMP-${num.padStart(9, "0")}`;
-  };
 
   const trend = data?.chartData?.map((d: any) => ({ d: d.day, v: d.applications })) || [
     { d: "Mon", v: 0 }, { d: "Tue", v: 0 }, { d: "Wed", v: 0 }, { d: "Thu", v: 0 }, { d: "Fri", v: 0 }, { d: "Sat", v: 0 }, { d: "Sun", v: 0 }
@@ -85,10 +88,12 @@ function EmployerHome() {
     );
   }
 
-  // PRIORITIZE THE LOCAL SESSION OVER THE DUMMY API DATA
+  // ACCURATE LIVE DATA DISPLAY
   const companyName = employerUser?.name || employerUser?.company_name || data?.profile?.company_name || "Company Profile Pending";
   const contactEmail = employerUser?.email || data?.profile?.email || "N/A";
-  const displayId = formatEmployerId(employerUser?.id);
+  
+  // Directly grab the perfectly formatted ID computed strictly by our new backend script
+  const displayId = data?.profile?.formattedId || "BCC-UMP-EMP-PENDING";
 
   return (
     <DashShell role="employer" nav={employerNav}>
