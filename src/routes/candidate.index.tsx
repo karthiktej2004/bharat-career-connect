@@ -13,21 +13,19 @@ export const Route = createFileRoute("/candidate/")({
   component: CandidateHome,
 });
 
-// Profile completion calculator based on the EXACT logic from Profile.tsx
+// Profile completion calculator matching database fields
 function computeCompletion(p: any): number {
   if (!p) return 0;
   
-  const hasAddress = p.currentAddress && Object.keys(p.currentAddress).length > 0 && !!p.currentAddress.pincode;
-  const hasSkills = (p.technicalSkills?.length || 0) > 0 || (p.nonTechnicalSkills?.length || 0) > 0;
+  const hasAddress = p.pincode || (p.currentAddress && Object.keys(p.currentAddress).length > 0);
+  const hasSkills = (p.skills?.length || 0) > 0 || (p.technicalSkills?.length || 0) > 0 || (p.nonTechnicalSkills?.length || 0) > 0;
   
   let hasLanguages = false;
   if (p.languagesFluent) {
     if (Array.isArray(p.languagesFluent)) {
       hasLanguages = p.languagesFluent.length > 0;
     } else {
-      hasLanguages = (p.languagesFluent.read?.length || 0) > 0 || 
-                     (p.languagesFluent.write?.length || 0) > 0 || 
-                     (p.languagesFluent.speak?.length || 0) > 0;
+      hasLanguages = true;
     }
   }
 
@@ -35,8 +33,7 @@ function computeCompletion(p: any): number {
     p.fullName, p.email, p.phone, p.dob, p.gender, p.category, 
     hasAddress, p.qualification, p.institution, p.yearOfPassing, 
     hasSkills, hasLanguages, p.experienceType, p.resumeFileName, 
-    (p.preferredLocations?.length || 0) > 0, 
-    (p.opportunities?.length || 0) > 0
+    (p.preferredLocations?.length || 0) > 0
   ];
 
   const filled = fields.filter(Boolean).length;
@@ -56,9 +53,6 @@ function CandidateHome() {
   
   const trackRef = useRef<HTMLDivElement>(null);
 
-  // ==========================================
-  // 🚀 REAL DATABASE FETCH ON DASHBOARD LOAD
-  // ==========================================
   useEffect(() => {
     async function fetchMyData() {
       const session = getSession(); 
@@ -68,12 +62,11 @@ function CandidateHome() {
       }
 
       try {
-        // Fetch profile using the dedicated profile route to get all fields for completion calculation
         const [pRes, jRes, aRes, eRes] = await Promise.all([
-          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/profile/${session.id}`),
-          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${session.id}/jobs`),
-          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${session.id}/applications`),
-          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/candidate/${session.id}/events`)
+          fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/profile/${session.id}`),
+          fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/${session.id}/jobs`),
+          fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/${session.id}/applications`),
+          fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/candidate/${session.id}/events`)
         ]);
 
         const [pJson, jJson, aJson, eJson] = await Promise.all([
@@ -110,24 +103,27 @@ function CandidateHome() {
     );
   }
 
-  // Calculate the completion percentage using the exact matched logic
   const profileCompletion = computeCompletion(profile);
   
-  // Safely extract skills for the UI stat card
-  const userSkills = [];
+  // 🚀 FIXED: Safely extract skills matching backend database column structure
+  const userSkills: string[] = [];
+  if (profile?.skills) {
+    if (Array.isArray(profile.skills)) {
+      userSkills.push(...profile.skills);
+    } else if (typeof profile.skills === 'string') {
+      try {
+        const parsed = JSON.parse(profile.skills);
+        if (Array.isArray(parsed)) userSkills.push(...parsed);
+      } catch (e) {
+        userSkills.push(...profile.skills.split(",").map((s: string) => s.trim()));
+      }
+    }
+  }
   if (profile?.technicalSkills && Array.isArray(profile.technicalSkills)) {
-      userSkills.push(...profile.technicalSkills);
+    userSkills.push(...profile.technicalSkills);
   }
   if (profile?.nonTechnicalSkills && Array.isArray(profile.nonTechnicalSkills)) {
-      userSkills.push(...profile.nonTechnicalSkills);
-  }
-  
-  function scrollTo(i: number) {
-    const el = trackRef.current;
-    if (!el) return;
-    const card = el.children[i] as HTMLElement | undefined;
-    if (card) el.scrollTo({ left: card.offsetLeft - 16, behavior: "smooth" });
-    setSlide(i);
+    userSkills.push(...profile.nonTechnicalSkills);
   }
 
   return (
@@ -281,10 +277,10 @@ function CandidateHome() {
                   <div className="min-w-0">
                     <h3 className="font-semibold text-navy truncate">{e.title || e.event_name}</h3>
                     <p className="text-xs text-muted-foreground mt-1 truncate">
-                      {new Date(e.event_date).toLocaleDateString("en-IN", { dateStyle: "medium" })} · {e.venue}
+                      {e.event_date ? new Date(e.event_date).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "Date TBD"} · {e.venue || e.venue_address || e.location}
                     </p>
                   </div>
-                  <Badge variant="outline" className="shrink-0">{e.type || "Fair"}</Badge>
+                  <Badge variant="outline" className="shrink-0">{e.type || e.event_type || "Fair"}</Badge>
                 </div>
                 <Button asChild size="sm" variant="outline" className="w-full mt-3">
                   <Link to="/candidate/events"><QrCode className="h-4 w-4 mr-1" /> View pass</Link>
