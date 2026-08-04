@@ -30,7 +30,8 @@ import {
   Sparkles, 
   Bookmark,
   Ticket,
-  CalendarDays
+  CalendarDays,
+  UsersRound
 } from "lucide-react";
 import type { NavItem } from "@/components/DashShell";
 
@@ -62,6 +63,7 @@ export const adminNav: NavItem[] = [
   { to: "/admin/events", label: "Event Management", icon: CalendarRange },
   { to: "/admin/jobfair", label: "Event Approvals", icon: Sparkles },
   { to: "/admin/candidates", label: "Candidate Management", icon: UserCog },
+  { to: "/admin/event-candidates", label: "Event Candidates", icon: UsersRound },
   { to: "/admin/employers", label: "Employer Management", icon: BuildingIcon },
   { to: "/admin/jobs", label: "Job Approvals", icon: Briefcase },
   { to: "/admin/interviews", label: "Interview Control", icon: ClipboardList },
