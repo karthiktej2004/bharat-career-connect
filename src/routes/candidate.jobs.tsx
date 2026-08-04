@@ -18,7 +18,6 @@ export const Route = createFileRoute("/candidate/jobs")({
   component: Jobs,
 });
 
-// Fixed static arrays so dropdowns NEVER disappear
 const LOCATIONS = ["Bengaluru", "Hyderabad", "Chennai", "Mumbai", "Delhi", "Kolkata", "Vizag", "Kochi", "Pune"];
 const JOB_TYPES = ["Trainee", "Intern", "Apprentice", "Full-Time", "Part-Time", "Contractor", "Freelancer", "Volunteer", "Consultant", "Vendor"];
 const SHIFTS = ["Day Shift", "Night shift", "Remote", "Hybrid", "On-Site", "Rotational"];
@@ -266,10 +265,6 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
   if (!job) return null;
 
   const isApplied = job.hasApplied || job.has_applied || job.application_status?.toLowerCase() === "applied";
-  const isEventCompleted = job.event_status && ["completed", "closed", "ended", "past", "finished"].includes(job.event_status.toLowerCase());
-  const isJobClosed = (job.job_status && ["closed", "inactive", "filled", "expired", "disabled"].includes(job.job_status.toLowerCase())) ||
-                      (job.status && ["closed", "inactive", "filled", "expired", "disabled"].includes(job.status.toLowerCase()));
-  const isClosedOrCompleted = isEventCompleted || isJobClosed;
 
   return (
     <Dialog open={!!job} onOpenChange={(open) => !open && onClose()}>
@@ -282,11 +277,7 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
             
-            {isClosedOrCompleted ? (
-              <Button size="sm" disabled className="bg-red-50 text-red-600 border border-red-200 cursor-not-allowed font-medium">
-                {isJobClosed ? "Job Closed" : "Event Completed"}
-              </Button>
-            ) : isApplied ? (
+            {isApplied ? (
               <>
                 <Button variant="destructive" size="sm" onClick={() => onWithdraw(job.id)}>Withdraw Application</Button>
                 <Button size="sm" disabled className="bg-slate-100 text-slate-500 cursor-not-allowed">Applied</Button>
@@ -317,17 +308,11 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
               <h1 className="text-3xl font-display font-bold text-navy">{job.title}</h1>
               <p className="text-lg text-muted-foreground font-medium mt-1">{job.company || job.company_name} {job.recruiter ? `· Recruiter: ${job.recruiter}` : ""}</p>
               
-              {/* Event / Status Badges */}
-              <div className="flex flex-wrap gap-2 mt-2">
-                {isJobClosed && (
-                  <Badge className="bg-red-100 text-red-700 border-red-200">Job Closed</Badge>
-                )}
-                {job.event_name && (
-                  <Badge className={`gap-1.5 px-2.5 py-1 ${isEventCompleted ? 'bg-red-50 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
-                    <CalendarDays className="h-3.5 w-3.5" /> Published via: {job.event_name} {isEventCompleted && "(Completed)"}
-                  </Badge>
-                )}
-              </div>
+              {job.event_name && (
+                <Badge className="mt-2 gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 border-indigo-200">
+                  <CalendarDays className="h-3.5 w-3.5" /> Published via: {job.event_name}
+                </Badge>
+              )}
 
               <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-600">
                 <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-saffron" /> {job.location}</span>
@@ -420,7 +405,6 @@ function Jobs() {
         
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
-            console.error("Backend returned HTML error instead of JSON.");
             toast.error("Server connection error.");
             setIsLoading(false);
             return;
@@ -434,7 +418,6 @@ function Jobs() {
           toast.error("Failed to load jobs.");
         }
       } catch (err) {
-        console.error("Failed to fetch jobs:", err);
         toast.error("Network error fetching jobs.");
       } finally {
         setIsLoading(false);
@@ -446,10 +429,7 @@ function Jobs() {
 
   const handleToggleSave = async (jobId: number) => {
     const session = getSession();
-    if (!session?.id) {
-      toast.error("Please log in to save jobs.");
-      return;
-    }
+    if (!session?.id) return toast.error("Please log in to save jobs.");
 
     setSavingId(jobId);
     try {
@@ -462,11 +442,7 @@ function Jobs() {
 
       if (json.success) {
         toast.success(json.message);
-        setJobs((prev) =>
-          prev.map((j) => (j.id === jobId ? { ...j, isSaved: json.saved } : j))
-        );
-      } else {
-        toast.error(json.message || "Failed to update saved job.");
+        setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, isSaved: json.saved } : j)));
       }
     } catch (err) {
       toast.error("Network error updating saved job.");
@@ -491,8 +467,6 @@ function Jobs() {
         if (viewingJob && viewingJob.id === jobId) {
           setViewingJob((prev: any) => ({ ...prev, hasApplied: false, has_applied: false, status: 'Open', application_status: null }));
         }
-      } else {
-        toast.error(json.message || "Failed to withdraw application.");
       }
     } catch (err) {
       toast.error("Network error withdrawing application.");
@@ -509,21 +483,13 @@ function Jobs() {
   };
 
   const resetFilters = () => {
-    setQ("");
-    setLocationFilter("all");
-    setTypeFilter("all");
-    setShiftFilter("all");
+    setQ(""); setLocationFilter("all"); setTypeFilter("all"); setShiftFilter("all");
   };
 
-  // --- DYNAMICALLY CALCULATE FILTER COUNTS DIRECTLY FROM LIVE DB DATA ---
   const filterCounts = useMemo(() => {
     const locs: Record<string, number> = {};
-
-    // Initialize all standard keys for locations
     LOCATIONS.forEach(l => locs[l.toLowerCase()] = 0);
-
     jobs.forEach(j => {
-      // Safely map locations, auto-correcting bangalore spelling
       if (j.location) {
         const jLocs = j.location.split(",").map((l: string) => l.trim().toLowerCase());
         jLocs.forEach((l: string) => {
@@ -534,24 +500,31 @@ function Jobs() {
         });
       }
     });
-
     return { locs };
   }, [jobs]);
 
-  // Tolerant filtering logic ensuring old database entries don't break the filters
   const filtered = useMemo(() => jobs.filter((j) => {
+    
+    // 🚨 THE BULLETPROOF FIX: COMPLETELY REMOVE FROM FEED 🚨
+    const evStatus = (j.event_status || "").toLowerCase().trim();
+    const jbStatus = (j.job_status || j.status || "").toLowerCase().trim();
+
+    const isEventCompleted = ["completed", "closed", "ended", "past", "finished"].includes(evStatus);
+    const isJobClosed = ["closed", "inactive", "filled", "expired", "disabled", "deleted"].includes(jbStatus);
+
+    // If the job or event is closed, completely hide it from the search feed!
+    if (isEventCompleted || isJobClosed) {
+      return false; 
+    }
+
     if (locationFilter !== "all") {
       const rawLoc = (j.location || "").toLowerCase();
       let matches = false;
       const target = locationFilter.toLowerCase();
       
-      if (target === "bengaluru" && (rawLoc.includes("bangalore") || rawLoc.includes("bengaluru") || rawLoc.includes("bengalore"))) {
-        matches = true;
-      } else if (target === "hyderabad" && (rawLoc.includes("hyderabd") || rawLoc.includes("hyderabad"))) {
-        matches = true;
-      } else if (rawLoc.includes(target)) {
-        matches = true;
-      }
+      if (target === "bengaluru" && (rawLoc.includes("bangalore") || rawLoc.includes("bengaluru") || rawLoc.includes("bengalore"))) matches = true;
+      else if (target === "hyderabad" && (rawLoc.includes("hyderabd") || rawLoc.includes("hyderabad"))) matches = true;
+      else if (rawLoc.includes(target)) matches = true;
       
       if (!matches) return false;
     }
@@ -590,13 +563,8 @@ function Jobs() {
             <SelectContent>
               <SelectItem value="all">All Locations</SelectItem>
               {LOCATIONS.map(loc => {
-                const key = loc.toLowerCase();
-                const count = filterCounts.locs[key] || 0;
-                return (
-                  <SelectItem key={loc} value={key}>
-                    {loc} {count >= 0 ? `(${count})` : ""}
-                  </SelectItem>
-                );
+                const count = filterCounts.locs[loc.toLowerCase()] || 0;
+                return <SelectItem key={loc} value={loc.toLowerCase()}>{loc} {count >= 0 ? `(${count})` : ""}</SelectItem>;
               })}
             </SelectContent>
           </Select>
@@ -605,14 +573,7 @@ function Jobs() {
             <SelectTrigger><SelectValue placeholder="Job Type" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              {JOB_TYPES.map(type => {
-                const key = type.toLowerCase().replace(/[- ]/g, "");
-                return (
-                  <SelectItem key={type} value={key}>
-                    {type}
-                  </SelectItem>
-                );
-              })}
+              {JOB_TYPES.map(type => <SelectItem key={type} value={type.toLowerCase().replace(/[- ]/g, "")}>{type}</SelectItem>)}
             </SelectContent>
           </Select>
 
@@ -620,18 +581,10 @@ function Jobs() {
             <SelectTrigger><SelectValue placeholder="Preferred Shift" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Shifts</SelectItem>
-              {SHIFTS.map(shift => {
-                const key = shift.toLowerCase().replace(/[- ]/g, "");
-                return (
-                  <SelectItem key={shift} value={key}>
-                    {shift}
-                  </SelectItem>
-                );
-              })}
+              {SHIFTS.map(shift => <SelectItem key={shift} value={shift.toLowerCase().replace(/[- ]/g, "")}>{shift}</SelectItem>)}
             </SelectContent>
           </Select>
 
-          {/* Quick Clear Filter Button if any filter is active */}
           {(q !== "" || locationFilter !== "all" || typeFilter !== "all" || shiftFilter !== "all") && (
             <div className="md:col-span-4 flex justify-end">
               <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-navy h-8 px-2 flex items-center gap-1.5">
@@ -657,15 +610,11 @@ function Jobs() {
         <div className="grid gap-4">
           {filtered.map((j) => {
             const isApplied = j.hasApplied || j.has_applied || j.application_status?.toLowerCase() === "applied";
-            const isEventCompleted = j.event_status && ["completed", "closed", "ended", "past", "finished"].includes(j.event_status.toLowerCase());
-            const isJobClosed = (j.job_status && ["closed", "inactive", "filled", "expired", "disabled"].includes(j.job_status.toLowerCase())) ||
-                                (j.status && ["closed", "inactive", "filled", "expired", "disabled"].includes(j.status.toLowerCase()));
-            const isClosedOrCompleted = isEventCompleted || isJobClosed;
 
             return (
               <Card 
                 key={j.id} 
-                className={`overflow-hidden card-hover border-border/60 cursor-pointer transition-shadow relative ${isClosedOrCompleted ? 'bg-slate-50 opacity-75' : 'bg-white hover:shadow-md'}`}
+                className="overflow-hidden card-hover border-border/60 bg-white cursor-pointer transition-shadow hover:shadow-md relative"
                 onClick={() => setViewingJob(j)}
               >
                 <div className="flex gap-4 flex-wrap md:flex-nowrap">
@@ -685,15 +634,8 @@ function Jobs() {
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="font-display font-bold text-navy text-lg group-hover:text-saffron transition-colors">{j.title}</h3>
                         <Badge variant="outline" className="bg-slate-50">{j.type || j.job_type || "Full-Time"}</Badge>
-                        
-                        {isJobClosed && (
-                          <Badge className="bg-red-100 text-red-700 border-red-200">Job Closed</Badge>
-                        )}
-                        
                         {j.event_name && (
-                           <Badge className={`gap-1 rounded-sm ${isEventCompleted ? 'bg-red-50 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
-                             <CalendarDays className="h-3 w-3"/> Event: {j.event_name} {isEventCompleted && "(Completed)"}
-                           </Badge>
+                           <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 gap-1 rounded-sm"><CalendarDays className="h-3 w-3"/> Event: {j.event_name}</Badge>
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3">
@@ -735,14 +677,14 @@ function Jobs() {
 
                       <Button 
                         size="sm" 
-                        className={`mt-1 w-full ${isClosedOrCompleted ? "bg-slate-200 text-slate-500 hover:bg-slate-200 cursor-not-allowed font-medium" : isApplied ? "bg-slate-100 text-slate-500 hover:bg-slate-100 cursor-not-allowed" : "bg-navy text-white hover:bg-navy/90"}`} 
-                        disabled={isApplied || isClosedOrCompleted}
+                        className={`mt-1 w-full ${isApplied ? "bg-slate-100 text-slate-500 hover:bg-slate-100 cursor-not-allowed" : "bg-navy text-white hover:bg-navy/90"}`} 
+                        disabled={isApplied}
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          if (!isApplied && !isClosedOrCompleted) setApplying(j); 
+                          if (!isApplied) setApplying(j); 
                         }}
                       >
-                        {isClosedOrCompleted ? (isJobClosed ? "Job Closed" : "Event Completed") : isApplied ? "Applied" : "Apply"}
+                        {isApplied ? "Applied" : "Apply"}
                       </Button>
                     </div>
                   </div>
