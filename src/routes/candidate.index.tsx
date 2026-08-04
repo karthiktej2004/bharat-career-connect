@@ -13,6 +13,7 @@ export const Route = createFileRoute("/candidate/")({
   component: CandidateHome,
 });
 
+// Profile completion calculator matching database fields
 function computeCompletion(p: any): number {
   if (!p) return 0;
   
@@ -45,6 +46,7 @@ function CandidateHome() {
   const [slide, setSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Real database states
   const [jobs, setJobs] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
@@ -103,16 +105,16 @@ function CandidateHome() {
 
   const profileCompletion = computeCompletion(profile);
   
-  // Extract and combine all skills cleanly from technical, non-technical, and general arrays
+  // 🚀 FIXED: Aggregates skills from 'skills', 'technicalSkills', and 'nonTechnicalSkills' properly
   const userSkills: string[] = [];
+  if (profile?.skills && Array.isArray(profile.skills)) {
+    userSkills.push(...profile.skills);
+  }
   if (profile?.technicalSkills && Array.isArray(profile.technicalSkills)) {
     userSkills.push(...profile.technicalSkills);
   }
   if (profile?.nonTechnicalSkills && Array.isArray(profile.nonTechnicalSkills)) {
     userSkills.push(...profile.nonTechnicalSkills);
-  }
-  if (profile?.skills && Array.isArray(profile.skills)) {
-    userSkills.push(...profile.skills);
   }
 
   return (
@@ -161,7 +163,7 @@ function CandidateHome() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
         <StatCard label="Profile" value={`${profileCompletion}%`} icon={IdCard} accent="india-green" trend={profileCompletion >= 100 ? "Complete" : "Keep going"} />
-        <StatCard label="Skills" value={String(userSkills.length)} icon={Sparkles} accent="navy" trend={userSkills.slice(0, 2).join(", ") || "Add skills"} />
+        <StatCard label="Skills" value={String(userSkills.length)} icon={Sparkles} accent="navy" trend={userSkills.join(", ") || "Add skills"} />
         <StatCard label="Qualification" value={profile?.qualification ? profile.qualification.split(" ")[0] : "—"} icon={GraduationCap} />
         <StatCard label="Experience" value={profile?.experienceType === "Experienced" ? `${profile.yearsOfExperience || "1"} yr` : profile?.experienceType || "Fresher"} icon={Briefcase} accent="india-green" />
       </div>
