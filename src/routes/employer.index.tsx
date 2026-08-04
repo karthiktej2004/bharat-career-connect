@@ -21,9 +21,10 @@ function EmployerHome() {
 
   useEffect(() => {
     try {
-      // READ SECURELY DIRECTLY FROM LOCAL STORAGE (Bypassing all Mock Stores)
-      const keys = ["user", "bcc_user", "employer", "bcc_employer"];
-      let realUser: any = null;
+      // Prioritize live login keys over mock fallback keys
+      const keys = ["user", "employer", "bcc_employer", "bcc_user"];
+      let foundUser: any = null;
+      let mockFallback: any = null;
 
       for (const key of keys) {
         const item = localStorage.getItem(key);
@@ -31,23 +32,31 @@ function EmployerHome() {
           try {
             const parsed = JSON.parse(item);
             const userData = parsed.data || parsed.user || parsed;
-            // Ensure this is an employer account before accepting it
             if (userData && (userData.id || userData.email) && userData.role !== "candidate") {
-              realUser = userData;
+              // Ignore static mock user if a real session exists
+              if (userData.email === "bharatcareerconnect@gmail.com") {
+                mockFallback = userData;
+                continue;
+              }
+              foundUser = userData;
               break;
             }
           } catch (e) {}
         }
       }
 
-      if (!realUser) {
+      // If no live login was found, fall back to mock session
+      const activeUser = foundUser || mockFallback;
+
+      if (!activeUser) {
         navigate({ to: "/auth/login" });
         return;
       }
 
-      setEmployerUser(realUser);
+      setEmployerUser(activeUser);
 
-      const activeId = realUser.id ? realUser.id.toString() : realUser.email;
+      // Fetch dashboard using logged-in email or numeric ID
+      const activeId = activeUser.email || activeUser.id;
       
       fetch(`${import.meta.env.VITE_API_BASE_URL}/api/employer/${activeId}/dashboard`)
         .then((res) => res.json())
@@ -64,6 +73,13 @@ function EmployerHome() {
       setIsLoading(false);
     }
   }, [navigate]);
+
+  const formatEmployerId = (id: string | number) => {
+    if (!id) return "N/A";
+    const numMatch = String(id).match(/\d+/);
+    const num = numMatch ? numMatch[0] : "1";
+    return `BCC-UMP-EMP-${num.padStart(9, "0")}`;
+  };
 
   const trend = data?.chartData?.map((d: any) => ({ d: d.day, v: d.applications })) || [
     { d: "Mon", v: 0 }, { d: "Tue", v: 0 }, { d: "Wed", v: 0 }, { d: "Thu", v: 0 }, { d: "Fri", v: 0 }, { d: "Sat", v: 0 }, { d: "Sun", v: 0 }
@@ -88,12 +104,10 @@ function EmployerHome() {
     );
   }
 
-  // ACCURATE LIVE DATA DISPLAY
-  const companyName = employerUser?.name || employerUser?.company_name || data?.profile?.company_name || "Company Profile Pending";
-  const contactEmail = employerUser?.email || data?.profile?.email || "N/A";
-  
-  // Directly grab the perfectly formatted ID computed strictly by our new backend script
-  const displayId = data?.profile?.formattedId || "BCC-UMP-EMP-PENDING";
+  // ACCURATE LIVE USER METRICS
+  const companyName = data?.profile?.company_name || employerUser?.name || employerUser?.company_name || "Company Profile Pending";
+  const contactEmail = data?.profile?.email || employerUser?.email || "N/A";
+  const displayId = data?.profile?.formattedId || (data?.profile?.id ? formatEmployerId(data.profile.id) : formatEmployerId(employerUser?.id));
 
   return (
     <DashShell role="employer" nav={employerNav}>
