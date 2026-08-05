@@ -24,6 +24,7 @@ function ExhibitorProfile() {
 
   const [formData, setFormData] = useState({
     id: user?.id || "",
+    unique_id: "",
     company_name: "",
     email: "",
     phone: "",
@@ -45,6 +46,7 @@ function ExhibitorProfile() {
       if (json.success && json.data) {
         setFormData({
           id: json.data.id || user.id,
+          unique_id: json.data.unique_id || "",
           company_name: json.data.company_name || "",
           email: json.data.email || "",
           phone: json.data.phone || "",
@@ -113,6 +115,9 @@ function ExhibitorProfile() {
     );
   }
 
+  // Generate the formatted ID 
+  const displayId = formData.unique_id || `BCC-UMP-EXP-${String(formData.id).replace(/\D/g, '').padStart(9, '0')}`;
+
   return (
     <DashShell role="exhibitor" nav={exhibitorNav}>
       <PageHeader 
@@ -129,7 +134,7 @@ function ExhibitorProfile() {
               </div>
               <div>
                 <h2 className="font-display font-bold text-navy text-lg">{formData.company_name || "Company Name"}</h2>
-                <p className="text-xs text-muted-foreground">Exhibitor ID: EXH-{String(formData.id).padStart(3, '0')}</p>
+                <p className="text-xs text-muted-foreground">Exhibitor ID: {displayId}</p>
               </div>
             </div>
             <Badge className="bg-purple-600 text-white uppercase">{formData.status}</Badge>
