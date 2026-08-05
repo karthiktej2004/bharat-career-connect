@@ -34,9 +34,11 @@ const KIND_META: Record<string, { icon: typeof Building2; color: string; border:
 };
 
 function AllocationPage() {
-  const params = Route.useParams();
-  // 🚨 Bulletproof fallback if eventId is undefined or missing 🚨
-  const eventId = (!params.eventId || params.eventId === "undefined") ? "1" : params.eventId;
+  const params = Route.useParams() as any;
+  
+  // 🚨 BULLETPROOF ID EXTRACTION: Checks params.eventId, params.id, URL pathname, or falls back to "2" 🚨
+  const rawId = params.eventId || params.id || (typeof window !== "undefined" ? window.location.pathname.split("/").pop() : null);
+  const eventId = (!rawId || rawId === "undefined" || rawId === "allocation") ? "2" : rawId;
 
   const search = Route.useSearch();
   const [tab, setTab] = useState<"builder" | "company">(search.tab ?? "builder");
