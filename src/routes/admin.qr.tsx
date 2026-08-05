@@ -21,23 +21,21 @@ function QR() {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, candidate: 0, employer: 0 });
   
-  // (Optional) State for manual verification if you ever add a manual input field
   const [roleAsk, setRoleAsk] = useState<{ open: boolean; code: string; event: any | null }>({ open: false, code: "", event: null });
 
-  // Fetch Live Events & Live Attendance from PostgreSQL
   useEffect(() => {
     const fetchQRData = async () => {
       try {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
         const [eventsRes, attendanceRes] = await Promise.all([
-          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`),
-          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/attendance-history`)
+          fetch(`${baseUrl}/api/admin/events`),
+          fetch(`${baseUrl}/api/admin/attendance-history`)
         ]);
 
         const eventsJson = await eventsRes.json();
         const attendanceJson = await attendanceRes.json();
 
         if (eventsJson.success) {
-          // Filter out completed events for the scanner dashboard
           setEvents(eventsJson.data.filter((e: any) => e.status !== "completed"));
         }
 
@@ -45,7 +43,6 @@ function QR() {
           const data = attendanceJson.data;
           setScans(data);
 
-          // Dynamically calculate stats based on fetched attendance data
           let candCount = 0;
           let empCount = 0;
           data.forEach((r: any) => {
@@ -64,25 +61,21 @@ function QR() {
     
     fetchQRData();
     
-    // Poll every 15 seconds to keep the dashboard live
     const interval = setInterval(fetchQRData, 15000); 
     return () => clearInterval(interval);
   }, []);
 
-  // Placeholder function for manual code entry
   function verify(event: any, code: string) {
     if (!code.trim()) { toast.error("Enter or scan an ID"); return; }
     setRoleAsk({ open: true, code: code.trim(), event });
   }
 
-  // Placeholder for real backend verification
   async function confirmRole(role: "candidate" | "employer") {
     const { code, event } = roleAsk;
     if (!event) return;
     
     toast.success(`✓ ${code} checked in via simulation`, { description: `${event.name} · ${role}` });
     
-    // Simulate updating local stats immediately before the next poll
     setStats(prev => ({
       total: prev.total + 1,
       candidate: role === 'candidate' ? prev.candidate + 1 : prev.candidate,
@@ -111,7 +104,6 @@ function QR() {
         ) : (
           events.map((e) => (
             <EventScannerCard key={e.id} event={e} onVerify={verify} todayCount={
-              // Calculate today's checkins for this specific event
               scans.filter(s => s.event_name === e.name).length
             } />
           ))
@@ -148,7 +140,6 @@ function QR() {
 function EventScannerCard({ event, onVerify: _onVerify, todayCount }: { event: any; onVerify: (e: any, code: string) => void; todayCount: number }) {
   const navigate = useNavigate();
   
-  // THE FIX: We MUST use the full URL so mobile phones open the browser automatically.
   const qrValue = `${window.location.origin}/attend/${event.id}`;
 
   function downloadPoster() {
@@ -212,7 +203,7 @@ function EventScannerCard({ event, onVerify: _onVerify, todayCount }: { event: a
           <p className="font-mono text-xs text-navy truncate">EVT-{event.id}</p>
         </div>
         <Button
-          onClick={() => navigate({ to: "/admin/allocation/$eventId", params: { eventId: event.id.toString() } })}
+          onClick={() => navigate({ to: "/admin/allocation/$eventId", params: { eventId: String(event.id) } })}
           className="bg-navy text-white hover:bg-navy/90" size="sm"
         >
           <MapPinned className="h-4 w-4 mr-1" /> Stall Allocation
