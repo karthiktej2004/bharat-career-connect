@@ -140,55 +140,74 @@ function Applications() {
                   </td>
                 </tr>
               ) : (
-                applications.map((app) => (
-                  <tr key={app.application_id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-navy text-base">{app.job_title}</div>
-                      <div className="mt-2 flex items-center">
-                        {app.event_id ? (
-                          <Badge 
-                            variant="outline" 
-                            className="bg-saffron/10 text-saffron border-saffron/20 font-medium cursor-pointer hover:bg-saffron/20 transition-colors"
-                            onClick={() => setViewEvent(app)}
-                            title="Click to view event details & venue"
-                          >
-                            <MapPin className="h-3 w-3 mr-1" /> Event Walk-in: {app.event_name}
+                applications.map((app) => {
+                  // 🚨 CHECK IF JOB OR EVENT IS CLOSED 🚨
+                  const rawJStat = String(app.job_status || "").toLowerCase().replace(/[^a-z]/g, '');
+                  const rawEStat = String(app.event_status || "").toLowerCase().replace(/[^a-z]/g, '');
+                  const isJobClosed = ['closed', 'inactive', 'deleted', 'filled', 'expired'].includes(rawJStat);
+                  const isEventCompleted = ['completed', 'closed', 'past', 'ended'].includes(rawEStat);
+                  const isClosedOrCompleted = isJobClosed || isEventCompleted;
+
+                  return (
+                    <tr key={app.application_id} className={`transition-colors ${isClosedOrCompleted ? "bg-slate-100/50 opacity-60" : "hover:bg-slate-50/50"}`}>
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-navy text-base">{app.job_title}</div>
+                        <div className="mt-2 flex items-center">
+                          {app.event_id ? (
+                            <Badge 
+                              variant="outline" 
+                              className={`font-medium ${isClosedOrCompleted ? "bg-slate-200 text-slate-500 border-slate-300" : "bg-saffron/10 text-saffron border-saffron/20 cursor-pointer hover:bg-saffron/20 transition-colors"}`}
+                              onClick={() => { if (!isClosedOrCompleted) setViewEvent(app); }}
+                              title={isClosedOrCompleted ? "Event Completed" : "Click to view event details & venue"}
+                            >
+                              <MapPin className="h-3 w-3 mr-1" /> Event Walk-in: {app.event_name}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className={`font-medium ${isClosedOrCompleted ? "bg-slate-200 text-slate-500 border-slate-300" : "bg-blue-50 text-blue-600 border-blue-200"}`}>
+                              <Building2 className="h-3 w-3 mr-1" /> Direct Application
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-700">{app.company}</td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {app.applied_at ? new Date(app.applied_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : "—"}
+                      </td>
+                      <td className="px-6 py-4">
+                        {/* 🚨 OVERRIDE BADGE IF CLOSED 🚨 */}
+                        {isClosedOrCompleted ? (
+                          <Badge variant="outline" className="font-medium capitalize px-3 py-1 bg-slate-200 text-slate-500 border-slate-300">
+                            {isJobClosed ? "Job Closed" : "Event Completed"}
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 font-medium">
-                            <Building2 className="h-3 w-3 mr-1" /> Direct Application
+                          <Badge variant="outline" className={`font-medium capitalize px-3 py-1 ${getStatusColors(app.status)}`}>
+                            {app.status || "Applied"}
                           </Badge>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-slate-700">{app.company}</td>
-                    <td className="px-6 py-4 text-slate-600">
-                      {app.applied_at ? new Date(app.applied_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : "—"}
-                    </td>
-                    <td className="px-6 py-4">
-                      {/* Dynamically colored status badge fetching directly from DB status */}
-                      <Badge variant="outline" className={`font-medium capitalize px-3 py-1 ${getStatusColors(app.status)}`}>
-                        {app.status || "Applied"}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {isMessageAllowed(app.status) ? (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-navy hover:text-navy hover:bg-slate-100"
-                          onClick={() => setMessagingApp(app)}
-                        >
-                          <MessageSquare className="h-4 w-4 mr-2" /> Chat
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">
-                          Unavailable
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {isClosedOrCompleted ? (
+                           <span className="text-xs text-slate-400 italic bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200">
+                             Closed
+                           </span>
+                        ) : isMessageAllowed(app.status) ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-navy hover:text-navy hover:bg-slate-100"
+                            onClick={() => setMessagingApp(app)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" /> Chat
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100">
+                            Unavailable
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
