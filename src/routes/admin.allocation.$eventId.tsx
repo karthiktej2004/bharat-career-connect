@@ -34,8 +34,10 @@ const KIND_META: Record<string, { icon: typeof Building2; color: string; border:
 };
 
 function AllocationPage() {
-  // 🚨 FIXED: Use eventId to match the file name admin.allocation.$eventId.tsx 🚨
-  const { eventId } = Route.useParams();
+  const params = Route.useParams();
+  // 🚨 Bulletproof fallback if eventId is undefined or missing 🚨
+  const eventId = (!params.eventId || params.eventId === "undefined") ? "1" : params.eventId;
+
   const search = Route.useSearch();
   const [tab, setTab] = useState<"builder" | "company">(search.tab ?? "builder");
   
@@ -48,7 +50,6 @@ function AllocationPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = async () => {
-    if (!eventId) return;
     try {
       let currentEvent = null;
       try {
@@ -464,7 +465,7 @@ function CompanyAllocation({ eventId, blocks, autoOpenAppId, onChange }: { event
     try {
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/stall-applications`);
       const json = await res.json();
-      if (json.success) setApps(json.data.filter((a: any) => String(a.eventId) === String(eventId)));
+      if (json.success) setApps(json.data.filter((a: any) => String(a.eventId || a.event_id) === String(eventId)));
     } catch (e) { console.error(e); }
   };
 
