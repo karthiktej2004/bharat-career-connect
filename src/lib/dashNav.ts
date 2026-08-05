@@ -47,6 +47,7 @@ export const candidateNav: NavItem[] = [
   { to: "/candidate/interviews", label: "Interviews", icon: MessageSquareHeart },
   { to: "/candidate/history", label: "History", icon: History },
   { to: "/candidate/feedback", label: "Feedback", icon: VideoIcon },
+  { to: "/candidate/notifications",label: "Notifications", icon: Notifications}
 ];
 
 export const employerNav: NavItem[] = [
