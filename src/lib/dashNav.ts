@@ -47,7 +47,8 @@ export const candidateNav: NavItem[] = [
   { to: "/candidate/interviews", label: "Interviews", icon: MessageSquareHeart },
   { to: "/candidate/history", label: "History", icon: History },
   { to: "/candidate/feedback", label: "Feedback", icon: VideoIcon },
-  { to: "/candidate/notifications",label: "Notifications", icon: Notifications}
+  // 🚨 FIXED: Changed undefined 'Notifications' to imported 'Bell' icon 🚨
+  { to: "/candidate/notifications", label: "Notifications", icon: Bell }
 ];
 
 export const employerNav: NavItem[] = [
@@ -61,7 +62,6 @@ export const employerNav: NavItem[] = [
   { to: "/employer/feedback", label: "Feedback", icon: MessageSquare },
 ];
 
-// --- NEW EXHIBITOR PANEL NAV ---
 export const exhibitorNav: NavItem[] = [
   { to: "/exhibitor", label: "Dashboard", icon: LayoutDashboard },
   { to: "/exhibitor/profile", label: "Profile", icon: Store },
