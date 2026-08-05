@@ -22,7 +22,6 @@ function EventApprovals() {
   const fetchData = async () => {
     try {
       const [appsRes, eventsRes] = await Promise.all([
-        // FIXED: Reverted back to hyphen so it matches the backend route
         fetch("http://15.207.249.155:5000/api/admin/stall-applications"),
         fetch("http://15.207.249.155:5000/api/admin/events")
       ]);
@@ -99,7 +98,8 @@ function EventApprovals() {
               <h3 className="font-display font-bold text-navy text-sm mb-2">Stall Allocation Shortcuts</h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {events.filter(ev => ev.status?.toLowerCase() !== 'completed').map((ev) => (
-                  <Link key={ev.id} to="/admin/allocation/$eventId" params={{ eventId: ev.id.toString() }} search={{ tab: "company" }} className="p-3 rounded-lg border border-border hover:border-navy hover:bg-navy/5 transition flex items-center justify-between gap-2">
+                  // 🚨 FIXED ROUTING: Changed $eventId to $id to match the TanStack file name
+                  <Link key={ev.id} to="/admin/allocation/$id" params={{ id: ev.id.toString() }} search={{ tab: "company" }} className="p-3 rounded-lg border border-border hover:border-navy hover:bg-navy/5 transition flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-navy text-sm truncate">{ev.name}</p>
                       <p className="text-xs text-muted-foreground font-mono truncate">EVT-{ev.id}</p>
@@ -176,7 +176,8 @@ function EventApprovals() {
                         </div>
                       ) : a.status === "approved" ? (
                         <Button asChild size="sm" variant="outline" className="border-navy/20 text-navy hover:bg-navy/5">
-                          <Link to="/admin/allocation/$eventId" params={{ eventId: a.eventId.toString() }} search={{ tab: "company", app: a.id.toString() }}>Allocate Stall</Link>
+                          {/* 🚨 FIXED ROUTING: Changed $eventId to $id */}
+                          <Link to="/admin/allocation/$id" params={{ id: a.eventId.toString() }} search={{ tab: "company", app: a.id.toString() }}>Allocate Stall</Link>
                         </Button>
                       ) : <span className="text-xs text-muted-foreground">—</span>}
                     </TableCell>
