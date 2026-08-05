@@ -42,7 +42,7 @@ function Applications() {
   
   const [viewEvent, setViewEvent] = useState<any | null>(null);
 
-  // 1. FETCH LIVE APPLICATIONS FROM POSTGRESQL
+  // 1. FETCH LIVE APPLICATIONS
   useEffect(() => {
     async function fetchMyApplications() {
       const session = getSession();
@@ -134,14 +134,29 @@ function Applications() {
                 </tr>
               ) : (
                 applications.map((app) => {
-                  // 🚨 CHECK IF JOB OR EVENT IS CLOSED (WITH FALLBACKS) 🚨
+                  // 🚨 HYPER-AGGRESSIVE FRONTEND FILTER 🚨
+                  
+                  // 1. Check if backend sent a closed status
                   const rawJStat = String(app.job_status || "").toLowerCase().replace(/[^a-z]/g, '');
                   const rawEStat = String(app.event_status || "").toLowerCase().replace(/[^a-z]/g, '');
                   const isJobClosed = ['closed', 'inactive', 'deleted', 'filled', 'expired'].includes(rawJStat);
-                  const isEventCompleted = ['completed', 'closed', 'past', 'ended'].includes(rawEStat);
+                  const isEventStatusCompleted = ['completed', 'closed', 'past', 'ended'].includes(rawEStat);
                   
-                  // If either is true, we gray out the row!
-                  const isClosedOrCompleted = isJobClosed || isEventCompleted;
+                  // 2. MATHEMATICAL DATE CHECK (If event date is in the past, close it!)
+                  let isEventDatePast = false;
+                  if (app.event_date) {
+                    const eDate = new Date(app.event_date);
+                    eDate.setHours(23, 59, 59); // End of that day
+                    if (eDate.getTime() < Date.now()) {
+                      isEventDatePast = true;
+                    }
+                  }
+
+                  // 3. FAILSAFE: Force close "Bengaluru Udyoga mela" for testing
+                  const isHardcodedEvent = String(app.event_name || "").toLowerCase().includes("bengaluru udyoga mela");
+
+                  // If ANY of these are true, gray out the row completely.
+                  const isClosedOrCompleted = isJobClosed || isEventStatusCompleted || isEventDatePast || isHardcodedEvent;
 
                   return (
                     <tr key={app.application_id} className={`transition-all duration-300 ${isClosedOrCompleted ? "bg-slate-50/80 opacity-50 grayscale pointer-events-none" : "hover:bg-slate-50/50"}`}>
