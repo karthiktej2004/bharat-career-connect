@@ -24,13 +24,11 @@ const getStatusColors = (status: string) => {
   if (s.includes("interview")) return "bg-purple-50 text-purple-700 border-purple-200";
   if (s.includes("hire") || s.includes("select") || s.includes("offer") || s.includes("accept")) return "bg-india-green/10 text-india-green border-india-green/20";
   if (s.includes("reject") || s.includes("decline")) return "bg-red-50 text-red-700 border-red-200";
-  return "bg-slate-50 text-slate-700 border-slate-200"; // default fallback
+  return "bg-slate-50 text-slate-700 border-slate-200"; 
 };
 
-// Helper function to determine if the message box should be available
 const isMessageAllowed = (status: string) => {
   const s = (status || "").toLowerCase();
-  // Allow messaging only if the status implies an interview or beyond
   return s.includes("interview") || s.includes("hire") || s.includes("select") || s.includes("offer") || s.includes("shortlist");
 };
 
@@ -61,7 +59,6 @@ function Applications() {
           setApplications(json.data);
         }
       } catch (err) {
-        console.error("Failed to fetch applications", err);
         toast.error("Could not load applications from the database.");
       } finally {
         setIsLoading(false);
@@ -73,10 +70,7 @@ function Applications() {
 
   // 2. SEND MESSAGE TO EMPLOYER
   const handleSendMessage = async () => {
-    if (!messageText.trim()) {
-      toast.error("Please enter a message.");
-      return;
-    }
+    if (!messageText.trim()) return toast.error("Please enter a message.");
 
     setIsSending(true);
     try {
@@ -91,7 +85,6 @@ function Applications() {
       });
 
       const json = await res.json();
-
       if (json.success) {
         toast.success(json.message || "Message sent successfully!");
         setMessagingApp(null);
@@ -141,22 +134,24 @@ function Applications() {
                 </tr>
               ) : (
                 applications.map((app) => {
-                  // 🚨 CHECK IF JOB OR EVENT IS CLOSED 🚨
+                  // 🚨 CHECK IF JOB OR EVENT IS CLOSED (WITH FALLBACKS) 🚨
                   const rawJStat = String(app.job_status || "").toLowerCase().replace(/[^a-z]/g, '');
                   const rawEStat = String(app.event_status || "").toLowerCase().replace(/[^a-z]/g, '');
                   const isJobClosed = ['closed', 'inactive', 'deleted', 'filled', 'expired'].includes(rawJStat);
                   const isEventCompleted = ['completed', 'closed', 'past', 'ended'].includes(rawEStat);
+                  
+                  // If either is true, we gray out the row!
                   const isClosedOrCompleted = isJobClosed || isEventCompleted;
 
                   return (
-                    <tr key={app.application_id} className={`transition-colors ${isClosedOrCompleted ? "bg-slate-100/50 opacity-60" : "hover:bg-slate-50/50"}`}>
+                    <tr key={app.application_id} className={`transition-all duration-300 ${isClosedOrCompleted ? "bg-slate-50/80 opacity-50 grayscale pointer-events-none" : "hover:bg-slate-50/50"}`}>
                       <td className="px-6 py-4">
-                        <div className="font-medium text-navy text-base">{app.job_title}</div>
+                        <div className={`font-medium text-base ${isClosedOrCompleted ? "text-slate-500 line-through" : "text-navy"}`}>{app.job_title}</div>
                         <div className="mt-2 flex items-center">
                           {app.event_id ? (
                             <Badge 
                               variant="outline" 
-                              className={`font-medium ${isClosedOrCompleted ? "bg-slate-200 text-slate-500 border-slate-300" : "bg-saffron/10 text-saffron border-saffron/20 cursor-pointer hover:bg-saffron/20 transition-colors"}`}
+                              className={`font-medium ${isClosedOrCompleted ? "bg-slate-200 text-slate-500 border-slate-300" : "bg-saffron/10 text-saffron border-saffron/20 cursor-pointer hover:bg-saffron/20"}`}
                               onClick={() => { if (!isClosedOrCompleted) setViewEvent(app); }}
                               title={isClosedOrCompleted ? "Event Completed" : "Click to view event details & venue"}
                             >
@@ -176,7 +171,7 @@ function Applications() {
                       <td className="px-6 py-4">
                         {/* 🚨 OVERRIDE BADGE IF CLOSED 🚨 */}
                         {isClosedOrCompleted ? (
-                          <Badge variant="outline" className="font-medium capitalize px-3 py-1 bg-slate-200 text-slate-500 border-slate-300">
+                          <Badge variant="outline" className="font-bold capitalize px-3 py-1 bg-slate-200 text-slate-600 border-slate-300 shadow-inner">
                             {isJobClosed ? "Job Closed" : "Event Completed"}
                           </Badge>
                         ) : (
@@ -187,7 +182,7 @@ function Applications() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         {isClosedOrCompleted ? (
-                           <span className="text-xs text-slate-400 italic bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200">
+                           <span className="text-xs text-slate-400 font-bold italic bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200">
                              Closed
                            </span>
                         ) : isMessageAllowed(app.status) ? (
