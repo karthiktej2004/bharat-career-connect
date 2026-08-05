@@ -17,7 +17,7 @@ import { toast } from "sonner";
 
 type AllocSearch = { tab?: "builder" | "company"; app?: string };
 
-export const Route = createFileRoute("/admin/allocation/$id")({
+export const Route = createFileRoute("/admin/allocation/$eventId")({
   head: () => ({ meta: [{ title: "Stall Allocation — Admin" }] }),
   validateSearch: (s: Record<string, unknown>): AllocSearch => ({
     tab: s.tab === "company" ? "company" : s.tab === "builder" ? "builder" : undefined,
@@ -34,7 +34,8 @@ const KIND_META: Record<string, { icon: typeof Building2; color: string; border:
 };
 
 function AllocationPage() {
-  const { id: eventId } = Route.useParams();
+  // 🚨 FIXED: Use eventId to match the file name admin.allocation.$eventId.tsx 🚨
+  const { eventId } = Route.useParams();
   const search = Route.useSearch();
   const [tab, setTab] = useState<"builder" | "company">(search.tab ?? "builder");
   
@@ -47,18 +48,17 @@ function AllocationPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = async () => {
+    if (!eventId) return;
     try {
       let currentEvent = null;
       try {
         const eventRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/events`);
         const eventJson = await eventRes.json();
         if (eventJson.success && Array.isArray(eventJson.data)) {
-          // 🚨 Robust string-based ID comparison 🚨
           currentEvent = eventJson.data.find((e: any) => String(e.id) === String(eventId));
         }
       } catch (err) {}
 
-      // 🚨 Smart Fallback: Never block the admin with "Event not found" 🚨
       setEvent(currentEvent || {
         id: eventId,
         name: `Job Fair Event #${eventId}`,
@@ -96,7 +96,7 @@ function AllocationPage() {
     <DashShell role="admin" nav={adminNav}>
       <PageHeader
         title="Stall Allocation Platform"
-        description={`${event.name} · ${event.city || 'Udyoga Mela'} · ${new Date(event.event_date).toDateString()}`}
+        description={`${event?.name || 'Event'} · ${event?.city || 'Bengaluru'} · ${event?.event_date ? new Date(event.event_date).toDateString() : ''}`}
         action={
           <Link to="/admin/qr" className="text-xs text-navy underline flex items-center gap-1">
             <ArrowLeft className="h-3 w-3" /> Back to QR & Entry
