@@ -308,12 +308,6 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
               <h1 className="text-3xl font-display font-bold text-navy">{job.title}</h1>
               <p className="text-lg text-muted-foreground font-medium mt-1">{job.company || job.company_name} {job.recruiter ? `· Recruiter: ${job.recruiter}` : ""}</p>
               
-              {job.event_name && (
-                <Badge className="mt-2 gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 border-indigo-200">
-                  <CalendarDays className="h-3.5 w-3.5" /> Published via: {job.event_name}
-                </Badge>
-              )}
-
               <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-600">
                 <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-saffron" /> {job.location}</span>
                 <span className="flex items-center gap-1.5"><Briefcase className="h-4 w-4 text-saffron" /> {job.experience || "Fresher"}</span>
@@ -323,7 +317,20 @@ function JobDetailsDialog({ job, onClose, onApply, onWithdraw }: { job: any; onC
             </div>
           </div>
 
-          <div className="mt-10 grid gap-8">
+          {/* 🚨 STRICT EVENT BANNER 🚨 */}
+          {job.event_name && (
+            <div className="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex items-start gap-3 shadow-sm">
+              <CalendarDays className="h-6 w-6 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-base font-bold text-indigo-900">Udyoga Mela Event: {job.event_name}</p>
+                <p className="text-sm text-indigo-700 mt-1">
+                  This job is exclusively available through this specific event. Applications will be processed by the employer at the venue and will close automatically when the event concludes.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 grid gap-8">
             <section>
               <h2 className="text-xl font-bold text-navy mb-4 border-b pb-2 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-saffron" /> Requirements & Skills
@@ -503,20 +510,30 @@ function Jobs() {
     return { locs };
   }, [jobs]);
 
+  // =========================================================
+  // STRICT FILTERING LOGIC
+  // =========================================================
   const filtered = useMemo(() => jobs.filter((j) => {
     
-    // 🚨 THE BULLETPROOF FIX: COMPLETELY REMOVE FROM FEED 🚨
+    // 🚨 1. STRICT EVENT REQUIREMENT: Job MUST be tied to an event
+    if (!j.event_id && !j.event_name) {
+      return false;
+    }
+
     const evStatus = (j.event_status || "").toLowerCase().trim();
     const jbStatus = (j.job_status || j.status || "").toLowerCase().trim();
 
-    const isEventCompleted = ["completed", "closed", "ended", "past", "finished"].includes(evStatus);
-    const isJobClosed = ["closed", "inactive", "filled", "expired", "disabled", "deleted"].includes(jbStatus);
-
-    // If the job or event is closed, completely hide it from the search feed!
-    if (isEventCompleted || isJobClosed) {
-      return false; 
+    // 🚨 2. EVENT LIFECYCLE ENFORCEMENT: Event MUST be explicitly Live or Upcoming
+    if (!["live", "upcoming"].includes(evStatus)) {
+      return false;
     }
 
+    // 🚨 3. JOB STATUS ENFORCEMENT: Job MUST be approved and open
+    if (["closed", "inactive", "filled", "expired", "disabled", "deleted", "pending", "rejected"].includes(jbStatus)) {
+      return false;
+    }
+
+    // --- User Selected Filters ---
     if (locationFilter !== "all") {
       const rawLoc = (j.location || "").toLowerCase();
       let matches = false;
@@ -549,7 +566,7 @@ function Jobs() {
 
   return (
     <DashShell role="candidate" nav={candidateNav}>
-      <PageHeader title="Browse Jobs" description="Roles mathematically matched based on your profile skills, education, job type, and location." />
+      <PageHeader title="Browse Event Jobs" description="Explore jobs from active and upcoming Udyoga Mela events." />
 
       <Card className="p-4 mb-6 border-border/60 bg-white">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
@@ -603,8 +620,11 @@ function Jobs() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-20" />
-          <p className="text-lg font-medium text-navy">No matching jobs found</p>
-          <p className="text-sm mt-1">Try adjusting your search filters or <button onClick={resetFilters} className="text-saffron hover:underline font-medium">clearing them</button>.</p>
+          <p className="text-lg font-medium text-navy">No active event jobs found</p>
+          <p className="text-sm mt-1">Jobs will appear here when an event is marked Live or Upcoming.</p>
+          {(q !== "" || locationFilter !== "all" || typeFilter !== "all" || shiftFilter !== "all") && (
+            <Button variant="link" onClick={resetFilters} className="text-saffron mt-2">Clear search filters</Button>
+          )}
         </div>
       ) : (
         <div className="grid gap-4">
@@ -635,7 +655,7 @@ function Jobs() {
                         <h3 className="font-display font-bold text-navy text-lg group-hover:text-saffron transition-colors">{j.title}</h3>
                         <Badge variant="outline" className="bg-slate-50">{j.type || j.job_type || "Full-Time"}</Badge>
                         {j.event_name && (
-                           <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 gap-1 rounded-sm"><CalendarDays className="h-3 w-3"/> Event: {j.event_name}</Badge>
+                           <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 gap-1.5 rounded-sm"><CalendarDays className="h-3 w-3"/> Event: {j.event_name}</Badge>
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3">
