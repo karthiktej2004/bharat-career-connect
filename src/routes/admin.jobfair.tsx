@@ -71,7 +71,8 @@ function EventApprovals() {
   };
 
   const filteredApps = apps.filter((a) => {
-    const relatedEvent = events.find((ev) => ev.id === a.eventId);
+    const eId = a.eventId || a.event_id;
+    const relatedEvent = events.find((ev) => String(ev.id) === String(eId));
     return relatedEvent && relatedEvent.status?.toLowerCase() !== 'completed';
   });
 
@@ -97,8 +98,13 @@ function EventApprovals() {
               <h3 className="font-display font-bold text-navy text-sm mb-2">Stall Allocation Shortcuts</h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {events.filter(ev => ev.status?.toLowerCase() !== 'completed').map((ev) => (
-                  // 🚨 FIXED: Passed eventId instead of id to match admin.allocation.$eventId.tsx 🚨
-                  <Link key={ev.id} to="/admin/allocation/$eventId" params={{ eventId: ev.id.toString() }} search={{ tab: "company" }} className="p-3 rounded-lg border border-border hover:border-navy hover:bg-navy/5 transition flex items-center justify-between gap-2">
+                  <Link 
+                    key={ev.id} 
+                    to="/admin/allocation/$eventId" 
+                    params={{ eventId: String(ev.id || 1) }} 
+                    search={{ tab: "company" }} 
+                    className="p-3 rounded-lg border border-border hover:border-navy hover:bg-navy/5 transition flex items-center justify-between gap-2"
+                  >
                     <div className="min-w-0">
                       <p className="font-semibold text-navy text-sm truncate">{ev.name}</p>
                       <p className="text-xs text-muted-foreground font-mono truncate">EVT-{ev.id}</p>
@@ -129,59 +135,61 @@ function EventApprovals() {
               <TableBody>
                 {filteredApps.length === 0 ? (
                   <TableRow><TableCell colSpan={9} className="text-center py-8 text-sm text-muted-foreground">No applications found.</TableCell></TableRow>
-                ) : filteredApps.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell className="font-medium text-navy">{a.employerName}</TableCell>
-                    <TableCell className="text-sm">{a.eventName}</TableCell>
-                    <TableCell className="text-xs">
-                      <div className="text-navy font-semibold">{a.contactEmail}</div>
-                      <div className="text-muted-foreground mt-0.5">{new Date(a.applied_at).toLocaleDateString()}</div>
-                    </TableCell>
-                    <TableCell className="text-xs text-navy font-medium max-w-[140px] truncate" title={a.rolesToHire}>
-                      {a.rolesToHire || "—"}
-                    </TableCell>
-                    <TableCell className="text-sm font-semibold text-navy">
-                      {a.vacanciesCount ? `${a.vacanciesCount} Openings` : "0"}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      <span className="flex items-center gap-1 font-mono text-india-green bg-india-green/5 p-1 rounded border border-india-green/20">
-                        <CreditCard className="h-3 w-3" /> {a.payment_status || "Verified"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={a.status === "approved" ? "bg-india-green/15 text-india-green uppercase" : a.status === "rejected" ? "bg-red-500/15 text-red-600 uppercase" : "bg-saffron/15 text-saffron uppercase"}>
-                        {a.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm font-mono text-navy font-bold">{a.allocatedStall || "—"}</TableCell>
-                    <TableCell>
-                      {a.status === "pending" ? (
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            className="bg-india-green text-white hover:bg-india-green/90 font-medium" 
-                            onClick={() => handleApprove(a.id, a.employerName)}
-                          >
-                            Approve
+                ) : filteredApps.map((a) => {
+                  const resolvedEventId = String(a.eventId || a.event_id || events[0]?.id || 1);
+                  return (
+                    <TableRow key={a.id}>
+                      <TableCell className="font-medium text-navy">{a.employerName}</TableCell>
+                      <TableCell className="text-sm">{a.eventName}</TableCell>
+                      <TableCell className="text-xs">
+                        <div className="text-navy font-semibold">{a.contactEmail}</div>
+                        <div className="text-muted-foreground mt-0.5">{new Date(a.applied_at).toLocaleDateString()}</div>
+                      </TableCell>
+                      <TableCell className="text-xs text-navy font-medium max-w-[140px] truncate" title={a.rolesToHire}>
+                        {a.rolesToHire || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm font-semibold text-navy">
+                        {a.vacanciesCount ? `${a.vacanciesCount} Openings` : "0"}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <span className="flex items-center gap-1 font-mono text-india-green bg-india-green/5 p-1 rounded border border-india-green/20">
+                          <CreditCard className="h-3 w-3" /> {a.payment_status || "Verified"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={a.status === "approved" ? "bg-india-green/15 text-india-green uppercase" : a.status === "rejected" ? "bg-red-500/15 text-red-600 uppercase" : "bg-saffron/15 text-saffron uppercase"}>
+                          {a.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm font-mono text-navy font-bold">{a.allocatedStall || "—"}</TableCell>
+                      <TableCell>
+                        {a.status === "pending" ? (
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              className="bg-india-green text-white hover:bg-india-green/90 font-medium" 
+                              onClick={() => handleApprove(a.id, a.employerName)}
+                            >
+                              Approve
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-red-600 border-red-200 hover:bg-red-50 font-medium" 
+                              onClick={() => handleReject(a.id, a.employerName)}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        ) : a.status === "approved" ? (
+                          <Button asChild size="sm" variant="outline" className="border-navy/20 text-navy hover:bg-navy/5">
+                            <Link to="/admin/allocation/$eventId" params={{ eventId: resolvedEventId }} search={{ tab: "company", app: a.id.toString() }}>Allocate Stall</Link>
                           </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="text-red-600 border-red-200 hover:bg-red-50 font-medium" 
-                            onClick={() => handleReject(a.id, a.employerName)}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      ) : a.status === "approved" ? (
-                        <Button asChild size="sm" variant="outline" className="border-navy/20 text-navy hover:bg-navy/5">
-                          {/* 🚨 FIXED: Passed eventId instead of id 🚨 */}
-                          <Link to="/admin/allocation/$eventId" params={{ eventId: a.eventId.toString() }} search={{ tab: "company", app: a.id.toString() }}>Allocate Stall</Link>
-                        </Button>
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Card>
