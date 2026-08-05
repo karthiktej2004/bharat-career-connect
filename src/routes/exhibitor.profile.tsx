@@ -24,7 +24,6 @@ function ExhibitorProfile() {
 
   const [formData, setFormData] = useState({
     id: user?.id || "",
-    unique_id: "",
     company_name: "",
     email: "",
     phone: "",
@@ -41,12 +40,13 @@ function ExhibitorProfile() {
   const fetchProfile = async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/exhibitor/profile/${user.id}`);
+      // 🚨 ADDED FALLBACK URL HERE TO PREVENT BLANK PAGE 🚨
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/exhibitor/profile/${user.id}`);
       const json = await res.json();
+      
       if (json.success && json.data) {
         setFormData({
           id: json.data.id || user.id,
-          unique_id: json.data.unique_id || "",
           company_name: json.data.company_name || "",
           email: json.data.email || "",
           phone: json.data.phone || "",
@@ -61,7 +61,7 @@ function ExhibitorProfile() {
         });
       }
     } catch (error) {
-      toast.error("Failed to load profile details.");
+      toast.error("Failed to load profile details from server.");
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +86,8 @@ function ExhibitorProfile() {
     setIsSaving(true);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/exhibitor/profile/update`, {
+      // 🚨 ADDED FALLBACK URL HERE TO PREVENT SAVE ERRORS 🚨
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/exhibitor/profile/update`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
@@ -115,8 +116,8 @@ function ExhibitorProfile() {
     );
   }
 
-  // Generate the formatted ID 
-  const displayId = formData.unique_id || `BCC-UMP-EXP-${String(formData.id).replace(/\D/g, '').padStart(9, '0')}`;
+  // 🚨 FORMAT THE DISPLAY ID CORRECTLY 🚨
+  const displayId = `BCC-UMP-EXP-${String(formData.id).replace(/\D/g, '').padStart(9, '0')}`;
 
   return (
     <DashShell role="exhibitor" nav={exhibitorNav}>
