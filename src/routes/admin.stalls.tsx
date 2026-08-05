@@ -37,9 +37,10 @@ function AdminStallsPage() {
 
   // 1. Fetch Events & Employers on Mount
   useEffect(() => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
     Promise.all([
-      fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`).then((r) => r.json()),
-      fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/employers`).then((r) => r.json()),
+      fetch(`${baseUrl}/api/admin/events`).then((r) => r.json()),
+      fetch(`${baseUrl}/api/admin/employers`).then((r) => r.json()),
     ])
       .then(([eventsJson, empJson]) => {
         if (eventsJson.success && eventsJson.data.length > 0) {
@@ -56,7 +57,8 @@ function AdminStallsPage() {
     if (!selectedEventId) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${selectedEventId}/venue`);
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
+      const res = await fetch(`${baseUrl}/api/admin/events/${selectedEventId}/venue`);
       const json = await res.json();
       if (json.success) setVenue(json.data || []);
     } catch (err) {
@@ -73,7 +75,8 @@ function AdminStallsPage() {
   // 3. Handle Allocate Stall
   const handleAllocate = async (stallId: string, employerId: string, stallCode: string) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}/allocate`, {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
+      const res = await fetch(`${baseUrl}/api/admin/stalls/${stallId}/allocate`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -98,7 +101,8 @@ function AdminStallsPage() {
   const handleDeleteStall = async (stallId: string) => {
     if (!confirm("Are you sure you want to delete this stall?")) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}`, {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
+      const res = await fetch(`${baseUrl}/api/admin/stalls/${stallId}`, {
         method: "DELETE",
       });
       const json = await res.json();
@@ -383,7 +387,8 @@ export function AddBlockModal({
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/blocks`, {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
+      const res = await fetch(`${baseUrl}/api/admin/events/${eventId}/venue/blocks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, name: name.trim(), code: code.trim() }),
@@ -492,7 +497,8 @@ export function AddRoomModal({
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/rooms`, {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
+      const res = await fetch(`${baseUrl}/api/admin/events/${eventId}/venue/rooms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blockId, name: name.trim(), code: code.trim() }),
@@ -588,7 +594,8 @@ export function AddStallModal({
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/stalls`, {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000";
+      const res = await fetch(`${baseUrl}/api/admin/events/${eventId}/venue/stalls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blockId, roomId: roomId || null, code: code.trim() }),
