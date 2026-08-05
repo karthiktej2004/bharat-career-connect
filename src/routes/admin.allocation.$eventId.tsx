@@ -17,7 +17,7 @@ import { toast } from "sonner";
 
 type AllocSearch = { tab?: "builder" | "company"; app?: string };
 
-export const Route = createFileRoute("/admin/allocation/$eventId")({
+export const Route = createFileRoute("/admin/allocation/$id")({
   head: () => ({ meta: [{ title: "Stall Allocation — Admin" }] }),
   validateSearch: (s: Record<string, unknown>): AllocSearch => ({
     tab: s.tab === "company" ? "company" : s.tab === "builder" ? "builder" : undefined,
@@ -34,7 +34,7 @@ const KIND_META: Record<string, { icon: typeof Building2; color: string; border:
 };
 
 function AllocationPage() {
-  const { eventId } = Route.useParams();
+  const { id: eventId } = Route.useParams();
   const search = Route.useSearch();
   const [tab, setTab] = useState<"builder" | "company">(search.tab ?? "builder");
   
@@ -48,14 +48,14 @@ function AllocationPage() {
 
   const refresh = async () => {
     try {
-      const eventRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events`);
+      const eventRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/events`);
       const eventJson = await eventRes.json();
       if (eventJson.success) {
         const currentEvent = eventJson.data.find((e: any) => e.id == eventId);
         setEvent(currentEvent);
       }
 
-      const venueRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue`);
+      const venueRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/events/${eventId}/venue`);
       const venueJson = await venueRes.json();
       if (venueJson.success) {
         setBlocks(venueJson.data);
@@ -201,7 +201,7 @@ function AddBlockDialog({ open, onOpenChange, eventId, onChange }: { open: boole
     
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/blocks`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/events/${eventId}/venue/blocks`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, name: name.trim(), code: code.trim() })
       });
@@ -260,13 +260,18 @@ function BlockInterior({ block, eventId, onBack, onChange }: { block: any; event
   const meta = KIND_META[block.kind] || KIND_META['Hall'];
   const Icon = meta.icon;
 
+  // 🚨 FIXED THE DELETE ROUTE CALL 🚨
   async function handleDeleteStall(stallId: string) {
     if (!confirm("Delete this stall?")) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}`, { method: 'DELETE' });
-      toast.success("Stall deleted");
-      onChange();
-    } catch (e) { toast.error("Failed to delete stall"); }
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/stalls/${stallId}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success("Stall deleted");
+        onChange();
+      } else {
+        toast.error("Failed to delete stall");
+      }
+    } catch (e) { toast.error("Network error"); }
   }
 
   return (
@@ -366,7 +371,7 @@ function AddSectionDialog({ open, onOpenChange, block, eventId, onChange }: { op
     
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/rooms`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/events/${eventId}/venue/rooms`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blockId: block.id, name: name.trim(), code: code.trim() })
       });
@@ -412,9 +417,10 @@ function AddStallsDialog({ open, onOpenChange, block, sectionId, eventId, onChan
       // Loop array and send requests reliably
       const promises = Array.from({ length: count }).map((_, i) => {
         const stallCode = `${prefix.trim()}-${(i + 1).toString().padStart(2, '0')}`;
-        return fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/events/${eventId}/venue/stalls`, {
+        return fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/events/${eventId}/venue/stalls`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ blockId: block.id, roomId: sectionId, code: stallCode })
+          // Safely passing the IDs to avoid undefined crashes
+          body: JSON.stringify({ blockId: block.id, roomId: sectionId || null, code: stallCode })
         });
       });
 
@@ -457,7 +463,7 @@ function CompanyAllocation({ eventId, blocks, autoOpenAppId, onChange }: { event
 
   const fetchApps = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stall-applications`);
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/stall-applications`);
       const json = await res.json();
       if (json.success) setApps(json.data.filter((a: any) => a.eventId == eventId));
     } catch (e) { console.error(e); }
@@ -587,7 +593,7 @@ function AssignStallDialog({ app, eventId, onClose, allStalls, blocks, onChange 
 
     setIsAssigning(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${stallId}/allocate`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/stalls/${stallId}/allocate`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employerId: targetEmployerId, eventId })
       });
@@ -610,9 +616,9 @@ function AssignStallDialog({ app, eventId, onClose, allStalls, blocks, onChange 
     if (current) {
       setIsAssigning(true);
       try {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stalls/${current.stall.id}/allocate`, {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://15.207.249.155:5000"}/api/admin/stalls/${current.stall.id}/allocate`, {
           method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ employerId: null, eventId }) // Releasing the stall
+          body: JSON.stringify({ employerId: null, eventId }) 
         });
         toast.success(`Released stall from ${app.employerName}`);
         onClose(); onChange();
