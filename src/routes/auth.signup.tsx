@@ -27,13 +27,21 @@ const formatNameField = (val: string) => {
 // ==========================================
 // CONSTANTS & DROPDOWN LISTS
 // ==========================================
-const GENDER_OPTIONS = ["Male", "Female", "Widow", "LGBTQ+", "Senior Citizens", "Veterans", "Others"];
+const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer Not to Disclose"];
 
 const SOCIAL_CATEGORIES = [
-  "SC - Scheduled Castes", "ST - Scheduled Tribes", "OBC - Other Backward Classes (Non-Creamy Layer)",
-  "EWS - Economically Weaker Sections", "UR - Unreserved (General)", "ESM - Ex-Servicemen",
-  "A&PH - Persons with Benchmark Disabilities", "FF - Freedom Fighters", "Sports - Sports Persons",
-  "PM - Project Affected Persons", "DC - Disaster Affected Persons", "Others"
+  "General / Unreserved", "EWS", "Category-I", "Category-IIA (2A)", 
+  "Category-IIB (2B)", "Category-IIIA (3A)", "Category-IIIB (3B)", 
+  "SC", "ST", "Prefer not to say", "Other"
+];
+
+const SPECIAL_CATEGORIES = [
+  "Person with Disability (PwD)", "Ex-Serviceman", "Serving Defence Personnel", 
+  "Dependent of Ex-Serviceman", "War Widow", "Widow", "Single Parent", 
+  "Orphan", "Transgender Person", "Senior Citizen", "Sportsperson", 
+  "NCC Candidate", "Home Guard", "Kannada Medium Candidate", "Rural Candidate", 
+  "Kalyana Karnataka Candidate", "Government Employee", "Displaced Person", 
+  "Project Displaced Person", "None", "Other", "Prefer Not to Disclose"
 ];
 
 const BOARDS = ["State Board", "CBSE", "ICSE", "CISCE", "Other"];
@@ -113,13 +121,14 @@ const initialAddress: AddressData = {
 
 type Data = Partial<CandidateProfile> & { 
   firstName?: string; middleName?: string; lastName?: string;
+  fatherName?: string; motherName?: string;
   password?: string; otpVerified?: boolean; 
   aadhaar?: string; hasDisability?: string; disabilities?: string[];
   currentAddress?: AddressData; permanentAddress?: AddressData; sameAsCurrent?: boolean;
   educationStatus?: string;
   institutionOther?: string; course?: string; courseOther?: string; 
   specializationOther?: string; schoolName?: string; stateBoardName?: string;
-  countryCode?: string; socialCategory?: string;
+  countryCode?: string; socialCategory?: string; specialCategory?: string;
   certifications?: Array<{ title: string; fileName: string }>;
   gender?: string;
   expYears?: string; expMonths?: string;
@@ -149,13 +158,17 @@ function SignupPage() {
     language: "English", experienceType: "Fresher", 
     certifications: [], skills: [], languagesRead: [], languagesWrite: [], languagesSpeak: [], 
     preferredRoles: [], preferredLocations: [], opportunities: [], disabilities: [],
-    countryCode: "+91", socialCategory: "UR - Unreserved (General)", gender: "",
+    countryCode: "+91", socialCategory: "", specialCategory: "", gender: "",
+    fatherName: "", motherName: "",
     currentAddress: { ...initialAddress }, permanentAddress: { ...initialAddress }, sameAsCurrent: false,
     expYears: "0", expMonths: "0",
     tncAccepted: false, declarationAccepted: false
   });
   
   const [otherGenderDetails, setOtherGenderDetails] = useState("");
+  const [otherSocialCategoryDetails, setOtherSocialCategoryDetails] = useState("");
+  const [otherSpecialCategoryDetails, setOtherSpecialCategoryDetails] = useState("");
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -184,6 +197,8 @@ function SignupPage() {
   const isFirstNameValid = useMemo(() => !data.firstName || /^[a-zA-Z\s]{2,60}$/.test(data.firstName.trim()), [data.firstName]);
   const isLastNameValid = useMemo(() => !data.lastName || /^[a-zA-Z\s]{2,60}$/.test(data.lastName.trim()), [data.lastName]);
   const isMiddleNameValid = useMemo(() => !data.middleName || /^[a-zA-Z\s]*$/.test(data.middleName.trim()), [data.middleName]);
+  const isFatherNameValid = useMemo(() => !data.fatherName || /^[a-zA-Z\s]{2,60}$/.test(data.fatherName.trim()), [data.fatherName]);
+  const isMotherNameValid = useMemo(() => !data.motherName || /^[a-zA-Z\s]{2,60}$/.test(data.motherName.trim()), [data.motherName]);
 
   const isEmailValid = useMemo(() => {
     if (!data.email) return true;
@@ -242,8 +257,10 @@ function SignupPage() {
   const canNext = useMemo(() => {
     switch (STEPS[step].key) {
       case "basic": 
-        const basicOk = !!(data.firstName && isFirstNameValid && data.lastName && isLastNameValid && isMiddleNameValid && data.email && isEmailValid && data.phone && isPhoneValid && data.dob && data.gender && data.hasDisability && data.socialCategory);
-        if(data.gender === "Others" && !otherGenderDetails.trim()) return false;
+        const basicOk = !!(data.firstName && isFirstNameValid && data.lastName && isLastNameValid && isMiddleNameValid && data.fatherName && isFatherNameValid && data.motherName && isMotherNameValid && data.email && isEmailValid && data.phone && isPhoneValid && data.dob && data.gender && data.hasDisability && data.socialCategory && data.specialCategory);
+        if(data.gender === "Other" && !otherGenderDetails.trim()) return false;
+        if(data.socialCategory === "Other" && !otherSocialCategoryDetails.trim()) return false;
+        if(data.specialCategory === "Other" && !otherSpecialCategoryDetails.trim()) return false;
         if(data.hasDisability === "Yes" && (!data.disabilities || data.disabilities.length === 0)) return false;
         if(data.aadhaar && data.aadhaar.length > 0 && data.aadhaar.length !== 12) return false;
         return basicOk;
@@ -281,7 +298,7 @@ function SignupPage() {
       case "review": 
         return true; 
     }
-  }, [step, data, isPasswordValid, isFirstNameValid, isLastNameValid, isMiddleNameValid, isEmailValid, isPhoneValid, isYopValid, otherGenderDetails]);
+  }, [step, data, isPasswordValid, isFirstNameValid, isLastNameValid, isMiddleNameValid, isFatherNameValid, isMotherNameValid, isEmailValid, isPhoneValid, isYopValid, otherGenderDetails, otherSocialCategoryDetails, otherSpecialCategoryDetails]);
 
   const completion = useMemo(() => {
     const fields = [
@@ -338,7 +355,11 @@ function SignupPage() {
     
     const combinedFullName = [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ");
     const finalExp = data.experienceType === "Experienced" ? `${data.expYears || "0"}.${data.expMonths || "0"}` : "0.0";
-    const finalGender = data.gender === "Others" ? otherGenderDetails : data.gender;
+    
+    // Override standard category fields with custom text if "Other" was selected
+    const finalGender = data.gender === "Other" ? otherGenderDetails : data.gender;
+    const finalSocialCategory = data.socialCategory === "Other" ? otherSocialCategoryDetails : data.socialCategory;
+    const finalSpecialCategory = data.specialCategory === "Other" ? otherSpecialCategoryDetails : data.specialCategory;
 
     const combinedLanguages = JSON.stringify({
         read: data.languagesRead || [],
@@ -350,6 +371,8 @@ function SignupPage() {
       ...data,
       password,
       gender: finalGender,
+      socialCategory: finalSocialCategory,
+      specialCategory: finalSpecialCategory,
       experience: finalExp,
       fullName: combinedFullName,
       languagesFluent: combinedLanguages
@@ -504,6 +527,19 @@ function SignupPage() {
                   </div>
                 </div>
 
+                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2 border-b border-border/50">
+                  <div>
+                    <Label>Father's Name <span className="text-red-500">*</span></Label>
+                    <Input value={data.fatherName || ""} onChange={(e) => set("fatherName", formatNameField(e.target.value))} className="mt-1 bg-white" placeholder="e.g. Ramesh" />
+                    {!isFatherNameValid && data.fatherName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Min 2 letters</p>}
+                  </div>
+                  <div>
+                    <Label>Mother's Name <span className="text-red-500">*</span></Label>
+                    <Input value={data.motherName || ""} onChange={(e) => set("motherName", formatNameField(e.target.value))} className="mt-1 bg-white" placeholder="e.g. Sunita" />
+                    {!isMotherNameValid && data.motherName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Min 2 letters</p>}
+                  </div>
+                </div>
+
                 <div>
                   <Label>Date of Birth <span className="text-red-500">*</span></Label>
                   <div className="flex gap-2 mt-1">
@@ -524,7 +560,7 @@ function SignupPage() {
                   </Select>
                 </div>
                 
-                {data.gender === "Others" && (
+                {data.gender === "Other" && (
                   <div className="md:col-span-2 animate-in fade-in slide-in-from-top-2">
                     <Label>Please Specify Gender <span className="text-red-500">*</span></Label>
                     <Input placeholder="Enter your specific classification" value={otherGenderDetails} onChange={(e) => setOtherGenderDetails(e.target.value)} className="mt-1" />
@@ -573,7 +609,7 @@ function SignupPage() {
                 </div>
 
                 <div>
-                  <Label>Social Category (Govt. of India) <span className="text-red-500">*</span></Label>
+                  <Label>Social Category <span className="text-red-500">*</span></Label>
                   <Select value={data.socialCategory || ""} onValueChange={(v) => set("socialCategory", v)}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Select Category" /></SelectTrigger>
                     <SelectContent>
@@ -583,6 +619,32 @@ function SignupPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <Label>Special Category <span className="text-red-500">*</span></Label>
+                  <Select value={data.specialCategory || ""} onValueChange={(v) => set("specialCategory", v)}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select Special Category" /></SelectTrigger>
+                    <SelectContent>
+                      {SPECIAL_CATEGORIES.map((sc) => (
+                        <SelectItem key={sc} value={sc}>{sc}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {data.socialCategory === "Other" && (
+                  <div className="md:col-span-2 animate-in fade-in slide-in-from-top-2">
+                    <Label>Please Specify Social Category <span className="text-red-500">*</span></Label>
+                    <Input placeholder="Enter your custom social category" value={otherSocialCategoryDetails} onChange={(e) => setOtherSocialCategoryDetails(e.target.value)} className="mt-1" />
+                  </div>
+                )}
+
+                {data.specialCategory === "Other" && (
+                  <div className="md:col-span-2 animate-in fade-in slide-in-from-top-2">
+                    <Label>Please Specify Special Category <span className="text-red-500">*</span></Label>
+                    <Input placeholder="Enter your custom special category" value={otherSpecialCategoryDetails} onChange={(e) => setOtherSpecialCategoryDetails(e.target.value)} className="mt-1" />
+                  </div>
+                )}
 
                 {data.hasDisability === "Yes" && (
                   <div className="md:col-span-2 border p-4 rounded-xl bg-slate-50 animate-in fade-in">
@@ -1080,7 +1142,7 @@ function SignupPage() {
                   <ReviewSection title="Basic Information">
                     <ReviewRow label="Full Name" value={combinedName} />
                     <ReviewRow label="Phone" value={`${data.countryCode || "+91"} ${data.phone}`} />
-                    <ReviewRow label="Gender" value={data.gender === "Others" ? otherGenderDetails : data.gender} />
+                    <ReviewRow label="Gender" value={data.gender === "Other" ? otherGenderDetails : data.gender} />
                     <ReviewRow label="Current Pincode" value={data.currentAddress?.pincode} />
                   </ReviewSection>
                   <ReviewSection title="Education & Experience">
